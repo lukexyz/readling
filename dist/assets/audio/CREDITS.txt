@@ -1,0 +1,73 @@
+Word Woods audio credits
+
+The letter shelf uses short sounds from Curious Learning's Feed the Monster
+Australian English recordings. That pack also supplies cat, mat, bug and pig.
+Hen comes from the project's US English recordings. The published English
+adaptation credits Curious Learning, building on the original Feed the Monster
+project by Apps Factory, CET and the International Rescue Committee.
+
+Audio sources and attribution notice
+https://github.com/curiouslearning/ftm-languagepacks/tree/7be4c9c922a6266b11f3f7821bb8ca6574f2cacd/AUSTRAILIANENGLISH/sounds
+https://github.com/curiouslearning/ftm-languagepacks/tree/7be4c9c922a6266b11f3f7821bb8ca6574f2cacd/USENGLISH/sounds
+https://github.com/curiouslearning/FeedTheMonsterJS#contributing
+
+Curious Learning identifies the audio as Creative Commons Attribution (CC BY).
+The source pack also carries the BSD 2-Clause notice reproduced below.
+https://creativecommons.org/licenses/by/
+
+Hat, dog, cup and sun are by Judith Franck and Association Shtooka, recorded
+in British English. Their recordings are used under CC BY 3.0 US.
+https://creativecommons.org/licenses/by/3.0/us/
+https://commons.wikimedia.org/wiki/File:En-uk-hat.ogg
+https://commons.wikimedia.org/wiki/File:En-uk-dog.ogg
+https://commons.wikimedia.org/wiki/File:En-uk-a_cup.ogg
+https://commons.wikimedia.org/wiki/File:En-uk-sun.ogg
+
+Pot is by Commander Keane, recorded in Australian English. This recording,
+including both adaptations bundled with Word Woods, is shared under
+CC BY-SA 4.0.
+https://commons.wikimedia.org/wiki/File:En-au-pot.ogg
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Pen and log are from Art4Apps (Smart4Kids.com, 2011), distributed by
+GCompris. The original recordings are marked Creative Commons
+Attribution-ShareAlike. The normal and slowed clips are also distributed
+under that licence.
+https://github.com/gcompris/GCompris-voices/blob/master/en/words/pen.ogg
+https://github.com/KDE/gcompris-data/blob/master/voices/en_GB/words/log.ogg
+https://github.com/gcompris/GCompris-voices/blob/master/LICENSE
+https://creativecommons.org/licenses/by-sa/
+
+Edits for Word Woods include cropping, adjusting playback level, fading
+clip boundaries and converting the audio to MP3. Some consonant endings
+were shortened. The slow blending models each use one continuous word
+recording, stretched in time while preserving pitch.
+
+Curious Learning repository notice
+https://github.com/curiouslearning/ftm-languagepacks/blob/7be4c9c922a6266b11f3f7821bb8ca6574f2cacd/LICENSE
+
+BSD 2-Clause License
+
+Copyright (c) 2020, Curious Learning
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

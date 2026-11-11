@@ -31,7 +31,7 @@ function inkForWord(raw, word) {
   });
 }
 function newProfile() {
-  return {version:1, cards:{}, stars:0, lesson:null, scene:[], settings:{voice:true, sparkles:true, sounds:CLASS_SOUNDS}};
+  return {version:1, cards:{}, stars:0, lesson:null, scene:[], settings:{voice:true, sparkles:true, fanfare:true, sounds:CLASS_SOUNDS}};
 }
 function normalise(raw) {
   const p=newProfile();
@@ -48,6 +48,7 @@ function normalise(raw) {
   p.stars=clamp(Math.floor(num(raw.stars)),Object.keys(p.cards).length*5,9999999);
   p.settings.voice=raw.settings?.voice!==false;
   p.settings.sparkles=raw.settings?.sparkles!==false;
+  p.settings.fanfare=raw.settings?.fanfare!==false;
   if (typeof raw.settings?.sounds==='string') {
     p.settings.sounds=[...CLASS_SOUNDS].filter(c=>raw.settings.sounds.includes(c)).join('');
   }

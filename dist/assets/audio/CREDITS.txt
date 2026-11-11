@@ -1,5 +1,13 @@
 Word Woods audio credits
 
+The story sentences, whole-word narration and four guide prompts were
+generated with ElevenLabs, then levelled for tablet speakers. The game
+plays bundled MP3s. The victory fanfare is original music for Readling.
+https://elevenlabs.io
+
+The letter sounds, slow blending models and fallback word recordings use
+the sources below.
+
 The letter shelf uses short sounds from Curious Learning's Feed the Monster
 Australian English recordings. That pack also supplies cat, mat, bug and pig.
 Hen comes from the project's US English recordings. The published English

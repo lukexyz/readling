@@ -1,0 +1,9 @@
+{
+  "name":"readling-word-woods",
+  "private":true,
+  "type":"module",
+  "scripts":{
+    "voices":"node scripts/cache-voices.mjs",
+    "test":"node scripts/cache-voices.mjs --check"
+  }
+}

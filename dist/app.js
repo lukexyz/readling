@@ -2,7 +2,7 @@ import {icon, forms, letterForm} from './drawings.js';
 import {finaleScenery, launchFinale, cancelFinale} from './finale.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
-import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, reviewQueue, reviewCard, swapPairs, pathData} from './game.js';
+import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, swapPairs, pathData} from './game.js';
 const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
 const dialog=$('#dialog');
@@ -15,6 +15,7 @@ let shelfOpen=matchMedia('(min-width: 720px)').matches;
 let view='';
 let lastFound=null;
 let round=null;
+let warm=false;
 let swap=null;
 let chosenSticker=null;
 let lastRoute='';
@@ -97,8 +98,10 @@ function eligibleLesson() {
   return l && (profile.cards[l.word] || availableWords(profile).includes(l.word));
 }
 function primaryAction() {
+  // Cards that are due come before a new word. One finished round is enough until her next find.
+  if(profile.settings.memoryFirst && !warm && dueWords(profile).length) return 'start-round';
   if(eligibleLesson() || findNext(profile)) return 'discover';
-  return count() ? 'review' : 'parents';
+  return count()>1 ? 'review' : 'parents';
 }
 function startOrResume(word) {
   const next=word || (eligibleLesson()?profile.lesson.word:findNext(profile));
@@ -171,9 +174,9 @@ function wordImage(word,cls='') {
 function stamp(inside, kind='') {return `<span class="stamp ${kind}"><span class="stamp-face">${inside}</span></span>`;}
 function homePage() {
   const n=count(), next=primaryAction(), shown=eligibleLesson()?profile.lesson.word:findNext(profile);
-  const ready=Object.values(profile.cards).filter(c=>c.due<=Date.now()).length;
-  const cta=eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Find another word':'Start exploring';
-  const heroMeta=shown?'Discovery '+String(WORDS.indexOf(shown)+1).padStart(2,'0')+' / 12':n===12?'All 12 words discovered':'Woodland word collection';
+  const ready=dueWords(profile).length;
+  const cta=next==='start-round'?'Play memory first':eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Find another word':'Start exploring';
+  const heroMeta=next==='start-round'?ready+(ready===1?' card':' cards')+' ready to revisit':shown?'Discovery '+String(WORDS.indexOf(shown)+1).padStart(2,'0')+' / 12':n===12?'All 12 words discovered':'Woodland word collection';
   return `<section class="hero">
     <img class="hero-art" src="./assets/hero.webp" alt="A rabbit reading under an oak tree in the moonlit woods" fetchpriority="high">
     <div class="hero-content"><div class="hero-kicker">${icon('compass',17)}<span>${heroMeta}</span></div>
@@ -184,7 +187,7 @@ function homePage() {
   <div class="section-heading"><h2>Your field kit</h2><span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
   <section class="kit-grid" aria-label="More ways to play">
     <button class="kit album-kit" data-act="album"><img src="./assets/album.webp" alt=""><span class="kit-copy"><strong>My word album</strong><span>Your book of woodland finds.</span><small>${n} of 12 collected</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
-    <button class="kit memory-kit" data-act="review"><img src="./assets/memory.webp" alt=""><span class="kit-copy"><strong>Memory game</strong><span>Turn a card and read it again.</span><small>${ready?ready+' ready to revisit':n?'Play with your words':'Uses your collected words'}</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
+    <button class="kit memory-kit" data-act="review"><img src="./assets/memory.webp" alt=""><span class="kit-copy"><strong>Memory game</strong><span>Turn a card and read it again.</span><small>${ready?ready+' ready to revisit':n>1?'Play with your words':n?'Find one more word to play':'Uses your collected words'}</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
   </section>`;
 }
 function wordPrint(word,active=-1,options={}) {
@@ -229,6 +232,7 @@ function lessonPage() {
 function foundPage(word) {
   const fresh=lastFound?.word===word && lastFound.fresh;
   const lvl=fresh && lastFound.levelUp;
+  const next=primaryAction();
   return `<div class="page-top">${back()}<span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?'New discovery':'In your album'}</div>
       <h1>${fresh?'Look what you found!':'A woodland find'}</h1>
@@ -237,7 +241,7 @@ function foundPage(word) {
       <p>${TALES[word]}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
-      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${action(findNext(profile)?'Find another word':'Play memory',findNext(profile)?'discover':'review','arrow')}</div></section>`;
+      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Find another word',next):action('Play memory','review')}</div></section>`;
 }
 function inkLabel(word) {
   const ink=profile.cards[word]?.ink;
@@ -246,10 +250,10 @@ function inkLabel(word) {
     `<svg viewBox="0 0 180 138" aria-hidden="true"><g class="ink-lines">${inkPaths(ink[i])}</g></svg>`:letterForm(c)).join('')}</div>`;
 }
 function albumPage() {
-  const n=count();
+  const n=count(), next=primaryAction();
   return `<div class="page-top">${back()}<span class="level">${icon('album',17)} ${n} / 12 collected</span></div>
     <div class="album-head"><div><h1>My word album</h1><p>${n?'Tap a find to hear its word and see your writing.':'Each word you discover earns a place on these pages.'}</p></div>
-    ${n<12 && primaryAction()==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
+    ${next==='start-round'?action('Play memory first',next,'play'):n<12 && next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
     <div class="album-grid">${WORDS.map((word,i)=>{
       const found=!!profile.cards[word];
       return found?`<button class="album-card" data-act="card" data-word="${word}">${stamp(wordImage(word))}<strong>${word}</strong></button>`:
@@ -259,27 +263,49 @@ function albumPage() {
     ${n>=3?action('Make a scene','scene','arrow','secondary'):icon('lock',21)}</div>`;
 }
 function reviewPage() {
-  const n=count(), due=Object.values(profile.cards).filter(c=>c.due<=Date.now()).length;
+  const n=count(), due=dueWords(profile).length, deal=Math.min(4,due||n), next=primaryAction();
   const pairs=swapPairs(profile);
   return `<div class="page-top">${back()}<span class="level">${icon('memory',17)} ${n} ${n===1?'card':'cards'}</span></div>
     <section class="review-intro activity"><img class="mode-art" src="./assets/memory.webp" alt="">
-      <h1>Memory game</h1><p>${n?'Say the word on a card, then turn it over to see what’s hiding.':'Find a word in the woods to make your first memory card.'}</p>
-      ${n?`<div class="round-meta">${icon('repeat',16)} ${due?due+' ready to revisit':'A practice round'} · Up to ${Math.min(4,due||n)} ${Math.min(4,due||n)===1?'card':'cards'}</div>`:''}
-      ${action(n?'Play a round':primaryAction()==='parents'?'Choose class sounds':'Find my first word',n?'start-round':primaryAction(),'play')}
+      <h1>Memory game</h1><p>${n>1?'Say the word on a card, turn it over, then tap its picture.':n?'Memory needs two words. Find one more to play.':'Find a word in the woods to make your first memory card.'}</p>
+      ${n>1?`<div class="round-meta">${icon('repeat',16)} ${due?due+' ready to revisit':'A practice round'} · Up to ${deal} ${deal===1?'card':'cards'}</div>`:''}
+      ${n>1?action('Play a round','start-round','play'):action(next==='parents'?'Choose class sounds':n?'Find another word':'Find my first word',next,'play')}
     </section>
     ${pairs.length?`<button class="mode-row" data-act="start-swap">${icon('pen',26)}<span><strong>Sound swap</strong><small>Change one sound to make a new word.</small></span>${icon('arrow',21)}</button>`:''}`;
 }
+function dealCard() {
+  Object.assign(round,{turned:false,solved:false,heard:false,asked:'',first:null,unaided:false,tried:[],
+    options:pictureChoices(profile,round.words[round.i])});
+  // Fetch the pictures while she reads, so they are ready the moment the card turns.
+  for(const o of round.options) new Image().src='./assets/words/'+o+'.webp';
+}
 function roundPage() {
-  if(round.i>=round.words.length) return `<div class="page-top">${back('review','Back to memory')}</div><section class="activity round-done">
+  if(round.i>=round.words.length) {
+    const onward=primaryAction()==='discover';
+    return `<div class="page-top">${back('review','Back to memory')}</div><section class="activity round-done">
     ${icon('star',56)}<h1>Round complete!</h1><p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
     <div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>
-    <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat')}</div></section>`;
+    <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
+    ${onward?action(eligibleLesson()?'Continue my word':'Find another word','discover'):''}</div></section>`;
+  }
   const w=round.words[round.i];
-  return `<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
-    <section class="activity round-card"><div class="kicker">${icon('memory',16)} Memory game</div><h1>${round.flipped?'How did it go?':'Can you read it?'}</h1>
-    ${round.flipped?`<div class="turned">${stamp(wordImage(w))}<strong>${w}</strong></div>`:`<button class="face-down" data-act="flip" aria-label="Read ${w} and turn the card">${wordPrint(w)}<span>${icon('flip',18)} Tap to turn</span></button>`}
-    ${round.flipped?`<div class="actions centre">${action('Practise again soon','review-hard','repeat','secondary')}${action('I read it','review-easy','check')}</div>`:
-    `<div class="actions centre">${action('Read with me','review-help','sound','secondary')}${action('Turn my card','flip','flip')}</div>`}</section>`;
+  const top=`<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
+    <section class="activity round-card"><div class="kicker">${icon('memory',16)} Memory game</div>`;
+  if(round.solved) return top+`<h1>${round.unaided?'You read it!':'You found it!'}</h1>
+    <div class="turned">${stamp(wordImage(w))}<strong>${w}</strong></div>
+    <div class="actions centre">${action(round.i+1<round.words.length?'Next card':'Finish round','next-card')}</div></section>`;
+  // The pictures stay hidden until she has tried the print, so they cannot do the reading for her.
+  if(round.turned) return top+`<h1>Which one is it?</h1>
+    <div class="read-card">${wordPrint(w)}</div>
+    <div class="swap-prompt"><p>Tap the picture for your word.</p></div>
+    <div class="picture-picks">${round.options.map(o=>{
+      const tried=round.tried.includes(o);
+      return `<button class="picture-pick ${tried?'try-again':''}" data-act="pick" data-word="${o}" ${tried?'disabled':''}>${stamp(wordImage(o))}</button>`;
+    }).join('')}</div>
+    <div class="actions centre">${action('Read with me','review-help','sound','secondary')}</div></section>`;
+  return top+`<h1>Can you read it?</h1>
+    <button class="face-down" data-act="flip" aria-label="Read ${w} and turn the card">${wordPrint(w)}<span>${icon('flip',18)} Tap to turn</span></button>
+    <div class="actions centre">${action('Read with me','review-help','sound','secondary')}${action('Turn my card','flip','flip')}</div></section>`;
 }
 function scenePage() {
   return `<div class="page-top">${back('album','Back to my album')}</div><div class="album-head"><div><h1>Story clearing</h1><p>Choose a find, then tap the clearing to place it. Drag it to move it.</p></div></div>
@@ -391,7 +417,7 @@ function traceDemo() {
 function useSound(c) {
   if(!ALPHABET.includes(c) || c.length!==1) return;
   if(view==='learn' && profile.lesson && profile.lesson.word.includes(c)) {profile.lesson.help=true;save();}
-  if(view==='round' && round && !round.flipped && round.words[round.i]?.includes(c)) round.help=true;
+  if(view==='round' && round && !round.first && round.words[round.i]?.includes(c) && !round.asked.includes(c)) round.asked+=c;
   playClip('letters',c);
 }
 function openDialog(html, label) {
@@ -400,19 +426,29 @@ function openDialog(html, label) {
   dialog.setAttribute('aria-labelledby','dialog-title');
   if(!dialog.open) dialog.showModal();
 }
+function soundProgress() {
+  const now=Date.now(), sounds=Object.keys(profile.sounds).sort();
+  return `<details class="parent-details"><summary>Sound progress (${sounds.length} of ${CLASS_SOUNDS.length})</summary>
+    ${sounds.length?`<ul>${sounds.map(c=>{
+      const s=profile.sounds[c], wait=s.due-now, days=Math.round(wait/DAY);
+      return `<li><strong>${c}</strong><span>${s.right} unaided · ${s.wrong} ${s.wrong===1?'slip':'slips'} · ${wait<=0?'ready now':wait<DAY/2?'back soon':'back in '+days+(days===1?' day':' days')}</span></li>`;
+    }).join('')}</ul>`:'<p>The sounds in her first word will appear here.</p>'}
+    <p>Memory needs two words. A new word comes back after two minutes. She reads the card, turns it, then taps its picture among look-alikes from her album. Only her first tap counts. When it is right with no hints, each sound in the word that was due rests for one day, then three, seven, fourteen and thirty. A wrong picture or a tap on the sound shelf is a slip. Those sounds return in two minutes, in the missed word and in another word that uses them when she has one.</p></details>`;
+}
 function parents() {
   stopSound();cancelFinale();
   openDialog(`<p class="dialog-intro">Progress is saved in this browser. You can take a copy to her other tablet below.</p>
     <fieldset><legend>Play settings</legend><label class="setting-line"><span>Spoken instructions</span><input type="checkbox" data-setting="voice" ${profile.settings.voice?'checked':''}></label>
     <label class="setting-line"><span>Rainbow celebration</span><input type="checkbox" data-setting="sparkles" ${profile.settings.sparkles?'checked':''}></label>
-    <label class="setting-line"><span>Victory fanfare</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label></fieldset>
+    <label class="setting-line"><span>Victory fanfare</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label>
+    <label class="setting-line"><span>Memory cards before a new word</span><input type="checkbox" data-setting="memoryFirst" ${profile.settings.memoryFirst?'checked':''}></label></fieldset>
     <fieldset><legend>Sounds covered in class</legend><p>Choose the sounds she has met. New words use only these sounds.</p>
     <div class="sound-checks">${[...CLASS_SOUNDS].map(c=>`<label><input type="checkbox" data-class-sound="${c}" ${profile.settings.sounds.includes(c)?'checked':''}><span>${c}</span></label>`).join('')}</div>
     <small id="available-count">${availableWords(profile).length} of 12 words available</small></fieldset>
     <details class="parent-details"><summary>Word progress (${count()} of 12)</summary>
     ${count()?`<ul>${WORDS.filter(w=>profile.cards[w]).map(w=>{const c=profile.cards[w];return `<li><strong>${w}</strong><span>${c.reviews} ${c.reviews===1?'review':'reviews'} · ${c.assisted?'Practised with help':'No hint recorded'}</span></li>`;}).join('')}</ul>`:
-    '<p>Her first discovery will appear here.</p>'}
-    <p>Memory brings a new word back after two minutes. When she says she read a due card, the next gaps grow to one, three, seven, fourteen and thirty days. Asking for help brings it back sooner.</p></details>
+    '<p>Her first discovery will appear here.</p>'}</details>
+    ${soundProgress()}
     <fieldset><legend>Move an album</legend><p>Download a copy here, open this Site on the other tablet and import it there. Importing combines the two collections.</p>
     <div class="actions">${action('Download album','export','','secondary')}${action('Import album','import','','secondary')}</div><input type="file" id="file-picker" accept="application/json,.json" hidden></fieldset>
     <p class="credits"><a href="./assets/audio/CREDITS.txt" target="_blank" rel="noopener">Audio credits</a></p>`, 'Grown-ups');
@@ -441,6 +477,10 @@ async function importAlbum(file) {
     for (const w of WORDS) {
       const theirs=other.cards[w], ours=profile.cards[w];
       if(theirs && (!ours || Math.max(theirs.found,theirs.reviewed)>Math.max(ours.found,ours.reviewed))) profile.cards[w]=theirs;
+    }
+    for (const c of CLASS_SOUNDS) {
+      const theirs=other.sounds[c], ours=profile.sounds[c];
+      if(theirs && (!ours || theirs.seen>ours.seen)) profile.sounds[c]=theirs;
     }
     profile.stars=Math.max(profile.stars,other.stars,count()*5);
     if(wasEmpty) {profile.settings=other.settings;profile.lesson=other.lesson;profile.scene=other.scene;}
@@ -505,6 +545,7 @@ function dispatch(act,el) {
     case 'blend-help':guideBlend();break;
     case 'reveal':{
       const found=collect(profile); if(!found) break;
+      if(found.fresh) warm=false;
       lastFound=found;save();go('found/'+found.word);playClip('words',found.word,{end:playFanfare});break;
     }
     case 'encore':launchFinale($('.found'));playFanfare();break;
@@ -515,14 +556,34 @@ function dispatch(act,el) {
     case 'rewrite':if(profile.cards[el.dataset.word])startOrResume(el.dataset.word);break;
     case 'start-round':{
       const words=reviewQueue(profile);if(!words.length){startOrResume();break;}
-      round={words,i:0,flipped:false,help:false};go('round');narrate('memory-start');break;
+      round={words,i:0};dealCard();go('round');narrate('memory-start');break;
     }
-    case 'review-help':round.help=true;playClip('words',round.words[round.i]);break;
-    case 'flip':if(!round || round.flipped)break;round.flipped=true;render();playClip('words',round.words[round.i]);break;
-    case 'review-easy':case 'review-hard':{
-      if(!round?.flipped) break;
-      reviewCard(profile,round.words[round.i],round.help || act==='review-hard');round.i++;round.flipped=false;round.help=false;
-      stopSound();save();render();main.focus({preventScroll:true});if(round.i===round.words.length)narrate('round-done');break;
+    case 'review-help':{
+      const w=round?.words[round.i];if(!w)break;
+      if(!round.first)round.heard=true;
+      playClip('words',w);break;
+    }
+    case 'flip':if(!round || round.turned)break;stopSound();round.turned=true;render();main.focus({preventScroll:true});break;
+    case 'pick':{
+      const w=round?.words[round.i], choice=el.dataset.word;
+      if(!w || !round.turned || round.solved || !round.options.includes(choice) || round.tried.includes(choice)) break;
+      // Only her first tap is recorded. After a slip she hears the slow blend and tries again.
+      if(!round.first) {
+        round.first=choice;
+        round.unaided=recordRead(profile,w,{picked:choice,asked:round.asked,heard:round.heard});save();
+      }
+      if(choice===w) {round.solved=true;render();main.focus({preventScroll:true});playClip('words',w);}
+      else {
+        round.tried.push(choice);el.classList.add('try-again');el.disabled=true;drawHeader();
+        announce('Listen, then try another picture.');playClip('blends',w);
+      }
+      break;
+    }
+    case 'next-card':{
+      if(!round?.solved) break;
+      stopSound();round.i++;
+      if(round.i<round.words.length) dealCard(); else warm=true;
+      render();main.focus({preventScroll:true});if(round.i===round.words.length)narrate('round-done');break;
     }
     case 'start-swap':if(swapPairs(profile).length){newSwap();go('swap');playClip('letters',swap.b[swap.i]);}break;
     case 'swap-sound':playClip('letters',swap.b[swap.i]);break;

@@ -12,3 +12,5 @@ npm test
 ```
 
 Keep the key outside the repository. The publisher can also read the local `ELEVENLABS_API_KEY` environment variable. It only requests missing recordings for the selected voice and text, then matches their volume to the rest of the game. Commit the updated MP3s and catalogue before publishing. Replays and subsequent builds with unchanged lines use the saved recordings.
+
+`npm test` first checks the memory schedule in `dist/game.js` with `scripts/schedule.test.mjs`, then confirms every recording is present. The schedule checks use words from the first collection, so update them if those words change.

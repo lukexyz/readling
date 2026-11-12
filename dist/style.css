@@ -190,6 +190,15 @@ main.wrap{padding-block:29px 40px;outline:none}
 .face-down{display:flex;flex-direction:column;gap:12px;align-items:center;justify-content:center;max-width:100%;min-width:min(320px,100%);min-height:205px;margin:22px auto;background:#f5efd9;border:2px solid #c5bd94;border-radius:15px;box-shadow:3px 4px 0 #e3ded0}
 .face-down>span,.swap-prompt{display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:800}
 .turned{display:flex;align-items:center;flex-direction:column;gap:10px;margin:20px auto}
+.read-card{display:flex;justify-content:center;width:max-content;max-width:100%;margin:20px auto 4px;padding:2px 20px;background:#f5efd9;border:2px solid #c5bd94;border-radius:15px;box-shadow:3px 4px 0 #e3ded0}
+.picture-picks{display:flex;justify-content:center;gap:clamp(8px,2.6vw,22px);margin:0 0 20px}
+.picture-pick{min-width:0;padding:0;border:0;background:none;border-radius:9px}
+.picture-pick .stamp{padding:6px}
+.picture-pick:nth-child(even) .stamp{transform:rotate(2deg)}
+.picture-pick .stamp-face{width:clamp(64px,19vw,150px)}
+.picture-pick:hover{filter:brightness(.965)}
+.picture-pick.try-again{opacity:.34}
+.picture-pick.try-again .stamp{border-style:solid;box-shadow:none}
 .round-done>.icon{color:#90702c;fill:var(--gold);margin-bottom:10px}
 .mini-cards{display:flex;justify-content:center;gap:7px;margin:20px 0}
 .mini-cards .word-art{width:65px;height:65px;border-radius:8px}
@@ -222,6 +231,7 @@ dialog legend,dialog summary{font-size:16px;font-weight:850;padding:0 8px 0 0}
 .sound-checks input:checked+span{background:var(--deep);color:var(--card)}
 .sound-checks input:focus-visible+span{outline:3px solid #91680f}
 .parent-details{margin-top:18px;border-block:1px solid var(--line);padding:10px 0}
+.parent-details+.parent-details{margin-top:0;border-top:0}
 .parent-details summary{cursor:pointer;min-height:28px}
 .parent-details ul{padding:0;margin:7px 0 12px;list-style:none}
 .parent-details li{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dotted var(--line);font-size:13px}

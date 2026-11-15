@@ -1,8 +1,9 @@
 import {icon, forms, letterForm} from './drawings.js';
-import {finaleScenery, launchFinale, cancelFinale} from './finale.js';
+import {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow} from './finale.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
-import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, reviewQueue, reviewCard, swapPairs, pathData} from './game.js';
+import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData} from './game.js';
+import {cloud} from './cloud.js';
 const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
 const dialog=$('#dialog');
@@ -15,6 +16,7 @@ let shelfOpen=matchMedia('(min-width: 720px)').matches;
 let view='';
 let lastFound=null;
 let round=null;
+let warm=false;
 let swap=null;
 let chosenSticker=null;
 let lastRoute='';
@@ -25,13 +27,66 @@ let audioTarget='';
 let lastRevealRoute='';
 let saveTrouble=false;
 let guideTimer=0;
+let account=null;
+let watching=false;
+let syncing=false;
+let syncAgain=false;
+let syncTimer=0;
+let syncTrouble=false;
+let playing=null;
+let starsHeld=0;
+let encores=0;
+let previewTimer=0;
+let showPicks=null;
+let trial=null;
+let trialRosette=false;
+let trialTimeline=true;
 
 function readSaved() {
   try {return normalise(JSON.parse(localStorage.getItem(KEY)));} catch {return newProfile();}
 }
-function save() {
+function store() {
   try {localStorage.setItem(KEY,JSON.stringify(profile));}
   catch {if(!saveTrouble) notice('This browser could not save your album. You can download a copy in Grown-ups.'); saveTrouble=true;}
+}
+function save() {
+  store();
+  if(account) {clearTimeout(syncTimer);syncTimer=setTimeout(sync,2000);}
+}
+// Saving to Google reads the saved copy first and combines it with this tablet's album,
+// so two tablets that have both been played on never overwrite each other.
+async function sync() {
+  clearTimeout(syncTimer);
+  if(!account) return;
+  if(syncing) {syncAgain=true;return;}
+  syncing=true;
+  let trouble=false;
+  try {
+    const theirs=await cloud.load(), was=JSON.stringify(profile);
+    if(theirs) mergeAlbum(profile,normalise(JSON.parse(theirs)));
+    if(JSON.stringify(profile)!==was) {
+      store();
+      // A page she may be in the middle of is left alone and shows the new finds on her next move.
+      if(!dialog.open && ['home','album','review'].includes(view)) render(); else drawHeader();
+    }
+    const ours=packAlbum(profile);
+    if(ours!==theirs) await cloud.save(ours);
+  } catch {trouble=!!account;}
+  syncing=false;
+  if(trouble!==syncTrouble) {syncTrouble=trouble;drawAccount();}
+  if(syncAgain) {syncAgain=false;sync();}
+}
+function watchAccount() {
+  if(!cloud.on || watching) return;
+  watching=true;
+  cloud.watch(user=>{
+    account=user;syncTrouble=false;drawAccount();
+    if(user) {$('#save-invite')?.remove();sync();}
+  }).catch(()=>{watching=false;syncTrouble=cloud.remembered();drawAccount();});
+}
+// When the tablet wakes or comes back online, fetch what her other tablet saved and send what this one could not.
+function wake() {
+  if(cloud.remembered()) {watchAccount();sync();}
 }
 function notice(message) {
   const el=$('#toast'); el.textContent=message; el.hidden=false;
@@ -56,8 +111,8 @@ function deviceVoice(text) {
     speechSynthesis.speak(utterance);
   } catch { /* Recorded letter and word buttons also work without a system voice. */ }
 }
-function narrate(id) {
-  if(profile.settings.voice) playClip('prompts',id);
+function narrate(id,options) {
+  if(profile.settings.voice) playClip('prompts',id,options);
 }
 function playClip(type, name, options={}) {
   stopSound();
@@ -97,8 +152,10 @@ function eligibleLesson() {
   return l && (profile.cards[l.word] || availableWords(profile).includes(l.word));
 }
 function primaryAction() {
+  // Cards that are due come before a new word. One finished round is enough until her next find.
+  if(profile.settings.memoryFirst && !warm && dueWords(profile).length) return 'start-round';
   if(eligibleLesson() || findNext(profile)) return 'discover';
-  return count() ? 'review' : 'parents';
+  return count()>1 ? 'review' : 'parents';
 }
 function startOrResume(word) {
   const next=word || (eligibleLesson()?profile.lesson.word:findNext(profile));
@@ -119,7 +176,7 @@ function go(route) {
   render(); afterNavigate();
 }
 function render() {
-  cancelFinale();
+  cancelFinale();clearTimeout(previewTimer);playing=null;
   const raw=location.hash.slice(1);
   const [route,arg]=raw.split('/');
   view=route || 'home';
@@ -134,10 +191,15 @@ function render() {
   const pages={home:homePage,learn:lessonPage,found:()=>foundPage(arg),album:albumPage,
     review:reviewPage,round:roundPage,scene:scenePage,swap:swapPage};
   main.innerHTML=pages[view]();
-  if(view==='found' && profile.settings.sparkles && raw!==lastRevealRoute) launchFinale($('.found'));
+  if(view==='found' && raw!==lastRevealRoute) {
+    const fresh=lastFound?.word===arg && lastFound.fresh;
+    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:fresh && lastFound.levelUp?getLevel(profile):0});
+  }
   lastRevealRoute=view==='found'?raw:'';
   if(view==='learn') bindLesson();
   if(view==='scene') bindScene();
+  // Fetch the Google libraries while the button is on screen, so its window opens the moment it is tapped.
+  if($('#save-invite')) watchAccount();
   document.title=({learn:'Sound & write',found:'Word found',album:'My word album',review:'Memory game',
     round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view] || 'The Word Woods')+' · Readling';
 }
@@ -147,7 +209,7 @@ function drawHeader() {
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
     <nav class="tabs" aria-label="Game pages">${tabs.map(([route,sym,text])=>`<button class="tab ${active===route?'selected':''}" ${active===route?'aria-current="page"':''} data-act="${route}">${icon(sym,18)}<span>${text}</span></button>`).join('')}</nav>
-    <div class="mast-end"><span class="stars" aria-label="${profile.stars} stars">${icon('star',21)} <b>${profile.stars}</b><span class="star-label"> stars</span></span>
+    <div class="mast-end"><span class="stars" aria-label="${profile.stars} stars">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span></span>
     <span class="mast-rule"></span><button class="parents-link" data-act="parents" aria-label="Grown-ups and settings">${icon('gear',20)}<span>Grown-ups</span></button></div>
   </div>`;
 }
@@ -168,12 +230,21 @@ function back(act='home',label='Back to the woods') {
 function wordImage(word,cls='') {
   return `<img class="word-art ${cls}" src="./assets/words/${word}.webp" alt="${word}" draggable="false">`;
 }
+// Google's own markup and logo for this button, from its Sign in with Google branding guidelines.
+function googleButton() {
+  return `<button type="button" class="gsi-material-button" data-act="sign-in"><span class="gsi-material-button-state"></span><span class="gsi-material-button-content-wrapper"><span class="gsi-material-button-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" aria-hidden="true">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
+    <path fill="none" d="M0 0h48v48H0z"></path></svg></span><span class="gsi-material-button-contents">Sign in with Google</span></span></button>`;
+}
 function stamp(inside, kind='') {return `<span class="stamp ${kind}"><span class="stamp-face">${inside}</span></span>`;}
 function homePage() {
   const n=count(), next=primaryAction(), shown=eligibleLesson()?profile.lesson.word:findNext(profile);
-  const ready=Object.values(profile.cards).filter(c=>c.due<=Date.now()).length;
-  const cta=eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Find another word':'Start exploring';
-  const heroMeta=shown?'Discovery '+String(WORDS.indexOf(shown)+1).padStart(2,'0')+' / 12':n===12?'All 12 words discovered':'Woodland word collection';
+  const ready=dueWords(profile).length;
+  const cta=next==='start-round'?'Play memory first':eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Find another word':'Start exploring';
+  const heroMeta=next==='start-round'?ready+(ready===1?' card':' cards')+' ready to revisit':shown?'Discovery '+String(WORDS.indexOf(shown)+1).padStart(2,'0')+' / 12':n===12?'All 12 words discovered':'Woodland word collection';
   return `<section class="hero">
     <img class="hero-art" src="./assets/hero.webp" alt="A rabbit reading under an oak tree in the moonlit woods" fetchpriority="high">
     <div class="hero-content"><div class="hero-kicker">${icon('compass',17)}<span>${heroMeta}</span></div>
@@ -184,7 +255,7 @@ function homePage() {
   <div class="section-heading"><h2>Your field kit</h2><span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
   <section class="kit-grid" aria-label="More ways to play">
     <button class="kit album-kit" data-act="album"><img src="./assets/album.webp" alt=""><span class="kit-copy"><strong>My word album</strong><span>Your book of woodland finds.</span><small>${n} of 12 collected</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
-    <button class="kit memory-kit" data-act="review"><img src="./assets/memory.webp" alt=""><span class="kit-copy"><strong>Memory game</strong><span>Turn a card and read it again.</span><small>${ready?ready+' ready to revisit':n?'Play with your words':'Uses your collected words'}</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
+    <button class="kit memory-kit" data-act="review"><img src="./assets/memory.webp" alt=""><span class="kit-copy"><strong>Memory game</strong><span>Turn a card and read it again.</span><small>${ready?ready+' ready to revisit':n>1?'Play with your words':n?'Find one more word to play':'Uses your collected words'}</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
   </section>`;
 }
 function wordPrint(word,active=-1,options={}) {
@@ -229,15 +300,17 @@ function lessonPage() {
 function foundPage(word) {
   const fresh=lastFound?.word===word && lastFound.fresh;
   const lvl=fresh && lastFound.levelUp;
+  const next=primaryAction();
   return `<div class="page-top">${back()}<span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?'New discovery':'In your album'}</div>
       <h1>${fresh?'Look what you found!':'A woodland find'}</h1>
-      <div class="show-stage">${profile.settings.sparkles?finaleScenery():''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
+      <div class="show-stage">${profile.settings.sparkles?finaleScenery(profile.show.picks):''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
       <div class="found-word"><strong>${word}</strong><button class="round-button" data-act="read-word" data-word="${word}" aria-label="Hear ${word}">${icon('sound',20)}</button></div>
       <p>${TALES[word]}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
-      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${action(findNext(profile)?'Find another word':'Play memory',findNext(profile)?'discover':'review','arrow')}</div></section>`;
+      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Find another word',next):action('Play memory','review')}</div>
+      ${showPanel()}${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
 }
 function inkLabel(word) {
   const ink=profile.cards[word]?.ink;
@@ -246,10 +319,10 @@ function inkLabel(word) {
     `<svg viewBox="0 0 180 138" aria-hidden="true"><g class="ink-lines">${inkPaths(ink[i])}</g></svg>`:letterForm(c)).join('')}</div>`;
 }
 function albumPage() {
-  const n=count();
+  const n=count(), next=primaryAction();
   return `<div class="page-top">${back()}<span class="level">${icon('album',17)} ${n} / 12 collected</span></div>
     <div class="album-head"><div><h1>My word album</h1><p>${n?'Tap a find to hear its word and see your writing.':'Each word you discover earns a place on these pages.'}</p></div>
-    ${n<12 && primaryAction()==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
+    ${next==='start-round'?action('Play memory first',next,'play'):n<12 && next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
     <div class="album-grid">${WORDS.map((word,i)=>{
       const found=!!profile.cards[word];
       return found?`<button class="album-card" data-act="card" data-word="${word}">${stamp(wordImage(word))}<strong>${word}</strong></button>`:
@@ -259,27 +332,51 @@ function albumPage() {
     ${n>=3?action('Make a scene','scene','arrow','secondary'):icon('lock',21)}</div>`;
 }
 function reviewPage() {
-  const n=count(), due=Object.values(profile.cards).filter(c=>c.due<=Date.now()).length;
+  const n=count(), due=dueWords(profile).length, deal=Math.min(4,due||n), next=primaryAction();
   const pairs=swapPairs(profile);
   return `<div class="page-top">${back()}<span class="level">${icon('memory',17)} ${n} ${n===1?'card':'cards'}</span></div>
     <section class="review-intro activity"><img class="mode-art" src="./assets/memory.webp" alt="">
-      <h1>Memory game</h1><p>${n?'Say the word on a card, then turn it over to see what’s hiding.':'Find a word in the woods to make your first memory card.'}</p>
-      ${n?`<div class="round-meta">${icon('repeat',16)} ${due?due+' ready to revisit':'A practice round'} · Up to ${Math.min(4,due||n)} ${Math.min(4,due||n)===1?'card':'cards'}</div>`:''}
-      ${action(n?'Play a round':primaryAction()==='parents'?'Choose class sounds':'Find my first word',n?'start-round':primaryAction(),'play')}
+      <h1>Memory game</h1><p>${n>1?'Say the word on a card, turn it over, then tap its picture.':n?'Memory needs two words. Find one more to play.':'Find a word in the woods to make your first memory card.'}</p>
+      ${n>1?`<div class="round-meta">${icon('repeat',16)} ${due?due+' ready to revisit':'A practice round'} · Up to ${deal} ${deal===1?'card':'cards'}</div>`:''}
+      ${n>1?action('Play a round','start-round','play'):action(next==='parents'?'Choose class sounds':n?'Find another word':'Find my first word',next,'play')}
     </section>
     ${pairs.length?`<button class="mode-row" data-act="start-swap">${icon('pen',26)}<span><strong>Sound swap</strong><small>Change one sound to make a new word.</small></span>${icon('arrow',21)}</button>`:''}`;
 }
+function dealCard() {
+  Object.assign(round,{turned:false,solved:false,heard:false,asked:'',first:null,unaided:false,tried:[],
+    options:pictureChoices(profile,round.words[round.i])});
+  // Fetch the pictures while she reads, so they are ready the moment the card turns.
+  for(const o of round.options) new Image().src='./assets/words/'+o+'.webp';
+}
 function roundPage() {
-  if(round.i>=round.words.length) return `<div class="page-top">${back('review','Back to memory')}</div><section class="activity round-done">
-    ${icon('star',56)}<h1>Round complete!</h1><p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
-    <div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>
-    <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat')}</div></section>`;
+  if(round.i>=round.words.length) {
+    const onward=primaryAction()==='discover';
+    const show=profile.settings.sparkles;
+    return `<div class="page-top">${back('review','Back to memory')}</div><section class="activity round-done ${show?'victory':''}">
+    ${show?'':icon('star',56)}<h1>Round complete!</h1><p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
+    ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map(w=>stamp(wordImage(w))).join('')}</div></div>`:
+      `<div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>`}
+    <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
+    ${onward?action(eligibleLesson()?'Continue my word':'Find another word','discover'):''}</div>${showPanel()}</section>`;
+  }
   const w=round.words[round.i];
-  return `<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
-    <section class="activity round-card"><div class="kicker">${icon('memory',16)} Memory game</div><h1>${round.flipped?'How did it go?':'Can you read it?'}</h1>
-    ${round.flipped?`<div class="turned">${stamp(wordImage(w))}<strong>${w}</strong></div>`:`<button class="face-down" data-act="flip" aria-label="Read ${w} and turn the card">${wordPrint(w)}<span>${icon('flip',18)} Tap to turn</span></button>`}
-    ${round.flipped?`<div class="actions centre">${action('Practise again soon','review-hard','repeat','secondary')}${action('I read it','review-easy','check')}</div>`:
-    `<div class="actions centre">${action('Read with me','review-help','sound','secondary')}${action('Turn my card','flip','flip')}</div>`}</section>`;
+  const top=`<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
+    <section class="activity round-card"><div class="kicker">${icon('memory',16)} Memory game</div>`;
+  if(round.solved) return top+`<h1>${round.unaided?'You read it!':'You found it!'}</h1>
+    <div class="turned">${stamp(wordImage(w))}<strong>${w}</strong></div>
+    <div class="actions centre">${action(round.i+1<round.words.length?'Next card':'Finish round','next-card')}</div></section>`;
+  // The pictures stay hidden until she has tried the print, so they cannot do the reading for her.
+  if(round.turned) return top+`<h1>Which one is it?</h1>
+    <div class="read-card">${wordPrint(w)}</div>
+    <div class="swap-prompt"><p>Tap the picture for your word.</p></div>
+    <div class="picture-picks">${round.options.map(o=>{
+      const tried=round.tried.includes(o);
+      return `<button class="picture-pick ${tried?'try-again':''}" data-act="pick" data-word="${o}" ${tried?'disabled':''}>${stamp(wordImage(o))}</button>`;
+    }).join('')}</div>
+    <div class="actions centre">${action('Read with me','review-help','sound','secondary')}</div></section>`;
+  return top+`<h1>Can you read it?</h1>
+    <button class="face-down" data-act="flip" aria-label="Read ${w} and turn the card">${wordPrint(w)}<span>${icon('flip',18)} Tap to turn</span></button>
+    <div class="actions centre">${action('Read with me','review-help','sound','secondary')}${action('Turn my card','flip','flip')}</div></section>`;
 }
 function scenePage() {
   return `<div class="page-top">${back('album','Back to my album')}</div><div class="album-head"><div><h1>Story clearing</h1><p>Choose a find, then tap the clearing to place it. Drag it to move it.</p></div></div>
@@ -391,7 +488,7 @@ function traceDemo() {
 function useSound(c) {
   if(!ALPHABET.includes(c) || c.length!==1) return;
   if(view==='learn' && profile.lesson && profile.lesson.word.includes(c)) {profile.lesson.help=true;save();}
-  if(view==='round' && round && !round.flipped && round.words[round.i]?.includes(c)) round.help=true;
+  if(view==='round' && round && !round.first && round.words[round.i]?.includes(c) && !round.asked.includes(c)) round.asked+=c;
   playClip('letters',c);
 }
 function openDialog(html, label) {
@@ -400,22 +497,46 @@ function openDialog(html, label) {
   dialog.setAttribute('aria-labelledby','dialog-title');
   if(!dialog.open) dialog.showModal();
 }
+function soundProgress() {
+  const now=Date.now(), sounds=Object.keys(profile.sounds).sort();
+  return `<details class="parent-details"><summary>Sound progress (${sounds.length} of ${CLASS_SOUNDS.length})</summary>
+    ${sounds.length?`<ul>${sounds.map(c=>{
+      const s=profile.sounds[c], wait=s.due-now, days=Math.round(wait/DAY);
+      return `<li><strong>${c}</strong><span>${s.right} unaided · ${s.wrong} ${s.wrong===1?'slip':'slips'} · ${wait<=0?'ready now':wait<DAY/2?'back soon':'back in '+days+(days===1?' day':' days')}</span></li>`;
+    }).join('')}</ul>`:'<p>The sounds in her first word will appear here.</p>'}
+    <p>Memory needs two words. A new word comes back after two minutes. She reads the card, turns it, then taps its picture among look-alikes from her album. Only her first tap counts. When it is right with no hints, each sound in the word that was due rests for one day, then three, seven, fourteen and thirty. A wrong picture or a tap on the sound shelf is a slip. Those sounds return in two minutes, in the missed word and in another word that uses them when she has one.</p></details>`;
+}
+function accountRow() {
+  if(!cloud.on) return '<p class="dialog-intro">Progress is saved in this browser. You can take a copy to her other tablet below.</p>';
+  if(!cloud.remembered()) return `<p class="dialog-intro">Progress is saved in this browser. Sign in to keep a copy in your Google account and open the same album on her other tablet.</p>${googleButton()}`;
+  const email=account?.email.replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
+  return `<p class="dialog-intro">${syncTrouble?'Your Google account could not be reached just now. Progress is still saved in this browser and will be sent when the connection is back.':
+    `Progress is saved to your Google account${email?', '+email:''}. Sign in on her other tablet to open the same album there.`}</p>
+    <div class="actions">${action('Sign out','sign-out','','secondary')}</div>`;
+}
+function drawAccount() {
+  const el=$('#account');if(el) el.innerHTML=accountRow();
+}
 function parents() {
   stopSound();cancelFinale();
-  openDialog(`<p class="dialog-intro">Progress is saved in this browser. You can take a copy to her other tablet below.</p>
+  openDialog(`<div id="account">${accountRow()}</div>
     <fieldset><legend>Play settings</legend><label class="setting-line"><span>Spoken instructions</span><input type="checkbox" data-setting="voice" ${profile.settings.voice?'checked':''}></label>
-    <label class="setting-line"><span>Rainbow celebration</span><input type="checkbox" data-setting="sparkles" ${profile.settings.sparkles?'checked':''}></label>
-    <label class="setting-line"><span>Victory fanfare</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label></fieldset>
+    <label class="setting-line"><span>Celebration show</span><input type="checkbox" data-setting="sparkles" ${profile.settings.sparkles?'checked':''}></label>
+    <label class="setting-line"><span>Music in her show</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label>
+    <label class="setting-line"><span>Memory cards before a new word</span><input type="checkbox" data-setting="memoryFirst" ${profile.settings.memoryFirst?'checked':''}></label></fieldset>
+    <fieldset><legend>Her celebration show</legend><p>She has added ${profile.show.picks.length} of ${SHOW.length} things, and her show runs for about ${Math.round(showTimes(profile.show.picks).total)} seconds. Her first find or memory round earns a choice of two things to add, and every second one after that earns another. The music plays once she has added it.</p>
+    <div class="actions">${action('Play her show','play-show','','secondary')}${action('Try out the show','trial','','secondary')}</div></fieldset>
     <fieldset><legend>Sounds covered in class</legend><p>Choose the sounds she has met. New words use only these sounds.</p>
     <div class="sound-checks">${[...CLASS_SOUNDS].map(c=>`<label><input type="checkbox" data-class-sound="${c}" ${profile.settings.sounds.includes(c)?'checked':''}><span>${c}</span></label>`).join('')}</div>
     <small id="available-count">${availableWords(profile).length} of 12 words available</small></fieldset>
     <details class="parent-details"><summary>Word progress (${count()} of 12)</summary>
     ${count()?`<ul>${WORDS.filter(w=>profile.cards[w]).map(w=>{const c=profile.cards[w];return `<li><strong>${w}</strong><span>${c.reviews} ${c.reviews===1?'review':'reviews'} · ${c.assisted?'Practised with help':'No hint recorded'}</span></li>`;}).join('')}</ul>`:
-    '<p>Her first discovery will appear here.</p>'}
-    <p>Memory brings a new word back after two minutes. When she says she read a due card, the next gaps grow to one, three, seven, fourteen and thirty days. Asking for help brings it back sooner.</p></details>
+    '<p>Her first discovery will appear here.</p>'}</details>
+    ${soundProgress()}
     <fieldset><legend>Move an album</legend><p>Download a copy here, open this Site on the other tablet and import it there. Importing combines the two collections.</p>
     <div class="actions">${action('Download album','export','','secondary')}${action('Import album','import','','secondary')}</div><input type="file" id="file-picker" accept="application/json,.json" hidden></fieldset>
     <p class="credits"><a href="./assets/audio/CREDITS.txt" target="_blank" rel="noopener">Audio credits</a></p>`, 'Grown-ups');
+  watchAccount();
 }
 function showCard(w) {
   if(!profile.cards[w]) return;
@@ -437,13 +558,7 @@ async function importAlbum(file) {
     if(file.size>12e6) throw Error();
     const backup=JSON.parse(await file.text());
     if(backup?.format!=='readling-album' || backup.profile?.version!==1 || !backup.profile.cards) throw Error();
-    const other=normalise(backup.profile), wasEmpty=!count();
-    for (const w of WORDS) {
-      const theirs=other.cards[w], ours=profile.cards[w];
-      if(theirs && (!ours || Math.max(theirs.found,theirs.reviewed)>Math.max(ours.found,ours.reviewed))) profile.cards[w]=theirs;
-    }
-    profile.stars=Math.max(profile.stars,other.stars,count()*5);
-    if(wasEmpty) {profile.settings=other.settings;profile.lesson=other.lesson;profile.scene=other.scene;}
+    mergeAlbum(profile,normalise(backup.profile));
     save();render();parents();notice('Album imported. Your finds are ready.');
   } catch {notice('Choose a Readling album file downloaded from Grown-ups.');}
 }
@@ -505,24 +620,76 @@ function dispatch(act,el) {
     case 'blend-help':guideBlend();break;
     case 'reveal':{
       const found=collect(profile); if(!found) break;
-      lastFound=found;save();go('found/'+found.word);playClip('words',found.word,{end:playFanfare});break;
+      if(found.fresh) warm=false;
+      lastFound=found;save();go('found/'+found.word);
+      // Her show says the word when the picture appears. Without the show she hears it straight away.
+      if(!playing) playClip('words',found.word,{end:playFanfare});
+      break;
     }
-    case 'encore':launchFinale($('.found'));playFanfare();break;
-    case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);playFanfare();}break;
+    case 'encore':encores++;if(!celebrate({word:location.hash.split('/')[1]})) playFanfare();break;
+    case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);if(!playing)playFanfare();}break;
+    case 'add-to-show':{
+      const id=el.dataset.pick;
+      if(!addToShow(profile,id)) break;
+      save();encores++;
+      const theatre=$('.rainbow-theatre'), panel=$('#show-add');
+      if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
+      if(panel) panel.outerHTML=showPanel();
+      announce(SHOW.find(s=>s.id===id).name+' added to your show.');
+      celebrate({word:pageWord(),alone:id});
+      if(id==='music') playFanfare();
+      break;
+    }
+    case 'play-show':previewShow({});break;
+    case 'trial':trial ||= new Set(profile.show.picks);trialDialog();break;
+    case 'trial-all':trial=new Set(SHOW.map(s=>s.id));trialDialog();break;
+    case 'trial-none':trial=new Set();trialDialog();break;
+    case 'trial-hers':trial=new Set(profile.show.picks);trialDialog();break;
+    case 'trial-play':previewShow({picks:[...trial],all:true,stars:5,tier:trialRosette?Math.max(2,getLevel(profile)):0},trialDialog);break;
+    case 'trial-one':{
+      // One thing by itself, with whatever it builds on and the rest of what is ticked.
+      const id=el.dataset.pick, base=SHOW.find(s=>s.id===id).after;
+      previewShow({picks:[...new Set([...trial,id,...(base?[base]:[])])],alone:id},trialDialog);break;
+    }
     case 'read-tale':if(profile.cards[el.dataset.word])playClip('tales',el.dataset.word);break;
     case 'read-word':if(WORDS.includes(el.dataset.word)) playClip('words',el.dataset.word);break;
     case 'card':showCard(el.dataset.word);break;
     case 'rewrite':if(profile.cards[el.dataset.word])startOrResume(el.dataset.word);break;
     case 'start-round':{
       const words=reviewQueue(profile);if(!words.length){startOrResume();break;}
-      round={words,i:0,flipped:false,help:false};go('round');narrate('memory-start');break;
+      round={words,i:0};dealCard();go('round');narrate('memory-start');break;
     }
-    case 'review-help':round.help=true;playClip('words',round.words[round.i]);break;
-    case 'flip':if(!round || round.flipped)break;round.flipped=true;render();playClip('words',round.words[round.i]);break;
-    case 'review-easy':case 'review-hard':{
-      if(!round?.flipped) break;
-      reviewCard(profile,round.words[round.i],round.help || act==='review-hard');round.i++;round.flipped=false;round.help=false;
-      stopSound();save();render();main.focus({preventScroll:true});if(round.i===round.words.length)narrate('round-done');break;
+    case 'review-help':{
+      const w=round?.words[round.i];if(!w)break;
+      if(!round.first)round.heard=true;
+      playClip('words',w);break;
+    }
+    case 'flip':if(!round || round.turned)break;stopSound();round.turned=true;render();main.focus({preventScroll:true});break;
+    case 'pick':{
+      const w=round?.words[round.i], choice=el.dataset.word;
+      if(!w || !round.turned || round.solved || !round.options.includes(choice) || round.tried.includes(choice)) break;
+      // Only her first tap is recorded. After a slip she hears the slow blend and tries again.
+      if(!round.first) {
+        round.first=choice;
+        round.unaided=recordRead(profile,w,{picked:choice,asked:round.asked,heard:round.heard});save();
+      }
+      if(choice===w) {round.solved=true;render();main.focus({preventScroll:true});playClip('words',w);}
+      else {
+        round.tried.push(choice);el.classList.add('try-again');el.disabled=true;drawHeader();
+        announce('Listen, then try another picture.');playClip('blends',w);
+      }
+      break;
+    }
+    case 'next-card':{
+      if(!round?.solved) break;
+      stopSound();round.i++;
+      if(round.i<round.words.length) dealCard(); else {warm=true;finishTask(profile);save();}
+      render();main.focus({preventScroll:true});
+      if(round.i===round.words.length) {
+        celebrate({word:round.words.at(-1),spell:false,stars:round.words.length,narrated:profile.settings.voice});
+        narrate('round-done',{end:playFanfare});
+      }
+      break;
     }
     case 'start-swap':if(swapPairs(profile).length){newSwap();go('swap');playClip('letters',swap.b[swap.i]);}break;
     case 'swap-sound':playClip('letters',swap.b[swap.i]);break;
@@ -536,6 +703,13 @@ function dispatch(act,el) {
     case 'undo-piece':profile.scene.pop();save();render();break;
     case 'export':exportAlbum();break;
     case 'import':$('#file-picker').click();break;
+    case 'sign-in':
+      watchAccount();
+      cloud.signIn().then(()=>notice('Signed in. This album now saves to your Google account.'),e=>{
+        // Closing the Google window is a grown-up's choice, so it needs no message.
+        if(!/popup-closed|cancelled-popup/.test(e?.code)) notice(e?.code==='auth/popup-blocked'?'Allow pop-ups for this Site, then try again.':'Could not sign in. Check the connection and try again.');
+      });break;
+    case 'sign-out':cloud.signOut().catch(()=>notice('Could not sign out. Check the connection and try again.'));break;
   }
 }
 document.addEventListener('click',e=>{
@@ -553,13 +727,130 @@ document.addEventListener('change',e=>{
     profile.settings.sounds=[...CLASS_SOUNDS].filter(c=>allowed.has(c)).join('');save();
     $('#available-count').textContent=availableWords(profile).length+' of 12 words available';
   }
+  if(el.dataset.trial) {
+    if(el.checked) trial.add(el.dataset.trial);else trial.delete(el.dataset.trial);
+    // Anything that needed what was just unticked goes with it.
+    for(let again=true;again;){again=false;for(const s of SHOW) if(trial.has(s.id) && !trialOpen(s)){trial.delete(s.id);again=true;}}
+    const top=dialog.scrollTop;
+    trialDialog();dialog.scrollTop=top;$(`[data-trial="${el.dataset.trial}"]`)?.focus({preventScroll:true});
+  }
+  if(el.id==='trial-rosette'){trialRosette=el.checked;const top=dialog.scrollTop;trialDialog();dialog.scrollTop=top;$('#trial-rosette')?.focus({preventScroll:true});}
   if(el.id==='file-picker') void importAlbum(el.files[0]);
 });
 dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom)dialog.close();}});
+// The music is one of the things she adds to her show, so it stays quiet until she has chosen it.
 function playFanfare() {
-  if(view==='found' && profile.settings.sparkles && profile.settings.fanfare && !dialog.open && !document.hidden) playClip('music','fanfare');
+  if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) playClip('music','fanfare');
+}
+// The word her show is about: the find on this page, or the last card of a finished round.
+function pageWord() {
+  return view==='found'?location.hash.split('/')[1]:view==='round' && round?round.words.at(-1):WORDS.find(w=>profile.cards[w]) || '';
+}
+function drawStars() {
+  const el=$('#masthead .stars b');if(el) el.textContent=profile.stars-starsHeld;
+}
+// Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
+// The stars she has just earned wait out of her total until the show counts them in.
+function celebrate({word='',stars=0,held=false,tier=0,alone='',all=false,spell=true,picks=profile.show.picks,anywhere=false,narrated=false,ended=null}={}) {
+  const stage=$('.victory');
+  if(!stage && !anywhere) return null;
+  showPicks=picks;
+  const finds=WORDS.filter(w=>profile.cards[w]);
+  prepareShow(finds);
+  const show=launchFinale(stage,{picks,finds,word,ink:profile.cards[word]?.ink,stars,tier,alone,all,spell,turn:profile.show.tasks+encores,
+    onLetter:i=>playClip('letters',word[i]),
+    onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
+    onStar:()=>{if(starsHeld){starsHeld--;drawStars();}},
+    onEnd:finished=>{if(starsHeld){starsHeld=0;drawStars();}ended?.(finished);}});
+  if(!alone) playing=show;
+  if(show && held){starsHeld=stars;drawStars();}
+  // The choices wake up as the show ends, so their small previews do not run underneath it.
+  clearTimeout(previewTimer);
+  previewTimer=setTimeout(startPreviews,show?Math.max(0,show.total*1000-500):0);
+  return show;
+}
+// A grown-up's preview plays on the page of her latest find, so the hush, her letters and her picture are all in it.
+// `then` runs when the show has played to its end.
+function previewShow(options,then) {
+  const latest=Object.keys(profile.cards).sort((a,b)=>profile.cards[b].found-profile.cards[a].found)[0] || '';
+  dialog.close();
+  // The dialog redraws the page as it closes, so the show starts just after.
+  setTimeout(()=>{
+    const word=view==='found'?pageWord():latest;
+    if(word && view!=='found'){lastFound=null;lastRevealRoute='found/'+word;go('found/'+word);}
+    encores++;
+    // The stage on the page shows the rainbows of the show being tried, and goes back to hers afterwards.
+    const dress=picks=>{const theatre=$('.rainbow-theatre');if(theatre) theatre.outerHTML=finaleScenery(picks);};
+    // A show that is still playing is stopped first, so that its ending does not undo the new stage.
+    cancelFinale();
+    if(options.picks) dress(options.picks);
+    const show=celebrate({word,anywhere:true,...options,ended:finished=>{if(options.picks) dress(profile.show.picks);if(finished) then?.();}});
+    if(!show){if(options.picks) dress(profile.show.picks);notice('The show cannot play while this device asks for less motion.');then?.();return;}
+    if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare');}
+    else if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
+  },80);
+}
+// Trying out the show: a grown-up ticks any mix of additions and plays it. Her own show is not changed.
+// Something that builds on another, such as the second rainbow, can only be ticked once that one is.
+const TRIAL=[['To begin',['rainbow','rainbow2','slide','ribbon','music']],['Sky',['stars','fountains','blooms','paint']],
+  ['Ground',['flowers','mushrooms','vines','oak']],['Visitors',['bunnies','parade','dolphins','elephants']],
+  ['Big finishes',['fireflies','picture','whale','splash']],['Extras',['hats','snail']]];
+// When each part of a show plays on the page of a three-letter find, and how long the whole show runs.
+function showTimes(picks,options={}) {
+  const staged=profile.settings.sparkles;
+  return planShow({picks,letters:staged?3:0,staged,stars:5,...options});
+}
+// The figures for the show being tried: its length, when her picture appears, how busy it gets, and when each part plays.
+function trialStats() {
+  const picks=[...trial], tier=trialRosette?2:0, plan=showTimes(picks,{all:true,tier}), secs=n=>(Math.round(n*10)/10).toFixed(1);
+  const turns=Array.from({length:12},(_,turn)=>showTimes(picks,{turn,tier}).total), low=Math.min(...turns), high=Math.max(...turns);
+  const base={hush:'The hush',letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'The rosette'};
+  const rows=plan.acts.map(([id,at,len,stays])=>({name:base[id] || SHOW.find(s=>s.id===id)?.name || id,at,end:stays?plan.total:Math.min(plan.total,at+len),stays}));
+  // The fanfare starts once her word has been said, a little after the picture appears.
+  if(trial.has('music')) rows.push({name:'Music',at:plan.hit+.65,end:Math.min(plan.total,plan.hit+.65+3.7)});
+  rows.sort((a,b)=>a.at-b.at);
+  let busiest=0;
+  for(let t=0;t<plan.total;t+=.1) busiest=Math.max(busiest,plan.acts.filter(([id,at,len])=>id!=='hush' && t>=at && t<=at+len).length);
+  return `<div class="trial-stats"><p><strong>${secs(plan.total)} seconds</strong> for this show, with ${trial.size} of ${SHOW.length} things ticked.</p>
+    <p>Her picture appears at ${secs(plan.hit)} seconds. At its busiest, ${busiest} ${busiest===1?'thing plays':'things play'} at once.</p>
+    ${high-low>.05 || Math.abs(high-plan.total)>.05?`<p>In her own show the visitors and the big finishes take turns, two of each, so this would run for ${secs(low)} to ${secs(high)} seconds.</p>`:''}
+    <details id="trial-timeline" ${trialTimeline?'open':''}><summary>When each part plays</summary><div class="trial-times">${rows.map(r=>
+      `<div class="trial-time"><span>${r.name}</span><i style="--from:${(r.at/plan.total*100).toFixed(1)}%;--wide:${Math.max(1.5,(r.end-r.at)/plan.total*100).toFixed(1)}%"></i><span>${secs(r.at)} to ${secs(r.end)}</span></div>`).join('')}</div></details></div>`;
+}
+function trialOpen(s) {
+  return (!s.after || trial.has(s.after)) && (!s.any || s.any.some(id=>trial.has(id)));
+}
+function trialDialog() {
+  const named=id=>SHOW.find(s=>s.id===id);
+  openDialog(`<p class="dialog-intro">Tick anything to see it in a show, in any mix. This is only for looking. It does not change her show.</p>
+    <div class="actions">${action('Play this show','trial-play','play')}${action('Tick everything','trial-all','','secondary')}${action('Clear','trial-none','','secondary')}${action('Her show','trial-hers','','secondary')}</div>
+    ${trialStats()}
+    <p class="dialog-intro trial-count">The round button beside each one plays it by itself.</p>
+    ${TRIAL.map(([title,ids])=>`<fieldset class="trial-group"><legend>${title}</legend>${ids.map(id=>{
+      const s=named(id), open=trialOpen(s), needs=s.after?'needs '+named(s.after).name:s.any?'needs a visitor or the whale':'';
+      return `<div class="trial-line ${needs?'child':''}"><label><input type="checkbox" data-trial="${id}" ${trial.has(id)?'checked':''} ${open?'':'disabled'}><span>${s.name}</span>${needs && !open?`<small>${needs}</small>`:''}</label>
+        <button type="button" class="round-button" data-act="trial-one" data-pick="${id}" aria-label="Play ${s.name} by itself">${icon('play',15)}</button></div>`;
+    }).join('')}</fieldset>`).join('')}
+    <fieldset><legend>Ending</legend><label class="setting-line"><span>Finish a collection, for the rosette</span><input type="checkbox" id="trial-rosette" ${trialRosette?'checked':''}></label></fieldset>
+    <div class="actions">${action('Play this show','trial-play','play')}${action('Back to Grown-ups','parents','','secondary')}</div>`,'Try out the show');
+  $('#trial-timeline').addEventListener('toggle',e=>{trialTimeline=e.target.open;});
+}
+function showPanel() {
+  if(!profile.settings.sparkles || !showDue(profile)) return '';
+  return `<div class="show-add" id="show-add"><h2>Add to your show</h2><div class="show-picks">${showChoices(profile).map(id=>
+    `<button type="button" class="show-pick" data-act="add-to-show" data-pick="${id}"><canvas data-preview="${id}" aria-hidden="true"></canvas><span>${SHOW.find(s=>s.id===id).name}</span></button>`).join('')}</div></div>`;
+}
+function startPreviews() {
+  const finds=WORDS.filter(w=>profile.cards[w]), word=pageWord();
+  const fresh=[...document.querySelectorAll('canvas[data-preview]:not([data-on])')];
+  for(const c of fresh){c.dataset.on='1';launchFinale(null,{into:c,alone:c.dataset.preview,picks:profile.show.picks,finds,word});}
+  // Bring the choices into view as they arrive, in case they are below the bottom of the screen.
+  if(fresh.length) setTimeout(()=>$('#show-add')?.scrollIntoView({block:'nearest',behavior:'smooth'}),550);
 }
 dialog.addEventListener('close',()=>{if(view==='home'||view==='album'||(view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles))render();lastFocus?.isConnected&&lastFocus.focus({preventScroll:true});});
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden) wake();});
+window.addEventListener('online',wake);
 render();
+wake();

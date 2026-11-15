@@ -4,6 +4,6 @@
   "type":"module",
   "scripts":{
     "voices":"node scripts/cache-voices.mjs",
-    "test":"node scripts/cache-voices.mjs --check"
+    "test":"node --test scripts/schedule.test.mjs scripts/album.test.mjs scripts/show.test.mjs &&node scripts/cache-voices.mjs --check"
   }
 }

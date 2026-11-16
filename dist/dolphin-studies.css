@@ -1,0 +1,19 @@
+.dolphin-study header nav { min-height:68px }
+.dolphin-study .toolbar { border-bottom:1px solid #cbd0bf }
+.dolphin-study .jump-links { display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; gap:6px 16px; min-height:0 }
+.jump-links a { color:#31554d; font-weight:800; text-underline-offset:4px }
+.pod { margin:clamp(28px,4vw,48px) 0; scroll-margin-top:12px }
+.pod-heading { display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:12px; margin-bottom:15px }
+.pod-heading h2 { font:normal clamp(31px,4vw,48px)/1.13 var(--serif); letter-spacing:-.045em; margin:0 }
+.pod-heading p { margin:5px 0 0; color:#506359; font-size:15px }
+.pod-heading p a { color:#426257; font-weight:750; text-underline-offset:3px; white-space:nowrap }
+.pod .plate { aspect-ratio:1.60 }
+@media(min-width:831px) {
+  #relay .shots { grid-template-columns:repeat(2,minmax(0,1fr)) }
+}
+.pod [data-surface=night] .plate { background:radial-gradient(ellipse at 50% 37%,#365860 0%,#193940 83%) }
+.pod .shot h3 { font:normal clamp(24px,2.4vw,35px)/1.12 var(--serif); letter-spacing:-.035em; margin:6px 0 }
+.pod .level { font-size:12px; font-weight:850 }
+@media(max-width:830px) and (min-width:541px) {
+  .pod .shot { grid-template-columns:1.05fr 1fr }
+}

@@ -1,4 +1,7 @@
 /.env
 /.env.*
 /node_modules/
+/assets/videos/
+__pycache__/
 /scripts/.voice-cache-*
+/dist/server/

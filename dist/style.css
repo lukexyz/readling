@@ -153,10 +153,16 @@ main.wrap{padding-block:29px 40px;outline:none}
 .victory .stamp{box-shadow:2px 5px 0 #17372d6e,0 0 0 2px #e2cb91;transform:rotate(-3deg)}
 .victory .found-word{margin-top:11px}
 .fireworks-screen{position:fixed;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;user-select:none}
-.show-playing .rainbow-bands path{stroke-dasharray:1;animation:rainbow-sweep 1.1s cubic-bezier(.2,.66,.25,1) var(--band-delay) both}
-.show-playing .reveal-art .stamp{animation:prize-bounce .82s cubic-bezier(.22,.8,.3,1) both,prize-cheer .6s ease-in-out 2.2s}
-.show-playing .reward{animation:star-prize .5s ease-in-out 2.23s}
+/* Her show hides the picture until its star arrives, and her writing until its letters fly home. --hit and --home are set by finale.js. */
+.show-playing .rainbow-bands path{stroke-dasharray:1;animation:rainbow-sweep 1.1s cubic-bezier(.2,.66,.25,1) calc(var(--hit,0s) + var(--band-delay)) both}
+.show-playing .reveal-art .stamp{animation:prize-arrive .82s cubic-bezier(.22,.8,.3,1) var(--hit,0s) both,prize-cheer .6s ease-in-out calc(var(--hit,0s) + 2.2s)}
+.show-playing .reward{animation:star-prize .5s ease-in-out calc(var(--hit,0s) + .2s)}
+.show-playing .handwritten{animation:shown .01s var(--home,0s) both}
+.show-playing .show-add{animation:add-arrive .5s cubic-bezier(.2,.7,.3,1) var(--after,0s) both}
 @keyframes rainbow-sweep{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes shown{from{opacity:0}}
+@keyframes add-arrive{from{opacity:0;visibility:hidden;max-height:0;margin-top:0;padding-top:0;transform:translateY(18px)}to{max-height:520px}}
+@keyframes prize-arrive{0%{opacity:0;transform:translateY(38px) rotate(-18deg) scale(.5)}12%{opacity:1}55%{transform:translateY(-9px) rotate(5deg) scale(1.07)}78%{transform:translateY(3px) rotate(-5deg) scale(.99)}100%{transform:rotate(-3deg)}}
 @keyframes prize-bounce{0%{transform:translateY(38px) rotate(-18deg) scale(.5)}55%{transform:translateY(-9px) rotate(5deg) scale(1.07)}78%{transform:translateY(3px) rotate(-5deg) scale(.99)}100%{transform:rotate(-3deg)}}
 @keyframes prize-cheer{0%,100%{transform:rotate(-3deg)}40%{transform:translateY(-7px) rotate(3deg) scale(1.08)}}
 @keyframes star-prize{45%{transform:scale(1.22) rotate(-5deg)}}
@@ -168,6 +174,44 @@ main.wrap{padding-block:29px 40px;outline:none}
 .handwritten svg{height:39px;width:42px}
 .reward{background:#f4e9c5;color:#58481f;border:1px solid #dfc98d;padding:5px 12px;border-radius:20px;margin-top:7px}
 .unlock-note{font-size:14px;margin-top:9px}
+.round-done .reveal-art{display:flex;gap:clamp(6px,1.4vw,14px)}
+.round-done .reveal-art .stamp-face{width:clamp(58px,9.5vw,112px)}
+.round-done .reveal-art .stamp:nth-child(even){transform:rotate(3deg)}
+.show-add{max-width:540px;margin:22px auto 0;padding:16px 4px 8px;border-top:1px solid var(--line);overflow:hidden}
+.show-add h2{font-size:24px}
+.show-picks{display:flex;gap:14px;justify-content:center;margin-top:12px}
+.show-pick{flex:1 1 0;max-width:250px;display:grid;gap:8px;padding:10px 10px 12px;border:2px solid #59644c;border-radius:17px;background:var(--card);box-shadow:0 4px 0 #dcd4b8;font-weight:800;font-size:18px}
+.show-pick:hover{background:#f6f1df}.show-pick:active{transform:translateY(3px);box-shadow:0 1px 0 #dcd4b8}
+.show-pick canvas{display:block;width:100%;aspect-ratio:4/3;border-radius:10px;background:radial-gradient(#3d6053,#203c3c)}
+.trial-count{margin-top:12px}
+.trial-stats{margin-top:13px;padding:12px 14px;background:#f2f0e3;border:1px solid var(--line);border-radius:12px;font-size:14px}
+.trial-stats p{line-height:1.45}.trial-stats p+p{margin-top:5px}
+.trial-stats strong{font-size:19px;font-family:var(--serif);font-weight:400}
+.trial-stats summary{margin-top:9px;font-size:14px;cursor:pointer}
+.trial-times{margin-top:8px}
+.trial-time{display:grid;grid-template-columns:minmax(84px,118px) 1fr 82px;align-items:center;gap:9px;font-size:12px;min-height:21px}
+.trial-time i{position:relative;height:9px;border-radius:5px;background:#e0e5d5}
+.trial-time i::after{content:"";position:absolute;top:0;bottom:0;left:var(--from);width:var(--wide);border-radius:5px;background:var(--deep)}
+.trial-time span:last-child{text-align:right;color:var(--sub);font-variant-numeric:tabular-nums}
+.trial-line{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.trial-line.child{margin-left:28px}
+.trial-line label{display:flex;align-items:center;gap:11px;flex:1;font-weight:650;min-height:40px}
+.trial-line input{accent-color:var(--deep);width:20px;height:20px;flex:none}
+.trial-line input:disabled+span{color:#8b9488}
+.trial-line small{color:var(--sub);font-weight:500;font-size:12px}
+.trial-line .round-button{width:36px;height:36px}
+.save-invite{max-width:430px;margin:22px auto 0;padding-top:16px;border-top:1px solid var(--line)}
+.save-invite p{font-size:14px;margin-bottom:10px}
+/* Google's Sign in with Google button, from its branding guidelines, scaled up evenly for small fingers. */
+.gsi-material-button{position:relative;height:46px;padding:0 14px;overflow:hidden;background:#fff;border:1px solid #747775;border-radius:23px;color:#1f1f1f;font:500 16px Roboto,arial,sans-serif;letter-spacing:.25px;white-space:nowrap;transition:box-shadow .218s}
+.gsi-material-button-content-wrapper{position:relative;display:flex;align-items:center;height:100%}
+.gsi-material-button-icon{display:block;width:23px;height:23px;margin-right:14px}
+.gsi-material-button-icon svg{display:block}
+.gsi-material-button-state{position:absolute;inset:0;background:#303030;opacity:0;transition:opacity .218s}
+.gsi-material-button:hover{box-shadow:0 1px 2px #3c40434d,0 1px 3px 1px #3c404326}
+.gsi-material-button:hover .gsi-material-button-state{opacity:.08}
+.gsi-material-button:active .gsi-material-button-state{opacity:.12}
+#account .gsi-material-button{margin-top:12px}
 .album-head{margin:9px 0 24px}.album-head p{max-width:650px}.album-head .btn{flex-shrink:0}
 .album-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .album-card{border:1px solid var(--line);border-radius:13px;background:#fffdf4;padding:15px 12px 11px;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:10px;text-align:center;min-width:0}

@@ -1,3 +1,6 @@
+import {dolphinFamilies,dolphinShots} from './dolphins.js';
+import {flowerFamilies,flowerShots} from './gardens.js';
+
 const WORDS = ['cat','hat','mat','dog','log','pot','sun','bug','cup','hen','pen','pig'];
 const TALES = {
   cat:'A little cat curls up beside the path.',
@@ -19,6 +22,32 @@ const KEY = 'readling.wordwoods.v1';
 const DAY = 86400000;
 const SOON = 2*60000;
 const GAPS = [1,3,7,14,30];
+// What she can add to her celebration show, in the order it is offered. Some wait for an earlier pick,
+// for one of several picks, for a word in her album or for a number of finds.
+const [poppies,moonflowers,sunflowers]=flowerFamilies.map(family=>family.shots);
+const SHOW = [
+  {id:'rainbow',name:'Rainbow'},{id:'music',name:'Music'},
+  {id:'stars',name:'More stars'},poppies[0],{id:'bunnies',name:'Bunnies'},
+  {id:'fountains',name:'Star fountains'},{id:'rainbow2',name:'Double rainbow',after:'rainbow'},
+  {id:'blooms',name:'Flower fireworks'},moonflowers[0],{id:'parade',name:'Parade',finds:2},
+  {id:'mushrooms',name:'Mushrooms'},dolphinShots[0],{id:'paint',name:'Paint fireworks'},
+  sunflowers[0],{id:'slide',name:'Rainbow slide',after:'rainbow'},poppies[1],{id:'fireflies',name:'Fireflies'},{id:'vines',name:'Vines'},
+  {id:'elephants',name:'Elephants'},{id:'hats',name:'Hats',word:'hat',any:['bunnies','parade','elephants','whale',...dolphinFamilies.map(family=>family.levels[0].id)]},
+  moonflowers[1],{id:'picture',name:'Picture fireworks'},{id:'oak',name:'Oak tree'},sunflowers[1],
+  {id:'whale',name:'Ember Orca · Level 1'},{id:'ribbon',name:'Rainbow ribbon',after:'rainbow'},{id:'splash',name:'Big splash',after:'whale'},
+  {id:'whale2',name:'Ember Orca · Level 2',after:'whale'},{id:'whale3',name:'Ember Orca · Level 3',after:'whale2'},
+  poppies[2],moonflowers[2],sunflowers[2],...dolphinShots.slice(1)
+];
+const SHOW_GROUPS = [
+  ['Rainbows & music',['rainbow','rainbow2','slide','ribbon','music']],
+  ['Sky',['stars','fountains','blooms','paint']],
+  ['Flowers',flowerShots.map(shot=>shot.id)],
+  ['Ground',['mushrooms','vines','oak']],
+  ['Visitors',['bunnies','parade','elephants']],
+  ['Dolphins',dolphinShots.map(shot=>shot.id)],
+  ['Big finishes',['fireflies','picture','whale','whale2','whale3','splash']],
+  ['Extras',['hats']]
+];
 const isWord = w=>WORDS.includes(w);
 const clamp = (n, min, max)=>Math.min(max, Math.max(min, n));
 const num = (v, fallback=0)=>typeof v==='number' && Number.isFinite(v) ? v : fallback;
@@ -34,7 +63,7 @@ function inkForWord(raw, word) {
   });
 }
 function newProfile() {
-  return {version:1, cards:{}, sounds:{}, stars:0, lesson:null, scene:[],
+  return {version:1, cards:{}, sounds:{}, stars:0, lesson:null, scene:[], show:{picks:[],tasks:0},
     settings:{voice:true, sparkles:true, fanfare:true, memoryFirst:true, sounds:CLASS_SOUNDS}};
 }
 function normalise(raw) {
@@ -77,6 +106,10 @@ function normalise(raw) {
     p.scene=raw.scene.filter(s=>s && p.cards[s.word]).slice(-16)
       .map(s=>({word:s.word,x:clamp(num(s.x,50),8,92),y:clamp(num(s.y,50),12,88)}));
   }
+  // An album saved before she could build her show counts each find as a finished task.
+  const show=raw.show && typeof raw.show==='object'?raw.show:null;
+  p.show.picks=SHOW.map(s=>s.id).filter(id=>Array.isArray(show?.picks) && show.picks.includes(id));
+  p.show.tasks=show?tally(show.tasks):Object.keys(p.cards).length;
   return p;
 }
 function availableWords(p) {return WORDS.filter(w=>[...w].every(c=>p.settings.sounds.includes(c)));}
@@ -95,6 +128,7 @@ function collect(p, now=Date.now()) {
     p.cards[l.word]={found:now,due:now+SOON,reviews:0,reviewed:0,assisted:l.help,ink:l.ink};
     for(const c of l.word) p.sounds[c] ||= {box:0,due:now+SOON,right:0,wrong:0,seen:0};
     p.stars+=5;
+    finishTask(p);
   }
   p.lesson=null;
   return {word:l.word, fresh:!existing, levelUp:!existing && Object.keys(p.cards).length%3===0};
@@ -150,6 +184,53 @@ function recordRead(p, word, {picked=word, asked='', heard=false}={}, now=Date.n
   card.reviews++; card.reviewed=now; card.assisted=!unaided; p.stars++;
   return unaided;
 }
+// A new find and a finished memory round each count as a task. Her first task earns a choice of two things
+// to add to her show, and every second task after that earns another.
+function finishTask(p) {p.show.tasks=Math.min(999999,p.show.tasks+1);}
+// The first two things in the list that she has not added and that are open to her.
+// The one she leaves is offered again next time, beside something new.
+function showChoices(p) {
+  const has=id=>p.show.picks.includes(id), finds=Object.keys(p.cards).length;
+  return SHOW.filter(s=>!has(s.id) && (!s.after || has(s.after)) && (!s.any || s.any.some(has)) &&
+    (!s.word || p.cards[s.word]) && finds>=(s.finds || 0)).slice(0,2).map(s=>s.id);
+}
+function showDue(p) {return p.show.tasks>=1+2*p.show.picks.length && showChoices(p).length>0;}
+function addToShow(p, id) {
+  if(!showDue(p) || !showChoices(p).includes(id)) return false;
+  p.show.picks=SHOW.map(s=>s.id).filter(x=>x===id || p.show.picks.includes(x));
+  return true;
+}
+// Combines another copy of the album into this one, as when two tablets have both been played on.
+// For each word and each sound, the copy that was used most recently wins.
+function mergeAlbum(p, other) {
+  const wasEmpty=!Object.keys(p.cards).length;
+  for(const w of WORDS) {
+    const theirs=other.cards[w], ours=p.cards[w];
+    if(theirs && (!ours || Math.max(theirs.found,theirs.reviewed)>Math.max(ours.found,ours.reviewed))) p.cards[w]=theirs;
+  }
+  for(const c of CLASS_SOUNDS) {
+    const theirs=other.sounds[c], ours=p.sounds[c];
+    if(theirs && (!ours || theirs.seen>ours.seen)) p.sounds[c]=theirs;
+  }
+  p.stars=Math.max(p.stars,other.stars,Object.keys(p.cards).length*5);
+  // Her show keeps everything added on either tablet.
+  p.show.picks=SHOW.map(s=>s.id).filter(id=>p.show.picks.includes(id) || other.show.picks.includes(id));
+  p.show.tasks=Math.max(p.show.tasks,other.show.tasks);
+  // A tablet with no finds yet takes the other album's settings and scene, but keeps a word she has started.
+  if(wasEmpty && Object.keys(other.cards).length) {p.settings=other.settings;p.scene=other.scene;p.lesson ||= other.lesson;}
+  return p;
+}
+// The copy that is saved online. Loading it first puts the words and sounds in a set order, so two tablets
+// holding the same album pack the same copy. It has to fit in one document, so heavy scribbles are thinned,
+// a little more each pass, until it does.
+function packAlbum(p, limit=900000) {
+  const album=normalise(JSON.parse(JSON.stringify(p)));
+  let json=JSON.stringify(album);
+  for(let step=2;json.length>limit && step<=32;step*=2) {
+    json=JSON.stringify(album,(key,v)=>Array.isArray(v) && typeof v[0]?.[0]==='number'?v.filter((_,i)=>i%step===0 || i===v.length-1):v);
+  }
+  return json;
+}
 function swapPairs(p) {
   return WORDS.flatMap((a,i)=>WORDS.slice(i+1).filter(b=>p.cards[a] && p.cards[b] &&
     [...a].filter((c,j)=>c!==b[j]).length===1).map(b=>[a,b]));
@@ -159,4 +240,4 @@ function pathData(points) {
   const path='M'+points.map(p=>p.join(' ')).join(' L');
   return points.length===1?path+' l0.05 0':path;
 }
-export {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, swapPairs, pathData};
+export {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, SHOW_GROUPS, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData};

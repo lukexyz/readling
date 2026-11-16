@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dolphin studies · Readling</title>
+  <link rel="icon" href="./assets/readling.svg">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./ember-preview.css">
+  <link rel="stylesheet" href="./dolphin-studies.css">
+  <script type="module" src="./dolphin-studies.js"></script>
+</head>
+<body class="orca-study dolphin-study">
+  <header><nav class="wrap" aria-label="Site">
+    <a class="brand" href="./"><img src="./assets/readling.svg" alt="" width="35" height="35">Readling</a>
+    <a class="gallery-link" href="./celebrations.html?group=Dolphins">Dolphins in the celebration gallery ↗</a>
+  </nav></header>
+  <main class="wrap">
+    <h1>Dolphin studies</h1>
+    <p class="intro">Three jumps from the same pod. Play each set together to see how the movement grows.</p>
+    <div class="toolbar">
+      <nav class="jump-links" aria-label="Jump to a study">
+        <a href="#skip">Porpoise skip</a><a href="#vault">Skyward vault</a><a href="#relay">Silver relay</a>
+      </nav>
+      <div class="settings">
+        <label>Backdrop <select id="surface"><option value="night">Night</option><option value="mist">Sea mist</option><option value="grid">Transparency grid</option></select></label>
+        <label><input id="stars" type="checkbox"> Layer stars</label>
+      </div>
+    </div>
+    <div id="studies"></div>
+    <noscript>Enable JavaScript to play the eight dolphin animations.</noscript>
+  </main>
+  <template id="shot-template">
+    <article class="shot">
+      <div class="plate"><canvas role="img"></canvas><p class="load-note" role="status">Loading preview…</p></div>
+      <div class="details">
+        <span class="level"></span><h3></h3><p class="description"></p>
+        <div class="transport">
+          <button type="button" class="play" disabled>Play</button>
+          <input class="timeline" type="range" min="1" max="2" step="1" value="1" disabled>
+          <span class="clock"></span>
+        </div>
+        <div class="beats" role="group"></div>
+      </div>
+    </article>
+  </template>
+</body>
+</html>

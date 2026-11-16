@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ember Orca concepts · Readling</title>
+  <link rel="icon" href="./assets/readling.svg">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./ember-preview.css">
+  <script type="module" src="./ember-preview.js"></script>
+</head>
+<body class="orca-study">
+  <header><nav class="wrap" aria-label="Site">
+    <a class="brand" href="./"><img src="./assets/readling.svg" alt="" width="35" height="35">Readling</a>
+    <a class="gallery-link" href="./celebrations.html#whale2">Celebration gallery <span aria-hidden="true">↗</span></a>
+  </nav></header>
+  <main class="wrap">
+    <h1>Ember Orca</h1>
+    <p class="intro">Play all three levels together, or choose Splash to compare the two landings.</p>
+    <div class="toolbar">
+      <button id="together" class="play-all" type="button" disabled>Play all three</button>
+      <div class="settings">
+        <label>Backdrop <select id="surface"><option value="mist">Sea mist</option><option value="grid">Transparency grid</option><option value="night">Night</option></select></label>
+        <label><input id="stars" type="checkbox"> Layer stars</label>
+      </div>
+    </div>
+    <div id="shots" class="shots" data-surface="mist"></div>
+    <noscript>Enable JavaScript to play and scrub the three levels.</noscript>
+  </main>
+  <template id="shot-template">
+    <article class="shot">
+      <div class="plate"><canvas role="img"></canvas><p class="load-note" role="status">Loading preview…</p></div>
+      <div class="details">
+        <div class="metadata"><span class="level"></span><span class="status"></span></div>
+        <h2></h2><p class="description"></p>
+        <div class="transport">
+          <button type="button" class="play" disabled>Play</button>
+          <input class="timeline" type="range" min="1" max="2" step="1" value="1" disabled>
+          <span class="clock"></span>
+        </div>
+        <div class="beats" role="group"></div>
+      </div>
+    </article>
+  </template>
+</body>
+</html>

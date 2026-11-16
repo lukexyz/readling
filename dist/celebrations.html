@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#274031">
+  <title>Celebration gallery · The Word Woods</title>
+  <link rel="icon" href="./assets/readling.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./celebrations.css">
+  <script type="module" src="./celebrations.js"></script>
+</head>
+<body class="gallery-page">
+  <a class="skip-link" href="#gallery">Skip to celebrations</a>
+  <header class="gallery-header">
+    <div class="gallery-wrap">
+      <a class="gallery-brand" href="./"><img src="./assets/readling.svg" width="36" height="36" alt="">Readling</a>
+      <a class="game-link" href="./"><span aria-hidden="true">←</span> Back to the game</a>
+    </div>
+  </header>
+  <main class="gallery-wrap" id="gallery" tabindex="-1">
+    <h1>Celebration gallery</h1>
+    <p class="gallery-intro">Press play on a card to watch it come to life. <a href="./new-celebrations.html">See the new flowers, oak and ocean gallery ↗</a></p>
+    <div class="gallery-filters" id="filters" role="group" aria-label="Filter celebrations"></div>
+    <ul class="gallery-grid" id="cards" aria-label="Celebrations"></ul>
+    <p id="gallery-status" class="sr-only" role="status"></p>
+    <noscript>Turn on JavaScript to view and play the celebrations.</noscript>
+  </main>
+</body>
+</html>

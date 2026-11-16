@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ember Orca · Level 2 movement study</title>
+<style>
+@font-face{font-family:Young;src:url("../../dist/assets/fonts/young-serif.ttf")}@font-face{font-family:Nunito;src:url("../../dist/assets/fonts/nunito.ttf");font-weight:200 900}
+*{box-sizing:border-box}body{margin:0;background:#f8f6ed;color:#263c35;font:16px/1.45 Nunito,system-ui,sans-serif}main{max-width:1150px;padding:clamp(18px,4vw,52px);margin:auto}
+header{border-top:2px solid #33493d;padding-top:13px}.context{font-size:.88rem;font-weight:800;letter-spacing:.045em;color:#58695b;margin:0 0 22px}
+h1{font:clamp(2.6rem,6.5vw,5.6rem)/.99 Young,Georgia,serif;letter-spacing:-.055em;margin:0}header p:last-child{font-size:clamp(1rem,1.7vw,1.2rem);margin:14px 0 23px}
+figure{margin:0}video{width:100%;height:auto;display:block;border:1px solid #b4baaa;border-radius:12px;background:#e4e5d6}
+.controls,.transport,.speeds,.beats{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.controls{justify-content:space-between;margin:13px 0 0}
+button,select{font:inherit;font-weight:750;background:#f8f6ed;color:inherit;border:1px solid #adb5a3;border-radius:100px;padding:7px 13px;cursor:pointer}
+button:hover,select:hover{background:#e4e7d9}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #ab593c;outline-offset:3px}
+#play{background:#324c3f;color:white;min-width:80px}output{font-variant-numeric:tabular-nums;font-size:.89rem}.seek{width:100%;margin:16px 0 9px;accent-color:#546c56}
+label{font-size:.9rem}.beats{border-top:1px solid #c8cbbc;margin-top:5px;padding-top:14px}.beats span{font-size:.93rem;font-weight:800;margin-right:5px}
+.beats button{font-size:.86rem}footer{margin-top:22px;color:#657269;font-size:.85rem}a{color:inherit} [hidden]{display:none!important}
+@media(max-width:520px){main{padding:24px 13px}.controls{gap:14px}.context{margin-bottom:15px}.transport,.speeds,.beats{gap:6px}button,select{padding:6px 9px}}
+</style>
+</head>
+<body><main>
+<header><p class="context">The Word Woods · Level 2 celebration</p><h1>Ember Orca</h1><p>One breach, seen from the game camera and the opposite flank.</p></header>
+<figure>
+<video id="shot" width="1316" height="480" preload="auto" controls playsinline muted poster="crest.jpg" aria-label="Level 2 Ember Orca breach from two synchronized cameras"><source src="ember-orca-level-2.mp4" type="video/mp4">Open the <a href="ember-orca-level-2.mp4">two-camera video</a>.</video>
+<div id="tools" hidden>
+<div class="controls"><div class="transport">
+<button id="play" type="button">Play</button>
+<button id="prev" type="button" aria-label="Previous frame">−1 frame</button>
+<button id="next" type="button" aria-label="Next frame">+1 frame</button>
+<output id="clock" aria-label="Current frame"></output>
+</div><div class="speeds"><label for="speed">Speed</label>
+<select id="speed"><option value="1">1×</option><option value=".5">½×</option><option value=".25">¼×</option></select>
+<label><input type="checkbox" id="loop"> Loop</label></div></div>
+<input class="seek" type="range" min="1" max="72" value="27" step="1" id="frame" aria-label="Scrub both camera angles">
+<div class="beats"><span>Jump to</span><button data-frame="13">Launch</button><button data-frame="31">Crest</button><button data-frame="39">Roll</button><button data-frame="45">Contact</button></div>
+</div></figure>
+<footer><a href="ember-orca-level-2.blend">Blender scene</a> · <a href="ember-orca-level-2.mp4">Open video</a></footer>
+</main><script>
+const video=document.querySelector('video'), control=id=>document.getElementById(id);
+const play=control('play'), slider=control('frame'), clock=control('clock');
+const fps=30, last=72;
+let raf,poster=true;
+function frameNow(){return poster?27:Math.min(last,Math.floor(video.currentTime*fps+.0001)+1)}
+function draw(){const f=frameNow();slider.value=f;clock.value='Frame '+f+' / '+last;play.textContent=video.paused?'Play':'Pause'}
+function tick(){draw();if(!video.paused)raf=requestAnimationFrame(tick)}
+function seek(f){
+    video.pause();poster=false;
+    const n=Math.max(1,Math.min(last,f));
+    video.currentTime=(n-.75)/fps;
+    slider.value=n;clock.value='Frame '+n+' / '+last;
+}
+play.onclick=()=>{
+    if(!video.paused){video.pause();return}
+    if(poster||video.ended||frameNow()===last)video.currentTime=0;
+    poster=false;video.play().catch(()=>{video.controls=true;draw()});
+};
+control('prev').onclick=()=>seek(frameNow()-1);control('next').onclick=()=>seek(frameNow()+1);
+slider.oninput=()=>seek(Number(slider.value));
+control('speed').onchange=e=>video.playbackRate=Number(e.target.value);
+control('loop').onchange=e=>video.loop=e.target.checked;
+document.querySelectorAll('[data-frame]').forEach(b=>b.onclick=()=>seek(Number(b.dataset.frame)));
+video.onplay=()=>{cancelAnimationFrame(raf);tick()};video.onpause=()=>{cancelAnimationFrame(raf);draw()};
+video.onseeked=draw;video.onended=draw;
+document.addEventListener('keydown',e=>{
+    if(e.target.matches('input,select,button,a'))return;
+    if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();seek(frameNow()+(e.key==='ArrowRight'?1:-1))}
+});
+video.onloadedmetadata=()=>{video.controls=false;control('tools').hidden=false;draw()};
+if(video.readyState>=1)video.onloadedmetadata();
+</script></body></html>

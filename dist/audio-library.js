@@ -18,6 +18,11 @@ const promptNames = {
   'sound-write':'Say the sound', 'blend-word':'Slide under the letters',
   'memory-start':'Turn the card', 'round-done':'Round complete'
 };
+export const SOUND_SPEEDS = { natural: 1, slower: 0.8 };
+const fullHuman = {
+  b: { id: 'full-b', path: '/assets/audio/studio/b-full.mp3' },
+  d: { id: 'full-d', path: '/assets/audio/studio/d-full.mp3' }
+};
 
 function clip(group, key, label, text, path, extra = {}) {
   return { id: group + '-' + key, group, label, text, path: path.replace(/^\.\//, '/'), ...extra };
@@ -27,7 +32,7 @@ export const CLIPS = [
   ...[...ALPHABET].map((letter, i) => {
     const [ipa, example] = sounds[i];
     return clip('letter', letter, letter === 'q' ? 'qu' : letter, '/' + ipa + '/',
-      '/assets/audio/letters/' + letter + '.mp3', { example });
+      '/assets/audio/letters/' + letter + '.mp3', { example, fullTake: fullHuman[letter] });
   }),
   ...WORDS.map(w => clip('blend', w, w, w, '/assets/audio/blends/' + w + '.mp3')),
   ...WORDS.map(w => clip('word', w, w, w, voiceFiles['word-' + w])),
@@ -36,5 +41,3 @@ export const CLIPS = [
   ...WORDS.map(w => clip('backup', w, w, w, '/assets/audio/words/' + w + '.mp3')),
   clip('music', 'fanfare', 'Victory fanfare', '', '/assets/audio/music/fanfare.mp3')
 ];
-
-export const FULL_B = '/assets/audio/studio/b-full.mp3';

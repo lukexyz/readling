@@ -4,6 +4,8 @@ Serve `dist/` with any static web server. Progress, drawings and earned cards ar
 
 The public game plays saved recordings. Open **Grown-ups → Audio studio** or `/audio-studio.html` to search and play the library. It opens on the short and full human takes of **b**. The current game take, the audition and the example word have separate play buttons.
 
+For individual letter sounds, choose a pace and use **Generate sound preview**. The studio sends the catalogued phoneme to ElevenLabs Flash v2. Delivery notes are available for narration. A generated letter preview longer than 1.5 seconds is set aside and repeating that request uses the cached result. Both **b** and **d** also have a full human take ready to audition.
+
 The studio uses the same public Site. Sign in with the owner's ChatGPT account to give ElevenLabs a delivery direction or upload audio. **Generate preview** creates a cached draft with the configured voice. **Use in game** switches the public recording. For a slow blend, set the two letter-change times in seconds before using the take. **Compare bundled original** can restore the shipped sound. Public game playback and preview replays read audio files.
 
 The Sites Worker reads the runtime secrets `AUDIO_OWNER_EMAIL` and `ELEVENLABS_API_KEY`. The former is the email of the owner reported by Sites. Owner checks use the identity supplied by Sites on each editing request. R2 holds drafts, the active recording for each clip and blend timings. The original library stays in source. The Worker serves the existing URLs, including byte ranges for tablet players. The studio levels uploaded and generated audio before auditioning it. Run `npm run build` to build the Worker from `worker/audio.js` and `dist/`.

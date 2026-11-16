@@ -2,12 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createAudioSite, prepareWav } from '../worker/audio.js';
-import { CLIPS, FULL_B } from '../dist/audio-library.js';
+import { CLIPS } from '../dist/audio-library.js';
 
 const origin = 'https://studio.example', owner = { 'oai-authenticated-user-id': 'test-user', 'oai-authenticated-user-email': 'editor@example.test' };
 const src = new URL('../dist/', import.meta.url);
 const original = Buffer.from(await readFile(new URL('assets/audio/letters/b.mp3', src)));
-const full = Buffer.from(await readFile(new URL(FULL_B.slice(1), src)));
+const fullClips = CLIPS.filter(c => c.fullTake);
+const fullAssets = {};
+for (const c of fullClips) fullAssets[c.fullTake.path] = await readFile(new URL(c.fullTake.path.slice(1), src));
+const full = fullAssets[CLIPS.find(c => c.id === 'letter-b').fullTake.path];
 const draftSamples = Buffer.alloc(12000);
 for (let i = 0; i < draftSamples.length / 2; i++) draftSamples.writeInt16LE(Math.round(4200 * Math.sin(i * .12)), i * 2);
 const wave = prepareWav(draftSamples, 24000, 1).bytes;
@@ -30,8 +33,9 @@ class Bucket {
 function fixture(speak) {
   const bucket = new Bucket(), env = { BUCKET: bucket, AUDIO_OWNER_EMAIL: owner['oai-authenticated-user-email'], ELEVENLABS_API_KEY: 'test' };
   const audio = bytes => ({ bytes: bytes.toString('base64'), type: 'audio/mpeg', tag: 'test-asset' });
-  const app = createAudioSite({ assets: { '/assets/audio/letters/b.mp3': audio(original), [FULL_B]: audio(full) },
-    clips: CLIPS, voice: 'test-voice', fullB: FULL_B, cues: { bug: [.32, .77] } }, speak || (() => assert.fail('Unexpected paid request')));
+  const assets = Object.fromEntries(Object.entries(fullAssets).map(([path, bytes]) => [path, audio(bytes)]));
+  assets['/assets/audio/letters/b.mp3'] = audio(original);
+  const app = createAudioSite({ assets, clips: CLIPS, voice: 'test-voice', cues: { bug: [.32, .77] } }, speak || (() => assert.fail('Unexpected paid request')));
   const request = (path, method = 'GET', bytes, headers = {}) => app.fetch(new Request(origin + path, { method,
     headers, body: bytes }), env);
   const mutate = (id, action, body, identity = owner, referer = origin) => request('/api/studio/clip/' + id + '/' + action, 'POST',
@@ -76,18 +80,54 @@ test('audition, publish, stale tabs and restore all use the same public game URL
   assert.equal((await mutate('letter-b', 'publish', { base: published.live.version, take: 'original' })).status, 200);
   assert.deepEqual(Buffer.from(await (await request(url)).arrayBuffer()), original);
 });
-test('repeat directions reuse the take and two simultaneous submissions buy at most one generation', async () => {
+test('a letter sends only the phoneme, and old instructions cannot trigger another charge', async () => {
   let calls = 0;
   const { mutate } = fixture(async (url, options) => {
     calls++; assert.match(url, /test-voice\?output_format=pcm_24000$/);
-    assert.equal(JSON.parse(options.body).text, '[warm and clear] /b/');
+    const input = JSON.parse(options.body);
+    assert.equal(input.text, '<phoneme alphabet="ipa" ph="d">d</phoneme>');
+    assert.equal(input.model_id, 'eleven_flash_v2'); assert.equal(input.voice_settings.speed, 1);
     await new Promise(resolve => setTimeout(resolve, 15)); return new Response(draftSamples);
   });
-  const body = { direction: 'warm and clear' };
-  const pair = await Promise.all([mutate('letter-b', 'generate', body), mutate('letter-b', 'generate', body)]);
+  const old = { direction: '"d" (Clear, gentle phonics sound. Do not include this text.)' };
+  const pair = await Promise.all([mutate('letter-d', 'generate', old), mutate('letter-d', 'generate', { pace: 'natural' })]);
   assert.deepEqual(pair.map(r => r.status).sort(), [200, 409]);
-  assert.equal((await mutate('letter-b', 'generate', body)).status, 200);
+  assert.equal((await mutate('letter-d', 'generate', {direction:'a different sentence'})).status, 200);
   assert.equal(calls, 1);
+});
+test('the phoneme comes from the shelf for every spelling and slower pace changes only synthesis settings', async () => {
+  let input;
+  const { mutate } = fixture(async (_url, options) => { input = JSON.parse(options.body); return new Response(draftSamples); });
+  for (const c of CLIPS.filter(c => c.group === 'letter')) {
+    assert.equal((await mutate(c.id, 'generate', { pace: 'slower', text: 'wrong', direction: 'wrong' })).status, 200);
+    assert.equal(input.text, '<phoneme alphabet="ipa" ph="' + c.text.slice(1,-1) + '">' + c.label + '</phoneme>');
+    assert.equal(input.voice_settings.speed, 0.8);
+  }
+  assert.equal((await mutate('letter-d','generate',{pace:'unknown'})).status,400);
+});
+test('overlong generated sounds are rejected once; older long drafts cannot replace a game sound', async () => {
+  let calls = 0;
+  const { mutate, request, bucket } = fixture(async () => { calls++; return new Response(Buffer.alloc(9 * 24000 * 2, 65)); });
+  for (let i = 0; i < 2; i++) assert.equal((await mutate('letter-d','generate',{ pace:'natural' })).status,422);
+  assert.equal(calls, 1); assert.equal(await bucket.get('pending/letter-d'), null);
+  const previous = 'e'.repeat(64);
+  await bucket.put('takes/letter-d/' + previous, wave, { customMetadata:{ source:'ElevenLabs', duration:'9.02', direction:'old' } });
+  await bucket.put('pending/letter-d', previous);
+  const status = await (await request('/api/studio/clip/letter-d','GET',undefined,owner)).json();
+  assert.equal(status.draft, null); assert.match(status.draftNotice, /too long/);
+  assert.equal((await mutate('letter-d','publish',{ take:previous, base:'original' })).status,422);
+  assert.equal((await mutate('letter-d','publish',{ take:'full-b', base:'original' })).status,400);
+  assert.equal((await mutate('letter-d','publish',{ take:'full-d', base:'original' })).status,200);
+  const played = await (await request('/assets/audio/letters/d.mp3')).arrayBuffer();
+  assert.deepEqual(Buffer.from(played), fullAssets[CLIPS.find(c => c.id === 'letter-d').fullTake.path]);
+});
+test('story narration keeps voice directions and its own duration limits', async () => {
+  const { mutate } = fixture(async (_url, options) => {
+    const input = JSON.parse(options.body); assert.equal(input.model_id, 'eleven_v3');
+    assert.match(input.text, /^\[warm and curious\] A little cat/);
+    return new Response(Buffer.alloc(2 * 24000 * 2, 40));
+  });
+  assert.equal((await mutate('tale-cat','generate',{direction:'warm and curious'})).status,200);
 });
 test('an upload cannot change another clip and a slow blend must carry its own letter timings', async () => {
   const { mutate, request } = fixture();

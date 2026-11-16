@@ -1,4 +1,4 @@
-import { CLIPS, GROUPS, FULL_B } from './audio-library.js';
+import { CLIPS, GROUPS } from './audio-library.js';
 
 const $ = id => document.getElementById(id);
 const byId = new Map(CLIPS.map(c => [c.id, c]));
@@ -15,7 +15,6 @@ const currentURL = () => state.clip.path + '?v=' + encodeURIComponent(state.live
 const sourceName = () => state.live.take && state.live.take !== 'original' ? state.live.source :
   isFile(state.clip) ? 'Human recording' : state.clip.group === 'music' ? 'Original music' : 'ElevenLabs narration';
 const defaults = {
-  letter: 'Clear, gentle phonics sound. Give the release room to be heard.',
   blend: 'Slow and connected, with the sounds flowing into one another.',
   word: 'Warm and clear, like reading to one child.',
   backup: 'Warm and clear, like reading to one child.',
@@ -137,19 +136,21 @@ function play(mode) {
 }
 function renderControls() {
   const { clip, preview, session, busy, saved } = state;
-  const editor = Boolean(session.owner), music = clip.group === 'music';
+  const editor = Boolean(session.owner), music = clip.group === 'music', letter = clip.group === 'letter';
   visible('play-take', Boolean(preview)); visible('comparison', Boolean(preview));
   visible('use', editor && Boolean(preview) && preview.id !== state.live.take);
   $('use').disabled = busy; $('generate').disabled = busy || !editor || !session.connected;
-  $('direction').disabled = busy || !editor; $('upload').disabled = busy || !editor;
-  visible('generate', !music); visible('speech-form', !music); visible('credit-note', !music);
+  $('direction').disabled = busy || !editor; $('pace').disabled = busy || !editor; $('upload').disabled = busy || !editor;
+  visible('generate', !music); visible('speech-form', !music && !letter); visible('letter-form', letter); visible('credit-note', !music);
+  text('generate', letter ? 'Generate sound preview' : 'Generate preview');
+  if (letter) text('letter-hint', 'Only the ' + clip.text + ' sound goes to ElevenLabs. Compare it with the human recording before using it.');
   visible('sign-in', !editor && !session.signedIn && session.loaded);
   $('sign-in').href = '/signin-with-chatgpt?return_to=' + encodeURIComponent('/audio-studio.html#' + clip.id);
   const hint = !session.loaded ? 'Checking editor access…' : editor
     ? (session.connected ? 'Owner access · ElevenLabs voice connected' : 'Owner access · Upload a recording to make a take.')
     : session.signedIn ? 'This account can listen. The Word Woods owner can edit.' : 'Sign in as the Word Woods owner to generate, upload and use a take.';
   text('access', hint);
-  visible('full-b', clip.id === 'letter-b' && preview?.id !== 'full-b' && state.live.take !== 'full-b');
+  visible('full-human', Boolean(clip.fullTake && preview?.id !== clip.fullTake.id && state.live.take !== clip.fullTake.id));
   visible('original', Boolean(state.live.take && state.live.take !== 'original' && preview?.id !== 'original'));
   visible('latest', Boolean(editor && saved && preview?.id !== saved.take && saved.take !== state.live.take));
   visible('cue-box', Boolean(editor && preview && clip.group === 'blend' && preview.id !== 'original'));
@@ -164,8 +165,8 @@ function choosePreview(take) {
   }
   renderControls();
 }
-const fullTake = () => ({ id: 'full-b', name: 'Full human take', url: FULL_B,
-  note: 'The same speaker, with the complete release from the original recording.' });
+const fullTake = c => ({ id: c.fullTake.id, name: 'Full human take', url: c.fullTake.path,
+  note: 'The same speaker, with the complete release of ' + c.text + ' from the original recording.' });
 function savedTake(c, saved) {
   return { id: saved.take, name: saved.source + ' preview', note: saved.direction || 'Compare this recording with the one in the game.',
     duration: Number(saved.duration), url: urlFor(c, 'draft/' + saved.take) };
@@ -182,9 +183,10 @@ async function selectClip(c) {
   text('clip-group', GROUPS[c.group]); text('clip-title', c.label); text('glyph', c.group === 'letter' ? c.text : c.group === 'music' ? '♫' : '♪');
   updateCaption(); message('');
   $('direction').value = defaults[c.group] || '';
+  $('pace').value = 'natural';
   const example = c.group === 'letter' && byId.has('word-' + c.example);
   visible('play-example', example); if (example) text('play-example', 'Hear “' + c.example + '”');
-  search(); choosePreview(c.id === 'letter-b' ? fullTake() : null);
+  search(); choosePreview(c.fullTake ? fullTake(c) : null);
   showTrack(currentURL(), sourceName(), 'game');
   try {
     const details = await api(urlFor(c));
@@ -192,6 +194,7 @@ async function selectClip(c) {
     state.live = details.live; state.saved = details.draft;
     if (details.draft && details.draft.take !== details.live.take) choosePreview(savedTake(c, details.draft));
     else if (state.preview?.id === details.live.take) choosePreview(null);
+    if (details.draftNotice) message(details.draftNotice);
     updateCaption(); renderControls();
     if (player.paused && playerMode === 'game') showTrack(currentURL(), sourceName(), 'game');
   } catch (e) { if (ticket === selected) message(e.message); }
@@ -226,6 +229,7 @@ async function edit(action) {
   const c = state.clip, ticket = selected;
   if (state.busy || !state.session.owner) return;
   const direction = $('direction').value.trim(), file = $('upload').files[0], preview = state.preview, base = state.live.version;
+  const pace = $('pace').value;
   state.busy = true; renderControls();
   try {
     if (action === 'publish') {
@@ -238,14 +242,15 @@ async function edit(action) {
       message('Saved. The game now plays this recording.');
     } else {
       message(action === 'generate' ? 'Preparing your ElevenLabs preview…' : 'Preparing your recording…');
-      const options = action === 'generate' ? jsonPost({ direction }) : { method: 'POST',
+      const options = action === 'generate' ? jsonPost(c.group === 'letter' ? { pace } : { direction }) : { method: 'POST',
         headers: { 'Content-Type': 'audio/wav' }, body: await encodeUpload(file, c.group === 'music') };
       const made = await api(urlFor(c, action), options);
       if (ticket !== selected) return;
       const draftURL = urlFor(c, 'draft/' + made.take), data = await analyse(draftURL);
       if (ticket !== selected) return;
+      const description = c.group === 'letter' ? c.text + ' · ' + (pace === 'slower' ? 'Slower' : 'Natural') + ' pace' : direction;
       const saved = { take: made.take, source: action === 'generate' ? 'ElevenLabs' : 'Uploaded recording',
-        direction: action === 'generate' ? direction : '', duration: data.duration };
+        direction: action === 'generate' ? description : '', duration: data.duration };
       state.saved = saved; choosePreview(savedTake(c, saved));
       message('Preview ready. Listen to both takes before choosing one.');
     }
@@ -257,7 +262,7 @@ async function edit(action) {
 for (const [key, label] of Object.entries(GROUPS)) $('group').add(new Option(label, key));
 $('group').onchange = search; $('query').oninput = search;
 $('play-game').onclick = () => play('game'); $('play-take').onclick = () => play('preview'); $('play-example').onclick = () => play('example');
-$('full-b').onclick = () => choosePreview(fullTake());
+$('full-human').onclick = () => choosePreview(fullTake(state.clip));
 $('original').onclick = () => choosePreview({ id: 'original', name: 'Bundled original', url: urlFor(state.clip, 'original'), note: 'The recording that shipped with the game.' });
 $('latest').onclick = () => choosePreview(savedTake(state.clip, state.saved));
 $('generate').onclick = () => edit('generate'); $('use').onclick = () => edit('publish');

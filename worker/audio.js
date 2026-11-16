@@ -1,7 +1,9 @@
 import { Mp3Encoder } from '@breezystack/lamejs';
+import { SOUND_SPEEDS } from '../dist/audio-library.js';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MAX_SECONDS = 40;
+const MAX_GENERATED_SOUND_SECONDS = 1.5;
 const DIGEST = /^[a-f0-9]{64}$/;
 const NO_STORE = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 
@@ -151,18 +153,41 @@ async function remember(bucket, clip, id) {
   return { take: id };
 }
 
-async function generate(env, clip, body, voice, speak) {
-  if (clip.group === 'music') throw new StudioError(400, 'Upload a recording for the fanfare.');
+function speechRequest(clip, body) {
+  if (clip.group === 'letter') {
+    const pace = body?.pace ?? 'natural';
+    if (!Object.hasOwn(SOUND_SPEEDS, pace)) throw new StudioError(400, 'Choose a pace from the studio.');
+    const ipa = clip.text.slice(1, -1);
+    return { input: { text: '<phoneme alphabet="ipa" ph="' + ipa + '">' + clip.label + '</phoneme>',
+      model_id: 'eleven_flash_v2', language_code: 'en',
+      voice_settings: { stability: 0.65, similarity_boost: 0.8, speed: SOUND_SPEEDS[pace] } },
+      direction: clip.text + ' · ' + (pace === 'slower' ? 'Slower' : 'Natural') + ' pace' };
+  }
   const note = body?.direction;
   if (typeof note !== 'string' || note.length > 200 || /[\[\]\r\n]/.test(note)) {
     throw new StudioError(400, 'Use up to 200 characters of delivery direction on one line.');
   }
   const direction = note.trim();
-  const input = { text: (direction ? '[' + direction + '] ' : '') + clip.text,
-    model_id: 'eleven_v3', language_code: 'en', voice_settings: { stability: 0.5, similarity_boost: 0.8 } };
+  return { input: { text: (direction ? '[' + direction + '] ' : '') + clip.text,
+    model_id: 'eleven_v3', language_code: 'en', voice_settings: { stability: 0.5, similarity_boost: 0.8 } }, direction };
+}
+
+function unsuitableLetter(clip, m) {
+  return clip.group === 'letter' && m.source === 'ElevenLabs' &&
+    !(Number(m.duration) > 0 && Number(m.duration) <= MAX_GENERATED_SOUND_SECONDS);
+}
+function lengthMessage(clip) {
+  return 'This preview is too long for a single ' + clip.text + ' sound. Try the human recording or upload a take.';
+}
+async function generate(env, clip, body, voice, speak) {
+  if (clip.group === 'music') throw new StudioError(400, 'Upload a recording for the fanfare.');
+  const { input, direction } = speechRequest(clip, body);
   const take = await fingerprint(new TextEncoder().encode(JSON.stringify([voice, input, 'pcm_24000', 'mp3-mix1'])));
   const bucket = env.BUCKET, key = draftKey(clip, take);
   if (await bucket.head(key)) return remember(bucket, clip, take);
+  // Keep a failed length check so repeating the same request cannot buy it again.
+  const rejectedKey = 'unsuitable/' + clip.id + '/' + take;
+  if (clip.group === 'letter' && await bucket.head(rejectedKey)) throw new StudioError(422, lengthMessage(clip));
   if (!env.ELEVENLABS_API_KEY) throw new StudioError(503, 'The site owner needs to connect ElevenLabs.');
   const lockKey = 'generating/' + clip.id + '/' + take;
   const prior = await bucket.head(lockKey);
@@ -172,6 +197,7 @@ async function generate(env, clip, body, voice, speak) {
   if (!lock) throw busy();
   try {
     if (await bucket.head(key)) return await remember(bucket, clip, take);
+    if (clip.group === 'letter' && await bucket.head(rejectedKey)) throw new StudioError(422, lengthMessage(clip));
     const response = await speak('https://api.elevenlabs.io/v1/text-to-speech/' + voice + '?output_format=pcm_24000',
       { method: 'POST', headers: { 'xi-api-key': env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify(input), signal: AbortSignal.timeout(45000) });
@@ -180,7 +206,12 @@ async function generate(env, clip, body, voice, speak) {
       const detail = typeof reason === 'string' && /^[a-z_]{1,60}$/.test(reason) ? ' (' + reason + ')' : '';
       throw new StudioError(502, 'ElevenLabs returned ' + response.status + detail + '. You can still upload a recording.');
     }
-    const mix = prepareWav(await readLimited(response.body, MAX_BYTES), 24000, 1);
+    const pcm = await readLimited(response.body, MAX_BYTES);
+    if (clip.group === 'letter' && pcm.length / (24000 * 2) > MAX_GENERATED_SOUND_SECONDS) {
+      await bucket.put(rejectedKey, 'too long');
+      throw new StudioError(422, lengthMessage(clip));
+    }
+    const mix = prepareWav(pcm, 24000, 1);
     const { bytes, duration } = encodeMixed(mix, 24000, 1);
     await bucket.put(key, bytes, { httpMetadata: { contentType: 'audio/mpeg' }, customMetadata:
       { source: 'ElevenLabs', duration: String(duration), direction } });
@@ -188,7 +219,7 @@ async function generate(env, clip, body, voice, speak) {
   } finally { await bucket.delete(lockKey); }
 }
 
-export function createAudioSite({ assets, clips, voice, fullB, cues }, speak = fetch) {
+export function createAudioSite({ assets, clips, voice, cues }, speak = fetch) {
   const byId = new Map(clips.map(c => [c.id, c]));
   const byPath = new Map(clips.map(c => [c.path, c]));
   function bundled(request, path) {
@@ -212,15 +243,16 @@ export function createAudioSite({ assets, clips, voice, fullB, cues }, speak = f
       if (!bucket) throw new StudioError(503, 'Audio storage is unavailable.');
       if (!action && read) {
         const live = clipState(await bucket.head(liveKey(clip)));
-        let draft = null;
+        let draft = null, draftNotice = '';
         if (isOwner(request, env)) {
           const pending = await bucket.get(pendingKey(clip));
           if (pending) {
             const id = await pending.text(), saved = await bucket.head(draftKey(clip, id));
-            if (saved) draft = { take: id, ...metadata(saved) };
+            if (saved && unsuitableLetter(clip, metadata(saved))) draftNotice = 'The previous preview was too long for ' + clip.text + '.';
+            else if (saved) draft = { take: id, ...metadata(saved) };
           }
         }
-        return json({ live, draft });
+        return json({ live, draft, draftNotice });
       }
       requireOwner(request, env);
       if (action === 'draft' && read && DIGEST.test(take)) {
@@ -246,11 +278,12 @@ export function createAudioSite({ assets, clips, voice, fullB, cues }, speak = f
         if (body?.base !== clipState(current).version) throw new StudioError(409, 'This clip changed in another tab. Reload to compare the current take.');
         const id = body.take;
         let audio = new Uint8Array(0), source = 'Bundled recording', type = 'audio/mpeg', duration = 0;
-        if (id === 'full-b' && clip.id === 'letter-b') {
-          audio = decodeAsset(assets[fullB]); source = 'Full human take';
+        if (clip.fullTake && id === clip.fullTake.id) {
+          audio = decodeAsset(assets[clip.fullTake.path]); source = 'Full human take';
         } else if (typeof id === 'string' && DIGEST.test(id)) {
           const file = await bucket.get(draftKey(clip, id));
           if (!file) throw new StudioError(404, 'The preview for this clip is unavailable.');
+          if (unsuitableLetter(clip, metadata(file))) throw new StudioError(422, lengthMessage(clip));
           audio = new Uint8Array(await file.arrayBuffer()); type = file.httpMetadata.contentType;
           source = metadata(file).source; duration = Number(metadata(file).duration);
         } else if (id !== 'original') throw new StudioError(400, 'Choose a take for this clip.');

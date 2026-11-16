@@ -61,6 +61,10 @@
 .editor { margin-top:19px; padding-top:16px; border-top:1px solid var(--rule); }
 #access { margin:5px 0 10px; } #sign-in { margin-bottom:12px; }
 .editor textarea { display:block; width:100%; margin:5px 0 10px; resize:vertical; }
+#letter-form { margin:7px 0 12px; }
+#letter-form label { display:block; font-size:.85rem; font-weight:800; }
+#pace { margin-top:4px; padding:7px 34px 7px 10px; min-height:42px; font:inherit; color:var(--ink); background:#fffdf7; border:1px solid #aeb4a4; border-radius:8px; }
+#letter-form .fine { margin-top:5px; }
 .fine { margin-top:9px; font-size:.8rem; }
 #file-label { position:relative; overflow:hidden; }
 #file-label input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }

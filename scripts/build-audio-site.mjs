@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
-import { CLIPS, FULL_B } from '../dist/audio-library.js';
+import { CLIPS } from '../dist/audio-library.js';
 import { VOICE_ID } from '../dist/voice-lines.js';
 
 // The small existing game is embedded in the Sites Worker. The public asset
@@ -28,11 +28,13 @@ async function readAssets(directory = '') {
   }
 }
 await readAssets();
-for (const path of [...CLIPS.map(c => c.path), FULL_B]) {
-  if (!assets[path]) throw new Error('Missing studio audio: ' + path);
+for (const clip of CLIPS) {
+  for (const path of [clip.path, clip.fullTake?.path].filter(Boolean)) {
+    if (!assets[path]) throw new Error('Missing studio audio: ' + path);
+  }
 }
 const code = await readFile(new URL('../worker/audio.js', import.meta.url), 'utf8');
-const config = { assets, clips: CLIPS, voice: VOICE_ID, fullB: FULL_B,
+const config = { assets, clips: CLIPS, voice: VOICE_ID,
   cues: JSON.parse(await readFile(new URL('assets/audio/blends/cues.json', root), 'utf8')) };
 const server = new URL('server/', root);
 await mkdir(server, { recursive: true });

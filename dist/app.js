@@ -214,7 +214,12 @@ function drawHeader() {
   </div>`;
 }
 function drawShelf() {
-  $('#shelf').innerHTML=`<section class="wrap shelf ${shelfOpen?'open':''}" aria-label="Talking alphabet">
+  const shelf=$('#shelf');
+  const reading=view==='learn' || (view==='round' && round.i<round.words.length && !round.solved)
+    || (view==='swap' && !swap?.solved);
+  shelf.hidden=!reading;
+  if(!reading) {shelf.replaceChildren();return;}
+  shelf.innerHTML=`<section class="wrap shelf ${shelfOpen?'open':''}" aria-label="Talking alphabet">
     <button class="shelf-toggle" data-act="shelf" aria-expanded="${shelfOpen}" aria-controls="letter-rack">${icon('sound',19)}
     <span>Sound shelf</span>${icon('down',14)}</button>
     <div id="letter-rack" class="letter-rack" ${shelfOpen?'':'hidden'}>${[...ALPHABET].map(c=>`<button class="key ${audioTarget==='letters:'+c?'sounding':''}" data-letter="${c}" aria-label="Hear ${c==='q'?'qu as in quit':c==='x'?'x as in box':c+' sound'}">${c==='q'?'q<small>u</small>':c}</button>`).join('')}</div>
@@ -285,8 +290,10 @@ function lessonPage() {
       ${wordPrint(l.word,l.i,{cls:'copy-word'})}
     <div class="task-label"><div class="instruction-title"><span class="step-token">2</span><h2>Write <span class="inline-letter">${c}</span></h2></div>
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
-    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?`<div class="rest-pad" aria-hidden="true"><svg viewBox="0 0 180 138"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg></div>`:
-      `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" aria-label="Write a lowercase ${c} here with your stylus or finger">
+    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?`<div class="rest-pad">
+        <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg>
+        ${j===l.i+1?action('Next sound','next-sound'):''}</div>`:
+      `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">
         <path class="midline" d="M0 48H180"/><path class="baseline" d="M0 95H180"/>
         <g transform="translate(42 0)" class="guide-lines">${paths.map(d=>`<path d="${d}"/>`).join('')}</g>
         <g transform="translate(42 0)" class="stroke-demo" aria-hidden="true">${paths.map((d,i)=>`<path pathLength="1" style="--delay:${i*.75}s" d="${d}"/>`).join('')}</g>
@@ -295,7 +302,7 @@ function lessonPage() {
       </svg></div>`).join('')}
     </div></div>
     <div class="activity-bottom"><span class="progress-dots" aria-label="Sound ${l.i+1} of ${total}">${[...l.word].map((_,i)=>`<i class="${i<=l.i?'filled':''}"></i>`).join('')}</span>
-    ${action(l.i===total-1?'Blend my word':'Next sound','next-sound')}</div></section>`;
+    ${l.i===total-1?action('Blend my word','next-sound'):''}</div></section>`;
 }
 function foundPage(word) {
   const fresh=lastFound?.word===word && lastFound.fresh;
@@ -612,9 +619,9 @@ function dispatch(act,el) {
     case 'next-sound': {
       stopSound();const l=profile.lesson;
       if(!l || l.i>=l.word.length) break;
-      l.i++;save();render();main.focus({preventScroll:true});
+      l.i++;save();render();
       if(l.i===l.word.length) {afterNavigate();narrate('blend-word');}
-      else {announce(`Sound ${l.i+1}. Say the sound, then write.`);}
+      else {$('#inkpad').focus({preventScroll:true});announce(`Sound ${l.i+1}. Say the sound, then write.`);}
       break;
     }
     case 'blend-help':guideBlend();break;
@@ -632,7 +639,7 @@ function dispatch(act,el) {
       const id=el.dataset.pick;
       if(!addToShow(profile,id)) break;
       save();encores++;
-      const theatre=$('.rainbow-theatre'), panel=$('#show-add');
+      const theatre=$('.meadow-scenery'), panel=$('#show-add');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
       if(panel) panel.outerHTML=showPanel();
       announce(SHOW.find(s=>s.id===id).name+' added to your show.');
@@ -757,7 +764,7 @@ function celebrate({word='',stars=0,held=false,tier=0,alone='',all=false,spell=t
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   prepareShow(finds);
-  const show=launchFinale(stage,{picks,finds,word,ink:profile.cards[word]?.ink,stars,tier,alone,all,spell,turn:profile.show.tasks+encores,
+  const show=launchFinale(stage,{picks,finds,word,stars,tier,alone,all,spell,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',word[i]),
     onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
     onStar:()=>{if(starsHeld){starsHeld--;drawStars();}},
@@ -769,7 +776,7 @@ function celebrate({word='',stars=0,held=false,tier=0,alone='',all=false,spell=t
   previewTimer=setTimeout(startPreviews,show?Math.max(0,show.total*1000-500):0);
   return show;
 }
-// A grown-up's preview plays on the page of her latest find, so the hush, her letters and her picture are all in it.
+// A grown-up's preview plays on the page of her latest find, so her letter sounds and her picture are all in it.
 // `then` runs when the show has played to its end.
 function previewShow(options,then) {
   const latest=Object.keys(profile.cards).sort((a,b)=>profile.cards[b].found-profile.cards[a].found)[0] || '';
@@ -780,7 +787,7 @@ function previewShow(options,then) {
     if(word && view!=='found'){lastFound=null;lastRevealRoute='found/'+word;go('found/'+word);}
     encores++;
     // The stage on the page shows the rainbows of the show being tried, and goes back to hers afterwards.
-    const dress=picks=>{const theatre=$('.rainbow-theatre');if(theatre) theatre.outerHTML=finaleScenery(picks);};
+    const dress=picks=>{const theatre=$('.meadow-scenery');if(theatre) theatre.outerHTML=finaleScenery(picks);};
     // A show that is still playing is stopped first, so that its ending does not undo the new stage.
     cancelFinale();
     if(options.picks) dress(options.picks);
@@ -799,13 +806,13 @@ function showTimes(picks,options={}) {
 function trialStats() {
   const picks=[...trial], tier=trialRosette?2:0, plan=showTimes(picks,{all:true,tier}), secs=n=>(Math.round(n*10)/10).toFixed(1);
   const turns=Array.from({length:12},(_,turn)=>showTimes(picks,{turn,tier}).total), low=Math.min(...turns), high=Math.max(...turns);
-  const base={hush:'The hush',letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'The rosette'};
+  const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'The rosette'};
   const rows=plan.acts.map(([id,at,len,stays])=>({name:base[id] || SHOW.find(s=>s.id===id)?.name || id,at,end:stays?plan.total:Math.min(plan.total,at+len),stays}));
   // The fanfare starts once her word has been said, a little after the picture appears.
   if(trial.has('music')) rows.push({name:'Music',at:plan.hit+.65,end:Math.min(plan.total,plan.hit+.65+3.7)});
   rows.sort((a,b)=>a.at-b.at);
   let busiest=0;
-  for(let t=0;t<plan.total;t+=.1) busiest=Math.max(busiest,plan.acts.filter(([id,at,len])=>id!=='hush' && t>=at && t<=at+len).length);
+  for(let t=0;t<plan.total;t+=.1) busiest=Math.max(busiest,plan.acts.filter(([,at,len])=>t>=at && t<=at+len).length);
   return `<div class="trial-stats"><p><strong>${secs(plan.total)} seconds</strong> for this show, with ${trial.size} of ${SHOW.length} things ticked.</p>
     <p>Her picture appears at ${secs(plan.hit)} seconds. At its busiest, ${busiest} ${busiest===1?'thing plays':'things play'} at once.</p>
     ${high-low>.05 || Math.abs(high-plan.total)>.05?`<p>In her own show the visitors and the big finishes take turns, two of each, so this would run for ${secs(low)} to ${secs(high)} seconds.</p>`:''}
@@ -846,6 +853,9 @@ dialog.addEventListener('close',()=>{if(view==='home'||view==='album'||(view==='
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden) wake();});
+main.addEventListener('error',event=>{
+  if(event.target.matches?.('.prism-stills image')) event.target.parentElement.classList.add('missing-poster');
+},true);
 window.addEventListener('online',wake);
 render();
 wake();

@@ -20,6 +20,32 @@ test('an older show keeps its earned oak when the snail retires', () => {
   assert.equal(album.show.tasks,12);
   assert(!SHOW.some(part=>part.id==='snail'));
 });
+
+test('all twelve garden studies have playable transparent sheets and a gallery still', async () => {
+  const folder=new URL('../dist/assets/flower-studies/',import.meta.url);
+  for (const family of ['poppy','sunflower','moonflower','oak']) {
+    for (const level of [1,2,3]) {
+      const stem=family+'-'+level;
+      const {frames,sheets}=JSON.parse(await readFile(new URL(stem+'.json',folder)));
+      assert(frames.length>=60 && frames.length<=96,stem);
+      for (const frame of frames) {
+        assert.equal(frame.length,7,stem);
+        const [sheet,,,w,h,x,y]=frame;
+        assert(sheets[sheet] && w>0 && h>0 && x>=0 && y>=0 && x+w<=480 && y+h<=360,stem);
+      }
+      await Promise.all(sheets.map(name=>access(new URL(name,folder))));
+      await access(new URL(stem+'-poster.'+(family==='oak'?'webp':'png'),folder));
+    }
+  }
+});
+
+test('a show with only the earned oak runs through the last acorn bounce', async () => {
+  const {planShow}=await import('../dist/finale.js');
+  const show=planShow({picks:['oak']});
+  const [,start,duration]=show.acts.find(([id])=>id==='oak');
+  assert.equal(duration,94/24);
+  assert(show.total>=start+duration);
+});
 // Adds whatever is offered, one choice at a time, always leaving the picks named in avoid.
 function build(p,avoid=[]) {
   for(let guard=0;guard<60;guard++) {

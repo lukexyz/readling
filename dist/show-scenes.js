@@ -1,4 +1,5 @@
 import {colours,gold,ink,cream,green,tau,clamp01,ease,easeIn,pop,bump,five,four,drawStar,paint,oval,flower,leafShape,band} from './show-kit.js';
+import {oakScene} from './oak.js';
 import {poppyScene} from './poppy.js';
 import {forms} from './drawings.js';
 
@@ -253,52 +254,7 @@ const SCENES={
       const meet=pop((t-2.8)/.4);
       if(meet>0) flower(ctx,e.w/2,24*u,21*u*meet,t*.6,colours[6],6);
     }},
-  // An oak grows at the side in fast forward, then shakes down acorns that bounce.
-  oak:{len:3.7,stays:true,z:1,
-    make(e) {
-      const u=e.u, segs=[], leaves=[], tall=Math.min(e.h*.6,480*u);
-      (function grow(x,y,angle,length,width,depth,birth) {
-        const x2=x+Math.cos(angle)*length, y2=y+Math.sin(angle)*length;
-        segs.push({x,y,x2,y2,width,birth});
-        if(depth>=4){leaves.push({x:x2,y:y2,r:(26+e.rand()*16)*u,birth:birth+.4,dark:e.rand()<.45,turn:e.rand()*tau});return;}
-        const kids=depth?2:3;
-        for(let k=0;k<kids;k++) grow(x2,y2,angle+(k-(kids-1)/2)*(.6+e.rand()*.22)+(e.rand()-.5)*.2,length*(.64+e.rand()*.1),width*.64,depth+1,birth+.38);
-      })(e.w*.1,e.h+4,-Math.PI/2+.07,tall*.36,22*u,0,0);
-      const acorns=Array.from({length:5},(_,i)=>{const from=leaves[Math.floor(e.rand()*leaves.length)];
-        return {x:from.x,y:from.y,vx:(e.rand()-.3)*90*u,vy:0,drop:2.5+i*.17,bounces:0,spin:e.rand()*tau};});
-      return {segs,leaves,acorns};
-    },
-    step(e,s,t,dt) {
-      const floor=e.h-9*e.u;
-      for(const a of s.acorns) {
-        if(t<a.drop || a.bounces>2) continue;
-        a.vy+=1500*e.u*dt;a.x+=a.vx*dt;a.y+=a.vy*dt;a.spin+=dt*7;
-        if(a.y>floor){a.y=floor;a.vy*=-.46;a.vx*=.7;a.bounces++;}
-      }
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx, u=e.u, shake=bump((t-2.3)/.5)*Math.sin(t*46)*3*u;
-      for(const pass of [0,1]) for(const g of s.segs) {
-        const grown=ease((t-g.birth)/.5);
-        if(grown<=0) continue;
-        ctx.beginPath();ctx.moveTo(g.x,g.y);ctx.lineTo(g.x+(g.x2-g.x)*grown,g.y+(g.y2-g.y)*grown);
-        ctx.strokeStyle=pass?'#8a6a41':ink;ctx.lineWidth=g.width+(pass?0:4.4*u);ctx.stroke();
-      }
-      for(const l of s.leaves) {
-        const grown=pop((t-l.birth)/.45);
-        if(grown<=0) continue;
-        ctx.beginPath();
-        for(let i=0;i<=36;i++){const a=i/36*tau, q=l.r*grown*(1+.13*Math.sin(a*7+l.turn));ctx.lineTo(l.x+shake+Math.cos(a)*q,l.y+Math.sin(a)*q);}
-        ctx.closePath();paint(ctx,l.dark?'#5fa873':green,2*u);
-      }
-      for(const a of s.acorns) {
-        if(t<a.drop) continue;
-        ctx.save();ctx.translate(a.x,a.y);ctx.rotate(a.bounces>2?0:a.spin);
-        oval(ctx,0,2*u,6*u,8*u,0,'#d9a760',1.6*u);
-        ctx.beginPath();ctx.ellipse(0,-3*u,7.4*u,5*u,0,Math.PI,tau);ctx.closePath();paint(ctx,'#8a6a41',1.6*u);
-        ctx.restore();
-      }
-    }},
+  oak:oakScene,
 
   // Her own finds
   // The things in her album march along the bottom. The bug and the sun fly above them.

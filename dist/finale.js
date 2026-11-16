@@ -258,6 +258,8 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     if(tier){add('rosette',t);t+=1.1;}
     if(stars) add('tally',t,.22*stars+.95);
     else end=Math.max(end,t);
+    const oak=acts.find(([id])=>id==='oak');
+    if (oak) end=Math.max(end,oak[1]+oak[2]);
   }
   return {acts,hit,total:end+.6};
 }

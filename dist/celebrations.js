@@ -48,7 +48,7 @@ function options(button) {
 }
 
 function drawPoster(button) {
-  if (button.dataset.group==='Dolphins') return;
+  if (button.classList.contains('has-poster')) return;
   if (button.clientWidth) launchFinale(null, {...options(button), freeze:posters[button.dataset.id]?.[0] ?? 1});
 }
 
@@ -120,11 +120,16 @@ for (const {id, name} of SHOW) {
   button.innerHTML = `<span class="preview-screen"><canvas width="420" height="260" aria-hidden="true"></canvas></span>
     <span class="card-footer"><span class="card-title"></span><span class="play-label" aria-hidden="true"></span></span>`;
   const dolphin=dolphinShots.find(shot=>shot.id===id);
-  if (dolphin) {
+  const orcaLevel=['whale','whale2','whale3'].indexOf(id)+1;
+  const poster=dolphin ? dolphinPoster(dolphin) : orcaLevel ? './assets/ember-orca/concept-'+orcaLevel+'-poster.webp' :
+    id==='oak' ? './assets/flower-studies/oak-3-poster.webp' : '';
+  if (poster) {
     const still=new Image();
-    still.className='dolphin-poster';
+    button.classList.add('has-poster');
+    still.className='still-poster';
+    still.loading='lazy';
     still.alt='';
-    still.src=dolphinPoster(dolphin);
+    still.src=poster;
     button.querySelector('.preview-screen').prepend(still);
   }
   button.querySelector('.card-title').textContent = name.replace(/Level (\d+)$/, 'Level\u00a0$1');

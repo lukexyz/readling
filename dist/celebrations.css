@@ -36,8 +36,8 @@
 .gallery-card[data-id="music"] .preview-screen { --sky:#79656f; --edge:#493c53; }
 .gallery-card:is([data-id^="whale"],[data-id="splash"]) .preview-screen { --sky:#497e84; --edge:#294855; }
 .gallery-card[data-group="Dolphins"] .preview-screen { --sky:#365860; --edge:#193940; }
-.dolphin-poster { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center bottom; }
-.gallery-card[data-group="Dolphins"]:not(.is-playing) canvas,.gallery-card.is-playing .dolphin-poster { visibility:hidden }
+.still-poster { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center bottom; }
+.gallery-card.has-poster:not(.is-playing) canvas,.gallery-card.is-playing .still-poster { visibility:hidden }
 .preview-screen::before {
   content:""; position:absolute; inset:auto 0 0; height:var(--floor,0%);
   background:linear-gradient(to bottom,#314f3c38,#314f3c16);

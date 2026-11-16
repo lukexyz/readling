@@ -1,10 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { createAudioSite, prepareWav } from '../worker/audio.js';
 import { CLIPS } from '../dist/audio-library.js';
 
 const origin = 'https://studio.example', owner = { 'oai-authenticated-user-id': 'test-user', 'oai-authenticated-user-email': 'editor@example.test' };
+test('a release can populate only its exact artwork, which is then publicly readable', async () => {
+  const path='/assets/flower-studies/oak-3-1.webp', bytes=Buffer.from('example image');
+  const sha=value=>createHash('sha256').update(value).digest('hex');
+  const grant='1'.repeat(64), upload={hash:sha(grant),until:Date.now()+60000};
+  const art={hash:sha(bytes),size:bytes.length}, files=new Map();
+  const bucket={get:key=>files.get(key), head:key=>files.get(key),
+    put:(key,body)=>files.set(key,{body})};
+  const site=createAudioSite({assets:{},artwork:{[path]:art},upload,clips:[],cues:{}});
+  const call=(method,payload,token)=>site.fetch(new Request(origin+path,{method,body:payload,
+    headers:token?{'X-Readling-Release':token,'Content-Length':String(payload.length)}:{}}),{BUCKET:bucket});
+  assert.equal((await call('GET')).status,404);
+  assert.equal((await call('PUT',bytes,'2'.repeat(64))).status,403);
+  assert.equal((await call('PUT',Buffer.alloc(bytes.length),grant)).status,400);
+  assert.equal((await call('PUT',bytes,grant)).status,204);
+  assert.equal((await call('HEAD')).headers.get('ETag'),'"'+art.hash+'"');
+  assert.deepEqual(Buffer.from(await (await call('GET')).arrayBuffer()),bytes);
+  upload.until=0;
+  assert.equal((await call('PUT',bytes,grant)).status,403);
+});
 const src = new URL('../dist/', import.meta.url);
 const original = Buffer.from(await readFile(new URL('assets/audio/letters/b.mp3', src)));
 const fullClips = CLIPS.filter(c => c.fullTake);

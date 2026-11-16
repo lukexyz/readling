@@ -27,11 +27,18 @@ Each new find and each finished memory round ends with a show that she builds he
 
 - `dist/game.js` holds the list of things she can add, in the order they are offered, as `SHOW`. It also decides when a choice is due and which two things are offered. Her show is saved in her album as `show`, and two tablets keep everything added on either.
 - `dist/finale.js` runs the show: the hush, her letters, the order of the parts, her stars and the rosette. It also draws the small previews on the choices.
-- `dist/show-scenes.js` draws the star, the sky, the rainbow, the ground and the parts made from her finds. `dist/show-creatures.js` draws the bunnies, dolphins, whale, elephants and snail. `dist/show-kit.js` holds the colours and shapes they share.
+- `dist/show-scenes.js` draws the star, the sky, the rainbow, the ground and the parts made from her finds. `dist/show-creatures.js` draws the bunnies and elephants. `dist/show-kit.js` holds the colours and shapes they share.
+- Dolphins share a visitor slot. Regular shows rotate between the highest earned Porpoise skip, Skyward vault and Silver relay. Existing Dolphins picks unlock the first skip. Silver relay progresses straight from Long glide to Pod in flight. The gallery uses stills from the same transparent Blender frames as the game.
+- `/new-celebrations.html` compares the three levels of each plant and the ocean animations. Each family can play together or scrub individually. The existing Oak reward plays the mature tree from `studies/flowers/oak.py`.
+- The Ember Orca has three levels. The highest earned level plays in a single finale slot. Existing Whale picks count as level 1. `dist/ember-breach.js` plays the transparent Blender plates made by `studies/ember-orca/progression.py`. The orca mesh and the adapted whale rig are both CC0. [Innerscene model](https://www.innerscene.com/tools/library/3d-parts/killer-whale-orca-d98788fe) · [Quaternius rig](https://poly.pizza/m/JGFwp6xWgk)
 
 To add something new, give it an entry in `SHOW`, write its part in one of the two drawing files, and add its name to the right group at the top of `dist/finale.js`. A part is a length in seconds, a drawing order and a `draw` function. Grown-ups has a try-out mode, where any mix of parts can be ticked and played without changing her show, and each part can be watched by itself. It also reports how long the ticked show runs and when each part plays, using `planShow` in `dist/finale.js`.
 
 The show does not play when the device asks for reduced motion. The page then shows the picture, the rainbow she has added and the choices straight away.
+
+### Publishing new celebration artwork
+
+Local previews serve the images from `dist/assets`. On Sites, the Worker reads the dolphin, orca and garden WebP files from the existing R2 bucket, addressed by their SHA-256 hashes. Previously uploaded pictures are reusable across releases. To populate new pictures, generate a random 32-byte hex grant and build with `READLING_ART_VERIFIER` set to the SHA-256 of its UTF-8 hex string and `READLING_ART_UNTIL` set to a near-future Unix timestamp in milliseconds. After deploying, run `node scripts/release-art.mjs` from the published checkout and supply the grant on stdin. It verifies every picture against the live URL. Keep the grant out of source control.
 
 ## Saving progress to a Google account
 

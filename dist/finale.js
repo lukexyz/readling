@@ -30,9 +30,9 @@ function finaleScenery(picks=[]) {
   const arches=['rainbow','rainbow2'].map(key=>highestPrism(key,id=>picks.includes(id))).filter(Boolean);
   const stills=arches.map(shot=>{
     const [x,y,w,h]=archBox;
-    const bands=['#c98c75','#dbb177','#d5c78d','#a0b79b','#96aaa9','#aca4ba'].map((colour,i)=>
-      `<path d="M${86+i*8} 245 A${324-i*8} ${203-i*8} 0 0 1 ${734-i*8} 245" stroke="${colour}"/>`).join('');
-    return `<svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none" aria-hidden="true">
+    return `<image href="${shot.still}" x="${820*x}" y="${270*y}" width="${820*w}" height="${270*h}" preserveAspectRatio="none"/>`;
+  }).join('');
+  return `<svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none" aria-hidden="true">
     <defs><radialGradient id="show-sky"><stop stop-color="#3d6053"/><stop offset="1" stop-color="#203c3c"/></radialGradient></defs>
     <rect width="820" height="270" fill="url(#show-sky)"/>
     <g fill="#fbd579" opacity=".09">${Array.from({length:24},(_,i)=>`<path d="M410 214 L389 -390 L431 -390Z" transform="rotate(${i*15} 410 214)"/>`).join('')}</g>

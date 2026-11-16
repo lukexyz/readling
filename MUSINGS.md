@@ -45,3 +45,55 @@ One listening goal came directly from trying the game on a tablet. A child shoul
 For stories and instructions, listen for a friendly voice at the same tablet volume she uses for letters. A grown-up can try a delivery direction, upload a human take and keep the one that sounds right in the game. Each preview is a listening decision. Collecting stars tells us little about which recording she understood.
 
 Stars tell us she participated. Sound progress in Grown-ups shows, for each sound, how often she read it unaided and where she slipped. A right picture can be a lucky guess about one time in three, so look for a pattern over several days. Memory only uses words from her album, so to see whether the skill carries over, a grown-up can write *sat* on paper once she knows those three sounds and listen to how she works it out. Notice how she takes to memory coming first. If it gets in the way of wanting another word, a grown-up can switch it off. On the Daylight, watch whether she can follow the active letter and see her pen marks in grey. Watch whether the hush before the picture holds her or makes her impatient, and whether she starts hurrying through a word to reach her show. Notice what she chooses to add and whether she looks for it next time. The rainbow and the paint are colour ideas and are the weakest on the Daylight. After the show, notice what she chooses next. Asking for another word, showing someone her writing or happily closing the album are all good ways for a session to end.
+
+## Feature ideas
+
+Each idea keeps its RL number. Give new ideas the next unused number and record when they were added in London time.
+
+### RL-1 · A celebration she can make her own
+
+*Added 16 November 2026 at 18:34 GMT*
+
+The moment I want is “Wow!” followed by “There’s my dolphin!” When she earns a reward, she chooses one of two animations and keeps it. If she picks the dolphin, it gets a whole beat to leap on its own. Then one older favourite joins in, and a big rainbow closes the show. The older pick rotates each time. Even when she’s collected thirty, the show still lasts just a few seconds and she can spot what she added.
+
+### RL-2 · My Stickers
+
+*Added 16 November 2026 at 18:47 GMT*
+
+The game already saves each animation she picks and plays it on its own. I’d call each one a sticker, from the moment she earns it to the next time she wants to see it.
+
+- When a new word or a finished memory round earns her a choice, change **Add to your show** to **Pick a sticker** above the two previews.
+- When she chooses one, show its name as it plays. **You picked Fireflies!** appears as the fireflies light up.
+- Put a **My Stickers** button inside **My word album**. She can open it between words and tap any sticker she owns to watch it move again.
+
+### RL-3 · Place a sticker on a canvas
+
+*Logged 16 November 2026 at 18:47 GMT · For later*
+
+After choosing a sticker, she could tap the spot on a canvas where she wants it to appear. She already uses that gesture in the Story clearing to place word pictures. For now, choosing who shows up is enough.
+
+### RL-4 · A larger word collection in stages
+
+*Added 16 November 2026 at 18:55 GMT*
+
+Keep the twelve three-letter words as her first collection and grow the vocabulary in one TOML catalogue. Unlock later stages as she progresses. One stage might introduce the spelling **sh** in *ship* and *shop*. Another could offer longer words made from sounds she already knows. Adding a word to an unlocked stage should make it available to the game without editing a second word list in code.
+
+Group the words by stage. Each stage needs a number and each entry needs the word itself. The word inherits its stage number from the group. A small excerpt could look like this.
+
+```toml
+[[stages]]
+number = 1
+words = [
+  { word = "cat" },
+  { word = "dog", theme = "animals", word_type = "noun" },
+]
+
+[[stages]]
+number = 2
+words = [
+  { word = "ship", tags = ["sh"] },
+  { word = "shop", tags = ["sh"], bonus = true },
+]
+```
+
+All other fields are optional. Difficulty defaults to normal, tags default to an empty list, and a word counts as core unless its `bonus` flag is true. Theme and word type can stay unset. Leave absent keys out of the TOML and let the game supply those defaults when it reads the file. The loader can ignore unfamiliar keys so new metadata can be added without breaking older versions.

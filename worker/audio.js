@@ -1,5 +1,5 @@
 import { Mp3Encoder } from '@breezystack/lamejs';
-import { SOUND_SPEEDS } from '../dist/audio-library.js';
+import { SOUND_SPEEDS } from '../dist/sound-speeds.js';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const MAX_SECONDS = 40;

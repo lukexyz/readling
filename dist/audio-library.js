@@ -18,7 +18,7 @@ const promptNames = {
   'sound-write':'Say the sound', 'blend-word':'Slide under the letters',
   'memory-start':'Turn the card', 'round-done':'Round complete'
 };
-export const SOUND_SPEEDS = { natural: 1, slower: 0.8 };
+export {SOUND_SPEEDS} from './sound-speeds.js';
 const fullHuman = {
   b: { id: 'full-b', path: '/assets/audio/studio/b-full.mp3' },
   d: { id: 'full-d', path: '/assets/audio/studio/d-full.mp3' }

@@ -11,7 +11,7 @@ const root = new URL('../dist/', import.meta.url);
 const types = {
   html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8',
   css: 'text/css; charset=utf-8', json: 'application/json', txt: 'text/plain; charset=utf-8',
-  mp3: 'audio/mpeg', svg: 'image/svg+xml', webp: 'image/webp', ttf: 'font/ttf'
+  mp3: 'audio/mpeg', svg: 'image/svg+xml', webp: 'image/webp', png: 'image/png', ttf: 'font/ttf'
 };
 const assets = {};
 const artwork = {};

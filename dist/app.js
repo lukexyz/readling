@@ -292,7 +292,7 @@ function lessonPage() {
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
     <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?`<div class="rest-pad">
         <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg>
-        ${j===l.i+1?action('Next sound','next-sound'):''}</div>`:
+        ${j===l.i+1?action('Next','next-sound'):''}</div>`:
       `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">
         <path class="midline" d="M0 48H180"/><path class="baseline" d="M0 95H180"/>
         <g transform="translate(42 0)" class="guide-lines">${paths.map(d=>`<path d="${d}"/>`).join('')}</g>
@@ -787,10 +787,10 @@ function previewShow(options,then) {
     if(word && view!=='found'){lastFound=null;lastRevealRoute='found/'+word;go('found/'+word);}
     encores++;
     // The stage on the page shows the rainbows of the show being tried, and goes back to hers afterwards.
-    const dress=picks=>{const theatre=$('.meadow-scenery');if(theatre) theatre.outerHTML=finaleScenery(picks);};
+    const dress=(picks,alone)=>{const theatre=$('.meadow-scenery');if(theatre) theatre.outerHTML=finaleScenery(picks,alone);};
     // A show that is still playing is stopped first, so that its ending does not undo the new stage.
     cancelFinale();
-    if(options.picks) dress(options.picks);
+    if(options.picks) dress(options.picks,options.alone);
     const show=celebrate({word,anywhere:true,...options,ended:finished=>{if(options.picks) dress(profile.show.picks);if(finished) then?.();}});
     if(!show){if(options.picks) dress(profile.show.picks);notice('The show cannot play while this device asks for less motion.');then?.();return;}
     if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare');}
@@ -853,9 +853,6 @@ dialog.addEventListener('close',()=>{if(view==='home'||view==='album'||(view==='
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden) wake();});
-main.addEventListener('error',event=>{
-  if(event.target.matches?.('.prism-stills image')) event.target.parentElement.classList.add('missing-poster');
-},true);
 window.addEventListener('online',wake);
 render();
 wake();

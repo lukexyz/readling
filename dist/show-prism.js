@@ -94,6 +94,7 @@ function prismPart(shot) {
     len:frames/fps,stays:arch,z:arch?3:family==='picture'?7:5,
     get poster() { return poster; },
     async prepare(e) {
+      if(arch && !e.virtual) return;
       const word=family==='picture' ? e.word || e.finds[0] || 'cat' : '';
       if (!loading.has(word)) loading.set(word,loadPrism(shot,word).finally(()=>loading.delete(word)));
       try {
@@ -104,7 +105,7 @@ function prismPart(shot) {
     draw(e,s,t) {
       const asset=playback.get(e);
       if (!asset) return;
-      const ctx=(arch && e.archCtx) || e.ctx;
+      const ctx=e.ctx;
       let x,y,w,h;
       if (e.soloPrism) {
         const fit=Math.min(e.w/384,e.h/288);

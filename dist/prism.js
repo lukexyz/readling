@@ -22,14 +22,6 @@ export const prismFamilies=[
     ['Echo arches','Gold and silver arches light up along two separate paths.'],
     ['Twin orbits','Two ringed planets travel the arches with their little moons.'],
     ['Celestial halo','A sun dial crowns the arches as moons and hanging stars appear.']],'rainbow'),
-  family('slide','Rainbow slide','Follow the gold star along the track and into the air.',['#5b788d','#293756'],[
-    ['Star rider','A gold star takes its first ride down the rainbow.'],
-    ['Switchback','The star banks through three tiers of rainbow track.'],
-    ['Corkscrew comet','The star loops the corkscrew and jumps a gap to its landing ramp.']],'rainbow'),
-  family('ribbon','Rainbow ribbon','Watch a length of coloured silk tie itself into a bow.',['#6c758c','#2c344f'],[
-    ['Silk bow','A single ribbon loops into a bow.'],
-    ['Figure eight','The silk crosses itself as a second loop opens.'],
-    ['Festival rosette','Five silk loops cinch into a rosette with trailing tails.']],'rainbow'),
   family('blooms','Flower fireworks','Watch for the moment each spark becomes a petal.',['#5b526b','#28223e'],[
     ['Silk poppy','One climbing spark opens into a pink poppy.'],
     ['Dahlia and gold poppy','A dahlia opens in layers beside a golden poppy.'],

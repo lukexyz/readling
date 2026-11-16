@@ -88,11 +88,10 @@ export function decoratePicturePoster(img,shot) {
 function prismPart(shot) {
   const {family,frames,fps}=shot;
   const arch=family==='rainbow' || family==='rainbow2';
-  const visitor=family==='slide' || family==='ribbon';
   const playback=new WeakMap(), loading=new Map();
   let poster=(frames-1)/fps;
   return {
-    len:frames/fps,stays:arch,z:arch?3:visitor?8:family==='picture'?7:5,
+    len:frames/fps,stays:arch,z:arch?3:family==='picture'?7:5,
     get poster() { return poster; },
     async prepare(e) {
       const word=family==='picture' ? e.word || e.finds[0] || 'cat' : '';
@@ -114,11 +113,11 @@ function prismPart(shot) {
         const box=archBox;
         w=e.th.w*box[2];h=e.th.h*box[3];x=e.th.x+e.th.w*box[0];y=e.th.y+e.th.h*box[1];
       } else {
-        const size=Math.min(e.w*(visitor?.87:.70),e.h*(visitor?.59:.71)*4/3);
+        const size=Math.min(e.w*.70,e.h*.71*4/3);
         const centre=family==='blooms'?.34:family==='paint'?.67:.5;
         w=size;h=w*.75;
         x=Math.max(0,Math.min(e.w-w,e.w*centre-w/2));
-        y=visitor ? Math.max(0,Math.min(e.h-h,e.cy-h*.50)) : Math.max(0,(e.h*.49-h*.60));
+        y=Math.max(0,e.h*.49-h*.60);
       }
       ctx.save();
       ctx.translate(x,y);ctx.scale(w/384,h/288);

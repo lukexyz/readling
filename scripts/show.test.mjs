@@ -42,8 +42,8 @@ test('each original rainbow and firework can advance twice, without replaying it
   assert(!backdrop.includes('rainbow-1-poster.webp'));
 });
 
-test('all 21 rainbow and firework takes have complete sheets, distinct motion and gallery posters', async () => {
-  assert.equal(prismShots.length,21);
+test('all 15 rainbow and firework takes have complete sheets, distinct motion and gallery posters', async () => {
+  assert.equal(prismShots.length,15);
   const dir=new URL('../dist/assets/prism/',import.meta.url);
   await access(new URL('picture-spark.webp',dir));
   for (const shot of prismShots) {
@@ -58,6 +58,22 @@ test('all 21 rainbow and firework takes have complete sheets, distinct motion an
     }
     await Promise.all([shot.still,...sheets.map(name=>new URL(name,dir))].map(url=>access(new URL(url))));
   }
+});
+
+test('retired slide and ribbon levels leave the album, including after a sync with an older tablet', async () => {
+  const retired=['slide','slide-2','slide-3','ribbon','ribbon-2','ribbon-3'];
+  const old=newProfile();
+  find(old,'cat');
+  old.show={tasks:17,picks:['rainbow','rainbow2',...retired]};
+  const album=copy(old);
+  assert.deepEqual(album.show,{tasks:17,picks:['rainbow','rainbow2']});
+  assert.deepEqual(album.cards.cat,old.cards.cat);
+  assert(addToShow(album,'music'));
+  mergeAlbum(album,old);
+  assert.deepEqual(album.show.picks,['rainbow','music','rainbow2']);
+  assert(retired.every(id=>!SHOW.some(s=>s.id===id)));
+  const {planShow}=await import('../dist/finale.js');
+  assert(!planShow({picks:old.show.picks,all:true}).acts.some(([id])=>retired.includes(id)));
 });
 
 test('old woodland and animal picks retain level one and can earn their own two upgrades', () => {
@@ -250,7 +266,7 @@ test('some picks wait for an earlier pick, a word or a number of finds', () => {
   find(p,'cat');
   build(p,['rainbow']);
   assert(!p.show.picks.includes('rainbow'));
-  for(const id of ['rainbow2','slide','ribbon']) assert(!p.show.picks.includes(id),id+' needs the rainbow');
+  assert(!p.show.picks.includes('rainbow2'),'double rainbow needs the rainbow');
   assert(!p.show.picks.includes('parade'),'the parade needs two finds');
   assert(!p.show.picks.includes('hats'),'hats need the hat');
   assert(p.show.picks.includes('whale') && p.show.picks.includes('splash'));

@@ -33,10 +33,10 @@ const SHOW = [
   {id:'fountains',name:'Star fountains'},prismByFamily.rainbow2[0],
   prismByFamily.blooms[0],moonflowers[0],woodlandByKey.parade.shots[0],
   woodlandByKey.mushrooms.shots[0],dolphinShots[0],prismByFamily.paint[0],
-  sunflowers[0],prismByFamily.slide[0],poppies[1],{id:'fireflies',name:'Fireflies'},woodlandByKey.vines.shots[0],
+  sunflowers[0],poppies[1],{id:'fireflies',name:'Fireflies'},woodlandByKey.vines.shots[0],
   woodlandByKey.elephants.shots[0],{id:'hats',name:'Hats',word:'hat',any:['bunnies','parade','elephants','whale',...dolphinFamilies.map(family=>family.levels[0].id)]},
   moonflowers[1],prismByFamily.picture[0],{id:'oak',name:'Oak tree'},sunflowers[1],
-  {id:'whale',name:'Ember Orca · Level 1'},prismByFamily.ribbon[0],{id:'splash',name:'Big splash',after:'whale'},
+  {id:'whale',name:'Ember Orca · Level 1'},{id:'splash',name:'Big splash',after:'whale'},
   {id:'whale2',name:'Ember Orca · Level 2',after:'whale'},{id:'whale3',name:'Ember Orca · Level 3',after:'whale2'},
   poppies[2],moonflowers[2],sunflowers[2],...woodlandShots.filter(s=>s.level===2),
   ...dolphinShots.slice(1),...woodlandShots.filter(s=>s.level===3),
@@ -44,7 +44,7 @@ const SHOW = [
 ];
 const prismIds=key=>prismByFamily[key].map(s=>s.id);
 const SHOW_GROUPS = [
-  ['Rainbows & music',[...['rainbow','rainbow2','slide','ribbon'].flatMap(prismIds),'music']],
+  ['Rainbows & music',[...prismIds('rainbow'),...prismIds('rainbow2'),'music']],
   ['Sky',['stars','fountains',...prismIds('blooms'),...prismIds('paint')]],
   ['Flowers',flowerShots.map(shot=>shot.id)],
   ['Ground',[...woodlandByKey.mushrooms.shots,...woodlandByKey.vines.shots].map(s=>s.id).concat('oak')],

@@ -16,7 +16,7 @@ import {prismParts} from './show-prism.js';
 
 // The celebration show. It opens with a hush while her letters land, the star then reveals her picture,
 // and the things she has added take turns after that. Her stars are counted out at the end.
-const GROUND=['mushrooms','vines','oak'], SKY=['stars','fountains','blooms','paint'], BOW=['slide','ribbon'];
+const GROUND=['mushrooms','vines','oak'], SKY=['stars','fountains','blooms','paint'];
 // Only two visitors and two big finishes play in one show, in rotation, so a full show stays near a quarter of a minute.
 const VISIT=['bunnies','parade','dolphins','elephants'], FINISH=['fireflies','picture','whale'];
 let stopActive=null;
@@ -198,10 +198,9 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     ground.forEach((id,k)=>add(id,hit+.15+(k+Number(blooms.length>0))*.3));
     ['rainbow','rainbow2'].map(picked).filter(Boolean).forEach((id,k)=>add(id,hit+k*.25));
     // Each group starts while the one before it is finishing, so there is always one new thing to watch.
-    const sky=SKY.map(picked).filter(Boolean), bow=BOW.map(picked).filter(Boolean);
+    const sky=SKY.map(picked).filter(Boolean);
     sky.forEach((id,k)=>add(id,t+k*.3));
-    bow.forEach((id,k)=>add(id,t+(sky.length?.2:0)+k*.7));
-    if(sky.length || bow.length) t=Math.max(t,end-1.2);
+    if(sky.length) t=Math.max(t,end-1.2);
     const finishes=FINISH.map(id=>id==='whale'?picked(whale):picked(id)).filter(Boolean);
     for(const cast of [visitors(have,turn,all),rotateCast(finishes,turn,all)]) {
       cast.forEach((id,k)=>{

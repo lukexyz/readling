@@ -5,7 +5,7 @@ import runpy
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("family", choices=("rainbow", "rainbow2", "slide", "ribbon", "blooms", "paint", "picture"))
+    parser.add_argument("family", choices=("rainbow", "rainbow2", "blooms", "paint", "picture"))
     parser.add_argument("level", type=int, choices=(1, 2, 3))
     parser.add_argument("poster", type=int)
     args = parser.parse_args()

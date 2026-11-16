@@ -60,7 +60,8 @@
 .gallery-card[data-id="fireflies"] { --shift:14%; }
 .gallery-card:is([data-id="stars"],[data-id="blooms"]) { --shift:8%; }
 .gallery-card[data-id="picture"] { --shift:10%; --zoom:115%; }
-.gallery-card[data-id="picture"] .preview-screen { --sky:#e0d2af; --edge:#b1b8ac; }
+.gallery-card.prism-card { --zoom:100%; --shift:0%; }
+.gallery-card.prism-card .still-poster { object-position:center; }
 .card-footer { display:flex; flex:1; align-items:center; justify-content:space-between; gap:6px; width:100%; padding:11px 8px 8px 9px; }
 .card-title { font:clamp(17px,1.65vw,22px)/1.13 var(--serif); letter-spacing:-.04em; }
 .play-label {

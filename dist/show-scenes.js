@@ -1,8 +1,8 @@
-import {colours,gold,ink,tau,clamp01,ease,pop,five,four,drawStar,paint,oval,band} from './show-kit.js';
+import {colours,gold,ink,tau,clamp01,ease,five,drawStar,paint,oval} from './show-kit.js';
 import {oakScene} from './oak.js';
 import {forms} from './drawings.js';
 
-// The star that reveals her picture, and everything she can add to the sky, the rainbow and the ground.
+// The star that reveals her picture, and everything she can add to the sky and the ground.
 // Each part has a length in seconds and a drawing order. A part that stays keeps drawing until the show ends.
 
 // The star bounds in off one peg and lands on her picture.
@@ -14,31 +14,6 @@ function ballAt(e,t) {
   return {x:a.x+(b.x-a.x)*p,y:a.y+(b.y-a.y)*p-Math.sin(p*Math.PI)*Math.min(105,e.h*.12)};
 }
 const few=(e,n)=>Math.round(n*(e.w<650?.7:1));
-// A rainbow drawn on the show itself, for previews and for pages that have no printed theatre.
-function arcs(e,t,second) {
-  const ctx=e.ctx;
-  for(let i=0;i<7;i++) {
-    const b=band(e.th,i,second), p=ease((t-i*.045)/1.1);
-    if(p<=0) continue;
-    ctx.beginPath();ctx.ellipse(b.x,b.y,b.rx,b.ry,0,Math.PI,Math.PI*(1+p));
-    ctx.strokeStyle=colours[second?6-i:i];ctx.lineWidth=b.width;ctx.lineCap='butt';ctx.stroke();
-  }
-  ctx.lineCap='round';
-}
-// Sparkles run along the front of the rainbow as it is drawn.
-function glint(e,s,t,dt,second) {
-  if(t>1.1) return;
-  s.next=(s.next || 0)-dt;
-  if(s.next>0) return;
-  s.next=.045;
-  const b=band(e.th,3,second), a=Math.PI*(1+ease(t/1.1));
-  e.spark({x:b.x+b.rx*Math.cos(a),y:b.y+b.ry*Math.sin(a),vx:(e.rand()-.5)*90*e.u,vy:-e.rand()*80*e.u,size:(3+e.rand()*4)*e.u,
-    kind:e.rand()<.5?'star4':'star5',life:.45+e.rand()*.4,colour:e.rand()<.5?gold:'#fff5ca',g:.6});
-}
-function rider(e,t) {
-  const b=band(e.th,0), q=clamp01(t/1.5), a=Math.PI*(1+.5*q+.5*q**3), lift=11*e.u;
-  return {x:b.x+(b.rx+lift)*Math.cos(a),y:b.y+(b.ry+lift)*Math.sin(a)};
-}
 // Points along the school-print strokes of each letter of a word, in a box 138 tall with 88 for each letter.
 function letterPoints(word) {
   const out=[];
@@ -53,14 +28,6 @@ function letterPoints(word) {
     });
   } catch { /* Without the letter shapes the fireflies simply drift. */ }
   return out;
-}
-function blob(ctx,x,y,r,wobble,colour) {
-  ctx.beginPath();
-  for(let i=0;i<=48;i++) {
-    const a=i/48*tau, q=r*(1+.17*Math.sin(3*a+wobble[0])+.09*Math.sin(5*a+wobble[1])+.06*Math.sin(8*a+wobble[2]));
-    ctx.lineTo(x+Math.cos(a)*q,y+Math.sin(a)*q);
-  }
-  ctx.closePath();ctx.fillStyle=colour;ctx.fill();
 }
 function note(ctx,x,y,size,tilt,colour) {
   ctx.save();ctx.translate(x,y);ctx.rotate(tilt);
@@ -99,96 +66,6 @@ const SCENES={
       for(const side of [-1,1]) e.spark({x:side<0?e.w*.03:e.w*.97,y:e.h+6,vx:-side*(110+e.rand()*210)*e.u,vy:-(640+e.rand()*250)*e.u*reach,
         size:(4+e.rand()*6)*e.u,kind:e.rand()<.3?'star4':'star5',life:1.5+e.rand()*.6,colour:e.rand()<.4?gold:colours[Math.floor(e.rand()*7)],g:3.2,spin:e.rand()*6-3});
     }},
-  blooms:{len:2.7,z:5,
-    cues:[[0,.22,.3],[.5,.78,.27],[1.0,.5,.15]].map(([t,x,y])=>[t,e=>e.burst(x*e.w,y*e.h,few(e,28),240,{kind:'flower',g:.3,drag:1.3})])},
-  // Balls of paint are thrown up from below and stay where they land.
-  paint:{len:2.4,stays:true,z:2,
-    make(e) {
-      return {balls:[[.1,.24],[.9,.2],[.32,.11],[.68,.1],[.06,.56],[.94,.6]].map(([x,y],i)=>({x:x*e.w,y:y*e.h,from:(i%2?.72:.28)*e.w,go:i*.28,
-        r:(44+e.rand()*30)*e.u,colour:colours[(i*3+1)%7],wobble:[e.rand()*tau,e.rand()*tau,e.rand()*tau],
-        drips:Array.from({length:3},()=>({at:(e.rand()-.5)*1.1,length:(22+e.rand()*46)*e.u,wide:(3+e.rand()*3)*e.u})),
-        spots:Array.from({length:5},()=>({a:e.rand()*tau,far:1.25+e.rand()*.5,r:(3+e.rand()*5)*e.u}))}))};
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx;
-      for(const b of s.balls) {
-        const fly=(t-b.go)/.42;
-        if(fly<0) continue;
-        if(fly<1){oval(ctx,b.from+(b.x-b.from)*fly,e.h+(b.y-e.h)*ease(fly),9*e.u,9*e.u,0,b.colour,1.6);continue;}
-        const age=t-b.go-.42, r=b.r*pop(age/.28);
-        ctx.globalAlpha=.86;
-        for(const d of b.drips) {
-          ctx.beginPath();ctx.moveTo(b.x+d.at*r,b.y+r*.5);ctx.lineTo(b.x+d.at*r,b.y+r*.8+d.length*ease(age/2.2));
-          ctx.strokeStyle=b.colour;ctx.lineWidth=d.wide;ctx.stroke();
-        }
-        blob(ctx,b.x,b.y,r,b.wobble,b.colour);
-        for(const d of b.spots){ctx.beginPath();ctx.arc(b.x+Math.cos(d.a)*r*d.far,b.y+Math.sin(d.a)*r*d.far,d.r*clamp01(age/.2),0,tau);ctx.fill();}
-        ctx.globalAlpha=.3;blob(ctx,b.x-r*.16,b.y-r*.2,r*.5,b.wobble,'#fff');
-        ctx.globalAlpha=1;
-      }
-    }},
-
-  // Rainbow
-  rainbow:{len:1.5,stays:true,z:3,step(e,s,t,dt){glint(e,s,t,dt,false);},draw(e,s,t){if(e.virtual)arcs(e,t,false);}},
-  rainbow2:{len:1.4,stays:true,z:3,step(e,s,t,dt){glint(e,s,t,dt,true);},draw(e,s,t){if(e.virtual)arcs(e,t,true);}},
-  // A star rides over the rainbow and slides down the far side.
-  slide:{len:2.3,z:8,
-    cues:[[1.5,e=>{const b=band(e.th,0);e.burst(b.x+b.rx,b.y,few(e,22),230);}]],
-    step(e,s,t,dt) {
-      if(t>1.5) return;
-      s.next=(s.next || 0)-dt;
-      if(s.next>0) return;
-      s.next=.032;
-      const p=rider(e,t);
-      e.spark({x:p.x,y:p.y,vx:(e.rand()-.5)*70*e.u,vy:(e.rand()-.3)*70*e.u,size:(3+e.rand()*4)*e.u,kind:e.rand()<.5?'star4':'star5',
-        life:.5+e.rand()*.45,colour:colours[Math.floor(e.rand()*7)],g:.5});
-    },
-    draw(e,s,t) {
-      let p=rider(e,t);
-      if(t>1.5){const b=band(e.th,0), fall=t-1.5;p={x:b.x+b.rx+250*e.u*fall,y:b.y-470*e.u*fall+900*e.u*fall*fall};}
-      drawStar(e.ctx,p.x,p.y,21*e.u,t*8,five,'#ffd752');
-    }},
-  // The rainbow unhooks, loops around her picture and ties itself in a bow above it.
-  ribbon:{len:2.9,z:7,
-    make(e) {
-      const th=e.th, b=band(th,3), way=[[b.x+b.rx,b.y],[th.x+th.w*1.03,th.y+th.h*1.2],[th.x+th.w*.55,th.y+th.h*1.38],[th.x-th.w*.02,th.y+th.h*1.08],
-        [th.x-th.w*.06,th.y+th.h*.32],[th.x+th.w*.18,th.y-th.h*.2],[th.x+th.w*.5,th.y-th.h*.16]].map(([x,y])=>[Math.max(14,Math.min(e.w-14,x)),Math.max(14,Math.min(e.h-14,y))]);
-      const pts=[];
-      for(let i=0;i<way.length-1;i++) {
-        const p0=way[Math.max(0,i-1)], p1=way[i], p2=way[i+1], p3=way[Math.min(way.length-1,i+2)];
-        for(let k=0;k<16;k++) {
-          const q=k/16, q2=q*q, q3=q2*q;
-          pts.push([0,1].map(d=>.5*(2*p1[d]+(p2[d]-p0[d])*q+(2*p0[d]-5*p1[d]+4*p2[d]-p3[d])*q2+(3*p1[d]-p0[d]-3*p2[d]+p3[d])*q3)));
-        }
-      }
-      const knot=way.at(-1), size=Math.min(th.w*.11,90*e.u), bow=pts.length;
-      for(let k=0;k<=56;k++){const a=Math.PI/2+k/56*tau, under=1+Math.sin(a)**2;pts.push([knot[0]+size*Math.cos(a)/under*1.35,knot[1]+size*Math.sin(a)*Math.cos(a)/under*1.5]);}
-      return {pts,bow,knot,size};
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx, n=s.pts.length-1, head=Math.round(n*clamp01(t/1.9)**.9), tail=Math.max(0,Math.min(head-Math.round(n*.42),s.bow-2)), wide=3.1*e.u;
-      const fade=1-clamp01((t-2.5)/.4);
-      if(head<1) return;
-      ctx.globalAlpha=fade;ctx.lineCap='butt';
-      const edge=(offset,colour,width)=>{
-        ctx.beginPath();
-        for(let i=tail;i<=head;i++) {
-          const a=s.pts[Math.max(0,i-1)], b=s.pts[Math.min(n,i+1)], length=Math.hypot(b[0]-a[0],b[1]-a[1]) || 1;
-          const x=s.pts[i][0]-(b[1]-a[1])/length*offset, y=s.pts[i][1]+(b[0]-a[0])/length*offset;
-          if(i===tail)ctx.moveTo(x,y);else ctx.lineTo(x,y);
-        }
-        ctx.strokeStyle=colour;ctx.lineWidth=width;ctx.stroke();
-      };
-      edge(0,ink,wide*7+3.2);
-      for(let j=0;j<7;j++) edge((j-3)*wide,colours[j],wide+.7);
-      const hang=ease((t-1.9)/.35);
-      if(hang>0) for(const side of [-1,1]) {
-        ctx.beginPath();ctx.moveTo(s.knot[0],s.knot[1]);ctx.quadraticCurveTo(s.knot[0]+side*s.size*.2,s.knot[1]+s.size*.5*hang,s.knot[0]+side*s.size*.55*hang,s.knot[1]+s.size*1.15*hang);
-        ctx.strokeStyle=ink;ctx.lineWidth=wide*3+3;ctx.stroke();ctx.strokeStyle=colours[side<0?0:4];ctx.lineWidth=wide*3;ctx.stroke();
-      }
-      ctx.lineCap='round';ctx.globalAlpha=1;
-    }},
-
   // Ground
   oak:oakScene,
 
@@ -210,21 +87,6 @@ const SCENES={
         ctx.globalAlpha=(1-leave)*.3;ctx.beginPath();ctx.arc(x,y,10*u*glow,0,tau);ctx.fillStyle=gold;ctx.fill();
         ctx.globalAlpha=1-leave;ctx.beginPath();ctx.arc(x,y,3.9*u,0,tau);paint(ctx,'#fff3a6',1.2*u);
       }
-      ctx.globalAlpha=1;
-    }},
-  // One last firework takes the shape of the thing she found.
-  picture:{len:2,z:7,
-    cues:[[0,e=>e.ring(e.w/2,Math.max(e.h*.3,150*e.u),90*e.u)]],
-    draw(e,s,t) {
-      const c=e.cut(e.word || e.finds[0] || 'cat');
-      if(!c.ready) return;
-      const ctx=e.ctx, u=e.u, size=Math.min(e.w,e.h)*.56, mx=e.w/2, my=Math.max(e.h*.34,170*u), fall=Math.max(0,t-1.4);
-      c.points.forEach(([px,py],i)=>{
-        const out=ease((t-(i*.618%1)*.14)/.5);
-        if(out<=0) return;
-        ctx.globalAlpha=1-clamp01(fall/.6);
-        drawStar(ctx,mx+px*size*out,my+py*size*out+340*u*fall*fall,(6.5+2*Math.sin(t*9+i))*u,i,four,i%3?gold:colours[i%7]);
-      });
       ctx.globalAlpha=1;
     }},
   // Notes float up, to show music in the choices. The music itself is the fanfare.

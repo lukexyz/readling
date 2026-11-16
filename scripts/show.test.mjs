@@ -6,21 +6,66 @@ import {dolphinFamilies,dolphinShots,dolphinPoster} from '../dist/dolphins.js';
 import {flowerFamilies,flowerShots} from '../dist/gardens.js';
 import {woodlandFamilies,woodlandShots} from '../dist/woodland.js';
 import {paradeWords} from '../dist/show-woodland.js';
+import {prismFamilies,prismShots} from '../dist/prism.js';
 // Checks for the celebration show she builds, in dist/game.js: what is offered, when, and how it is saved.
 // They use words from the first collection, so they need updating if those words change.
 const START=1e12;
+const allRewardTasks=2*SHOW.length;
 function find(p,word) {
   startLesson(p,word);p.lesson.i=word.length;
   return collect(p,START);
 }
 const copy=p=>normalise(JSON.parse(JSON.stringify(p)));
 
+test('each original rainbow and firework can advance twice, without replaying its earlier levels', async () => {
+  const {planShow,finaleScenery}=await import('../dist/finale.js');
+  const picks=prismShots.map(s=>s.id);
+  const integrated=planShow({picks,all:true});
+  const play=integrated.acts.filter(([id])=>picks.includes(id));
+  assert.deepEqual(new Set(play.map(([id])=>id)),new Set(prismFamilies.map(f=>f.shots[2].id)));
+  for (const {key,shots:[one,two,three]} of prismFamilies) {
+    assert.equal(one.id,key);assert.equal(two.after,key);assert.equal(three.after,two.id);
+    const p=newProfile();
+    p.show={tasks:allRewardTasks,picks:SHOW.map(s=>s.id).filter(id=>id!==two.id && id!==three.id)};
+    const saved=copy(p);
+    assert(!addToShow(saved,three.id));assert(addToShow(saved,two.id));assert(addToShow(saved,three.id));
+    assert(copy(saved).show.picks.includes(three.id));
+    for (const shot of [one,two,three]) {
+      const solo=planShow({picks,alone:shot.id});
+      assert.deepEqual(solo.acts.map(([id,,duration])=>[id,duration]),[[shot.id,shot.frames/shot.fps]]);
+      assert(solo.total>=shot.frames/shot.fps);
+    }
+  }
+  for (const [,at,len] of play) assert(at+len<=integrated.total);
+  const backdrop=finaleScenery(picks);
+  assert(backdrop.includes('rainbow-3-poster.webp') && backdrop.includes('rainbow2-3-poster.webp'));
+  assert(!backdrop.includes('rainbow-1-poster.webp'));
+});
+
+test('all 21 rainbow and firework takes have complete sheets, distinct motion and gallery posters', async () => {
+  assert.equal(prismShots.length,21);
+  const dir=new URL('../dist/assets/prism/',import.meta.url);
+  await access(new URL('picture-spark.webp',dir));
+  for (const shot of prismShots) {
+    const take=shot.family+'-'+shot.level;
+    const {frames,sheets,poster}=JSON.parse(await readFile(new URL(take+'.json',dir)));
+    assert.equal(frames.length,shot.frames,take);
+    assert(frames[poster-1],take);
+    assert(new Set(frames.map(r=>JSON.stringify(r))).size>12,take);
+    for (const rect of frames.filter(Boolean)) {
+      const [page,,,width,height,x,y]=rect;
+      assert(page>=0 && page<sheets.length && x>=0 && y>=0 && x+width<=384 && y+height<=288,take);
+    }
+    await Promise.all([shot.still,...sheets.map(name=>new URL(name,dir))].map(url=>access(new URL(url))));
+  }
+});
+
 test('old woodland and animal picks retain level one and can earn their own two upgrades', () => {
   for (const {key,shots} of woodlandFamilies) {
     const album=newProfile();
     find(album,'cat');find(album,'hat');
     const upgrades=shots.slice(1).map(s=>s.id);
-    album.show={tasks:120,picks:SHOW.map(s=>s.id).filter(id=>!upgrades.includes(id))};
+    album.show={tasks:allRewardTasks,picks:SHOW.map(s=>s.id).filter(id=>!upgrades.includes(id))};
     const saved=copy(album);
     assert.equal(shots[0].id,key);
     assert(saved.show.picks.includes(key));
@@ -88,7 +133,7 @@ test('woodland takes include their frames, posters and synchronized animal track
 
 test('each flower family unlocks one level at a time, including in an older Flowers album', () => {
   const base=newProfile();
-  base.show={tasks:99,picks:['flowers']};
+  base.show={tasks:allRewardTasks,picks:['flowers']};
   assert.deepEqual(copy(base).show.picks,['flowers']);
   for (const family of flowerFamilies) {
     const album=copy(base), levels=family.shots.map(shot=>shot.id);
@@ -169,7 +214,7 @@ test('a show with only the earned oak runs through the last acorn bounce', async
 });
 // Adds whatever is offered, one choice at a time, always leaving the picks named in avoid.
 function build(p,avoid=[]) {
-  for(let guard=0;guard<60;guard++) {
+  for(let guard=0;guard<SHOW.length;guard++) {
     while(!showDue(p) && showChoices(p).length) finishTask(p);
     const id=showChoices(p).find(id=>!avoid.includes(id));
     if(!id) return;
@@ -227,7 +272,7 @@ test('everything in the list can be added, and then nothing more is offered', ()
 test('an existing album can upgrade its original Whale pick through all three orcas', () => {
   const p=newProfile();
   find(p,'cat');find(p,'hat');
-  p.show={tasks:100,picks:SHOW.map(s=>s.id).filter(id=>!['whale','whale2','whale3','splash'].includes(id))};
+  p.show={tasks:allRewardTasks,picks:SHOW.map(s=>s.id).filter(id=>!['whale','whale2','whale3','splash'].includes(id))};
   const album=copy(p);
   assert.deepEqual(showChoices(album),['whale']);
   assert(addToShow(album,'whale'));
@@ -271,7 +316,7 @@ test('an album from before the show counts each find as a task', () => {
 test('legacy Dolphins starts at First skim and all eight approved upgrades can be earned', () => {
   const p=newProfile();
   const newPicks=dolphinShots.slice(1).map(shot=>shot.id);
-  p.show={tasks:100,picks:SHOW.map(s=>s.id).filter(id=>!newPicks.includes(id))};
+  p.show={tasks:allRewardTasks,picks:SHOW.map(s=>s.id).filter(id=>!newPicks.includes(id))};
   const saved=copy(p);
   assert(saved.show.picks.includes('dolphins'));
   assert.equal(SHOW.find(s=>s.id==='dolphins').title,'First skim');

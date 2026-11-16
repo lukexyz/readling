@@ -11,6 +11,8 @@ import {flowerFamilies} from './gardens.js';
 import {flowers} from './show-flowers.js';
 import {highestWoodland} from './woodland.js';
 import {woodlandParts,paradeWords} from './show-woodland.js';
+import {archBox,highestPrism,prismByFamily} from './prism.js';
+import {prismParts} from './show-prism.js';
 
 // The celebration show. It opens with a hush while her letters land, the star then reveals her picture,
 // and the things she has added take turns after that. Her stars are counted out at the end.
@@ -25,17 +27,17 @@ function finaleScenery(picks=[]) {
   const stars=[[41,41,9],[89,93,5],[132,32,4],[165,72,8],[214,27,11],[69,157,11],[136,145,5],[104,204,4],
     [614,31,11],[660,78,5],[705,33,4],[755,74,10],[786,135,6],[690,170,9],[741,210,5],[41,213,4]];
   const cloud='<path d="M-10 263v-36q10-12 25-8c-2-21 25-34 41-21 2-30 41-41 57-17 21-17 51-3 51 17 28-6 47 11 43 31 28-6 42 12 41 28v14z" fill="#f5e4b4" stroke="#4c584a" stroke-width="3"/><path d="M10 231q12-8 22-4m37-28q14-12 27-5m24 19q15-8 24 1m26 18q13-7 21 2" fill="none" stroke="#ac9767" stroke-width="2.5" stroke-linecap="round"/>';
-  const bands=second=>colours.map((c,i)=>{
-    const r=second?188-i*7:278-i*10, ry=second?166-i*7:251-i*10;
-    return `<path pathLength="1" style="--band-delay:${(second?.25:0)+i*.045}s" d="M${410-r} 265 A${r} ${ry} 0 0 1 ${410+r} 265" stroke="${second?colours[6-i]:c}" stroke-width="${second?7.4:10.8}"/>`;
-  }).join('');
-  return `<svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none" aria-hidden="true">
+  const arches=['rainbow','rainbow2'].map(key=>highestPrism(key,id=>picks.includes(id))).filter(Boolean);
+  const stills=arches.map(shot=>{
+    const [x,y,w,h]=archBox;
+    const bands=['#c98c75','#dbb177','#d5c78d','#a0b79b','#96aaa9','#aca4ba'].map((colour,i)=>
+      `<path d="M${86+i*8} 245 A${324-i*8} ${203-i*8} 0 0 1 ${734-i*8} 245" stroke="${colour}"/>`).join('');
+    return `<svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none" aria-hidden="true">
     <defs><radialGradient id="show-sky"><stop stop-color="#3d6053"/><stop offset="1" stop-color="#203c3c"/></radialGradient></defs>
     <rect width="820" height="270" fill="url(#show-sky)"/>
     <g fill="#fbd579" opacity=".09">${Array.from({length:24},(_,i)=>`<path d="M410 214 L389 -390 L431 -390Z" transform="rotate(${i*15} 410 214)"/>`).join('')}</g>
     <g fill="#ffdc83">${stars.map(([x,y,r],i)=>`<polygon points="${starSvg}" transform="translate(${x} ${y}) rotate(${i*19}) scale(${r})"/>`).join('')}</g>
-    ${picks.includes('rainbow')?`<g fill="none" stroke-linecap="round" class="rainbow-bands">${bands(false)}${picks.includes('rainbow2')?bands(true):''}</g>
-    <g fill="none" stroke="#fff5ca" stroke-width="2" stroke-dasharray="2 8"><path d="M122 265 A288 261 0 0 1 698 265"/></g>`:''}
+    <g class="prism-stills">${stills}</g>
     ${cloud}<g transform="translate(820 0) scale(-1 1)">${cloud}</g>
     <rect x="5" y="5" width="810" height="260" rx="13" fill="none" stroke="#dbc38a" stroke-opacity=".6" stroke-width="1.5"/>
   </svg>`;
@@ -141,7 +143,7 @@ const BASE={
     }}
 };
 const pin=e=>({x:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.27});
-const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts};
+const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts,...prismParts};
 
 function rotateCast(mine,turn,all) {
   if (all || mine.length<=2) return mine;
@@ -168,6 +170,7 @@ function visitors(have,turn,all) {
 // Each act is the part's name, its start, its length, and whether it then stays to the end.
 function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,stars=0,tier=0}={}) {
   const acts=[], have=id=>(id===alone || picks.includes(id)) && PARTS[id];
+  const picked=key=>prismByFamily[key] ? highestPrism(key,have)?.id : have(key) && key;
   const blooms=flowerFamilies.map(family=>family.shots.findLast(shot=>have(shot.id))?.id).filter(Boolean);
   const ground=GROUND.map(key=>key==='oak' ? (have(key) && key) : highestWoodland(key,have)).filter(Boolean);
   // Each show uses the highest earned orca in its single ocean-finale slot.
@@ -179,7 +182,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     return at;
   };
   if(alone) {
-    const friends={rainbow2:['rainbow'],slide:['rainbow'],ribbon:['rainbow'],music:['notes'],
+    const friends={music:['notes'],
       splash:[whale,...blooms,...ground],
       hats:[visitors(have,turn,true)[0] || (have(whale)?whale:'bunnies')]}[alone] || [];
     for(const id of friends) add(id,.1);
@@ -193,13 +196,13 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     let t=hit+(n?.8:.45);
     blooms.forEach((id,k)=>add(id,hit+.15+k*.18));
     ground.forEach((id,k)=>add(id,hit+.15+(k+Number(blooms.length>0))*.3));
-    ['rainbow','rainbow2'].filter(have).forEach((id,k)=>add(id,hit+k*.25));
+    ['rainbow','rainbow2'].map(picked).filter(Boolean).forEach((id,k)=>add(id,hit+k*.25));
     // Each group starts while the one before it is finishing, so there is always one new thing to watch.
-    const sky=SKY.filter(have), bow=BOW.filter(have);
+    const sky=SKY.map(picked).filter(Boolean), bow=BOW.map(picked).filter(Boolean);
     sky.forEach((id,k)=>add(id,t+k*.3));
     bow.forEach((id,k)=>add(id,t+(sky.length?.2:0)+k*.7));
     if(sky.length || bow.length) t=Math.max(t,end-1.2);
-    const finishes=FINISH.map(id=>id==='whale'?whale:id).filter(have);
+    const finishes=FINISH.map(id=>id==='whale'?picked(whale):picked(id)).filter(Boolean);
     for(const cast of [visitors(have,turn,all),rotateCast(finishes,turn,all)]) {
       cast.forEach((id,k)=>{
         const at=add(id,t);
@@ -211,7 +214,9 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     if(tier){add('rosette',t);t+=1.1;}
     if(stars) add('tally',t,.22*stars+.95);
     else end=Math.max(end,t);
-    for (const [id,at,len] of acts) if (id==='oak' || flowers[id] || woodlandParts[id]?.stays) end=Math.max(end,at+len);
+    for (const [id,at,len] of acts) {
+      if (id==='oak' || flowers[id] || woodlandParts[id]?.stays || prismParts[id]?.stays) end=Math.max(end,at+len);
+    }
   }
   return {acts,hit,total:end+.6};
 }
@@ -286,6 +291,15 @@ function launchFinale(stage,options={}) {
   resize();
 
   const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && word && spell?word.length:0,staged:!!real,stars,tier});
+  const archCount=acts.filter(([id])=>prismParts[id]?.stays).length;
+  e.soloPrism=!!prismParts[alone] && !(real && archCount);
+  // In a found-word show the rising arches belong behind her word card.
+  const archCanvas=real && archCount ? document.createElement('canvas') : null;
+  if (archCanvas) {
+    archCanvas.className='prism-stage';
+    archCanvas.setAttribute('aria-hidden','true');
+    e.archCtx=archCanvas.getContext('2d');
+  }
   e.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!!flowers[alone],oak:acts.some(([id])=>id==='oak')};
   e.isolatedWoodland=!!woodlandParts[alone] || alone==='hats';
   const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
@@ -332,6 +346,14 @@ function launchFinale(stage,options={}) {
   }
   function picture() {
     ctx.clearRect(0,0,e.w,e.h);
+    if (e.archCtx) {
+      const th=e.th, ratio=canvas.width/e.w;
+      const wide=Math.max(1,Math.round(th.w*ratio)), tall=Math.max(1,Math.round(th.h*ratio));
+      if (archCanvas.width!==wide || archCanvas.height!==tall) {archCanvas.width=wide;archCanvas.height=tall;}
+      const sx=wide/th.w, sy=tall/th.h;
+      e.archCtx.setTransform(sx,0,0,sy,-th.x*sx,-th.y*sy);
+      e.archCtx.clearRect(th.x,th.y,th.w,th.h);
+    }
     let scattered=false;
     for(const st of states) {
       const p=st.part, t=e.time-st.at;
@@ -347,6 +369,7 @@ function launchFinale(stage,options={}) {
     cancelAnimationFrame(frame);
     if(!into) {
       canvas.remove();stage?.classList.remove('show-playing');
+      if (archCanvas) {archCanvas.remove();real.classList.remove('prism-playing');}
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
       if(stopActive===stop) stopActive=null;
@@ -374,6 +397,10 @@ function launchFinale(stage,options={}) {
     if(stopped) return;
     reset();
     if(real) {
+      if(e.archCtx) {
+        real.querySelector('.rainbow-theatre').after(archCanvas);
+        real.classList.add('prism-playing');
+      }
       stage.style.setProperty('--hit',e.hit+'s');stage.style.setProperty('--home',(alone?0:e.hit+.5)+'s');
       stage.style.setProperty('--after',Math.max(0,e.total-.5)+'s');
       stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');

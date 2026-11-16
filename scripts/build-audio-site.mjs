@@ -25,7 +25,7 @@ async function readAssets(directory = '') {
     if (!type) throw new Error('Unknown public file type for ' + path);
     const data = await readFile(new URL(path, root));
     const hash = createHash('sha256').update(data).digest('hex');
-    if (/^assets\/(dolphins|ember-orca|flower-studies|woodland)\/.*\.webp$/.test(path)) {
+    if (/^assets\/(dolphins|ember-orca|flower-studies|woodland|prism)\/.*\.webp$/.test(path)) {
       artwork['/'+path] = {hash, size:data.length};
       continue;
     }

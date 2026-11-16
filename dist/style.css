@@ -154,12 +154,14 @@ main.wrap{padding-block:29px 40px;outline:none}
 .victory .found-word{margin-top:11px}
 .fireworks-screen{position:fixed;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;user-select:none}
 /* Her show hides the picture until its star arrives, and her writing until its letters fly home. --hit and --home are set by finale.js. */
-.show-playing .rainbow-bands path{stroke-dasharray:1;animation:rainbow-sweep 1.1s cubic-bezier(.2,.66,.25,1) calc(var(--hit,0s) + var(--band-delay)) both}
+.prism-stage{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
+.prism-playing .prism-stills{visibility:hidden}
+.meadow-arch{display:none}
+.missing-poster .meadow-arch{display:block;visibility:visible}
 .show-playing .reveal-art .stamp{animation:prize-arrive .82s cubic-bezier(.22,.8,.3,1) var(--hit,0s) both,prize-cheer .6s ease-in-out calc(var(--hit,0s) + 2.2s)}
 .show-playing .reward{animation:star-prize .5s ease-in-out calc(var(--hit,0s) + .2s)}
 .show-playing .handwritten{animation:shown .01s var(--home,0s) both}
 .show-playing .show-add{animation:add-arrive .5s cubic-bezier(.2,.7,.3,1) var(--after,0s) both}
-@keyframes rainbow-sweep{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 @keyframes shown{from{opacity:0}}
 @keyframes add-arrive{from{opacity:0;visibility:hidden;max-height:0;margin-top:0;padding-top:0;transform:translateY(18px)}to{max-height:520px}}
 @keyframes prize-arrive{0%{opacity:0;transform:translateY(38px) rotate(-18deg) scale(.5)}12%{opacity:1}55%{transform:translateY(-9px) rotate(5deg) scale(1.07)}78%{transform:translateY(3px) rotate(-5deg) scale(.99)}100%{transform:rotate(-3deg)}}

@@ -14,13 +14,13 @@ FAMILIES = ("vines", "mushrooms", "bunnies", "elephants", "parade")
 COUNTS = (72, 80, 88)
 
 
-def pack(family, level, poster):
-    count = COUNTS[level-1]
+def pack(family, level, poster, *, group="woodland", counts=COUNTS, size=(480, 360)):
+    count = counts[level-1]
     if not 1 <= poster <= count:
         raise ValueError("Poster must be a one-based frame of this take")
     stem = f"{family}-{level}"
-    raw = ROOT/"assets/videos/woodland"/stem
-    target = ROOT/"dist/assets/woodland"
+    raw = ROOT/"assets/videos"/group/stem
+    target = ROOT/"dist/assets"/group
     target.mkdir(parents=True, exist_ok=True)
     pack_shot = runpy.run_path(str(ROOT/"studies/ember-orca/pack-progression.py"))["pack_shot"]
     # Holds share a single texture rectangle. Keep intermediate PNGs and proof files out of dist.
@@ -30,7 +30,7 @@ def pack(family, level, poster):
         for index in range(1, count+1):
             path = raw/f"{index:03}.png"
             with Image.open(path) as im:
-                if im.mode != "RGBA" or im.size != (480, 360):
+                if im.mode != "RGBA" or im.size != size:
                     raise ValueError(f"Unexpected stage or missing alpha in {path}")
                 digest = hashlib.sha256(im.tobytes()).digest()
             if digest not in unique:

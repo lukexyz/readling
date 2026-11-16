@@ -1,10 +1,13 @@
 import {gardens} from './gardens.js';
 import {woodlandFamilies} from './woodland.js';
+import {prismFamilies} from './prism.js';
+import {loadPrism,decoratePicturePoster} from './show-prism.js';
 import {loadParadeExample} from './show-woodland.js';
 import {dolphinFamilies, dolphinPoster, loadDolphin} from './dolphins.js';
 import {shots as orcas, loadShot as loadOrca} from './ember-orca.js';
 
 const families = [
+  ...prismFamilies,
   ...woodlandFamilies,
   ...gardens,
   ...dolphinFamilies.map(family => ({key:family.id, title:family.title, intro:family.motion,
@@ -20,15 +23,21 @@ const $ = selector => document.querySelector(selector);
 const requested = new URLSearchParams(location.search).get('family');
 const family = families.find(item => item.key === requested);
 const woodlandOnly=requested==='woodland';
-const selection=family ? [family] : woodlandOnly ? woodlandFamilies : families;
-for (const item of [{key:'all',title:'All'},{key:'woodland',title:'Woodland & animals'},...families]) {
+const prismOnly=requested==='prism', prismView=prismOnly || prismFamilies.includes(family);
+const selection=family ? [family] : woodlandOnly ? woodlandFamilies : prismOnly ? prismFamilies : families;
+if (prismView) {
+  document.body.classList.add('prism-review');
+  $('h1').textContent='Rainbows & fireworks';
+  document.title='Rainbows & fireworks · The Word Woods';
+}
+for (const item of [{key:'all',title:'All'},{key:'prism',title:'Rainbows & fireworks'},{key:'woodland',title:'Woodland & animals'},...(prismView?prismFamilies:families)]) {
   const link = document.createElement('a');
   link.href = '?family='+item.key;
   link.textContent = item.title;
-  if (item.key===(family?.key ?? (woodlandOnly?'woodland':'all'))) link.setAttribute('aria-current','page');
+  if (item.key===(family?.key ?? (woodlandOnly?'woodland':prismOnly?'prism':'all'))) link.setAttribute('aria-current','page');
   $('#families').append(link);
 }
-function makeCard(shot,index,grid) {
+function makeCard(shot,index,grid,isPrism) {
   const card = $('#study-card').content.firstElementChild.cloneNode(true);
   const find = selector => card.querySelector(selector);
   const plate = find('.plate'), canvas = find('canvas'), scrub = find('input'), button = find('button');
@@ -37,6 +46,7 @@ function makeCard(shot,index,grid) {
   canvas.width=w; canvas.height=h;
   find('img').src=shot.still;
   find('img').loading='lazy';
+  if (shot.family==='picture') decoratePicturePoster(find('img'),shot);
   find('.level').textContent='Level '+(index+1);
   find('h3').textContent=shot.title;
   find('.caption').textContent=shot.description;
@@ -68,7 +78,7 @@ function makeCard(shot,index,grid) {
   async function ready() {
     if (asset) return;
     try {
-      pending ||= shot.family==='parade' ? loadParadeExample(shot) : shot.load();
+      pending ||= isPrism ? loadPrism(shot) : shot.family==='parade' ? loadParadeExample(shot) : shot.load();
       asset=await pending;
     } finally { pending=null; }
   }
@@ -91,7 +101,7 @@ function makeCard(shot,index,grid) {
     $('#message').textContent='This animation could not load. Tap Play to try again.';
   }
   button.onclick=async () => {
-    groupToken++;
+    cancelGroupLoad();updateTogether();
     if (playing) { stop();updateTogether();return; }
     const stamp=++token;
     $('#message').textContent='';
@@ -100,7 +110,7 @@ function makeCard(shot,index,grid) {
     catch {if(stamp===token) failed();}
   };
   scrub.oninput=async () => {
-    groupToken++;stop();updateTogether();
+    cancelGroupLoad();stop();updateTogether();
     const fraction=Number(scrub.value)/1000, stamp=token;
     try {await ready();if(stamp===token) { paint(Math.round(fraction*(asset.length-1)));state('Play'); }}
     catch {if(stamp===token) failed();}
@@ -115,19 +125,20 @@ function makeCard(shot,index,grid) {
 }
 let groupToken=0;
 const players=[];
+const groups=[];
 const container=$('#studies');
 const together=$('#together');
 if (!family) {
   $('.heading').hidden=true;
   container.classList.add('overview');
-  container.parentElement.setAttribute('aria-label',woodlandOnly?'Woodland and animal levels':'All celebrations');
+  container.parentElement.setAttribute('aria-label',woodlandOnly?'Woodland and animal levels':prismOnly?'Rainbow and firework levels':'All celebrations');
   container.parentElement.removeAttribute('aria-labelledby');
 } else {
   $('#family').textContent=family.title;
   $('#intro').textContent=family.intro;
 }
 for (const entry of selection) {
-  let grid=container;
+  let grid=container, control=family ? together : null;
   if (!family) {
     const section=document.createElement('section'), header=document.createElement('div');
     header.className='family-heading';
@@ -135,13 +146,25 @@ for (const entry of selection) {
     title.textContent=entry.title;
     link.href='?family='+entry.key;link.textContent='Compare levels →';
     link.setAttribute('aria-label','Compare '+entry.title+' levels');
-    header.append(title,link);
+    header.append(title);
+    if (prismOnly) {
+      control=document.createElement('button');
+      control.type='button';control.className='compare-play';
+      control.setAttribute('aria-label','Play all three '+entry.title+' levels');
+      header.append(control);
+    } else header.append(link);
     grid=document.createElement('div');grid.className='family-grid';
     section.append(header,grid);container.append(section);
   }
   grid.style.setProperty('--glow',entry.palette[0]);
   grid.style.setProperty('--sky',entry.palette[1]);
-  players.push(...entry.shots.map((shot,i)=>makeCard(shot,i,grid)));
+  const members=entry.shots.map((shot,i)=>makeCard(shot,i,grid,prismFamilies.includes(entry)));
+  players.push(...members);
+  if (control) {
+    const group={control,members,loading:false,title:entry.title};
+    groups.push(group);
+    control.onclick=()=>playTogether(group);
+  }
 }
 if (!family && 'IntersectionObserver' in window) {
   const byCard=new Map(players.map(p=>[p.card,p]));
@@ -151,20 +174,32 @@ if (!family && 'IntersectionObserver' in window) {
   for (const p of players) observer.observe(p.card);
 }
 function updateTogether() {
-  together.textContent=players.some(p=>p.isPlaying()) ? 'Stop together' : 'Play together';
+  for (const {control,members,loading,title} of groups) {
+    const active=members.some(p=>p.isPlaying());
+    control.textContent=loading ? 'Loading…' : active ? 'Stop together' : 'Play together';
+    if (!family) control.setAttribute('aria-label',(active?'Stop':'Play')+' all three '+title+' levels');
+  }
 }
-together.onclick=async () => {
-  const wasPlaying=players.some(p=>p.isPlaying()), stamp=++groupToken;
-  players.forEach(p=>p.stop());updateTogether();
-  if (wasPlaying) return;
-  together.textContent='Loading…';$('#message').textContent='';
+async function playTogether(group) {
+  const stop=group.loading || group.members.some(p=>p.isPlaying()), stamp=++groupToken;
+  players.forEach(p=>p.stop());
+  groups.forEach(g=>{g.loading=false;});
+  group.loading=!stop;updateTogether();
+  if (stop) return;
+  $('#message').textContent='';
   try {
-    await Promise.all(players.map(p=>p.ready()));
+    await Promise.all(group.members.map(p=>p.ready()));
     if (stamp!==groupToken) return;
     const now=performance.now();
-    players.forEach(p=>p.start(now,true));updateTogether();
-  } catch { if (stamp===groupToken) {$('#message').textContent='Could not load all the levels. Tap Play together to retry.';updateTogether();} }
-};
+    group.members.forEach(p=>p.start(now,true));
+  } catch { if (stamp===groupToken) $('#message').textContent='Could not load all the levels. Tap Play together to retry.'; }
+  finally {if(stamp===groupToken) group.loading=false;updateTogether();}
+}
+function cancelGroupLoad() {
+  groupToken++;
+  groups.forEach(g=>{g.loading=false;});
+}
+updateTogether();
 document.addEventListener('visibilitychange',() => {
-  if (document.hidden) {groupToken++;players.forEach(p=>p.stop());updateTogether();}
+  if (document.hidden) {cancelGroupLoad();players.forEach(p=>p.stop());updateTogether();}
 });

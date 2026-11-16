@@ -1,6 +1,7 @@
 import {dolphinFamilies,dolphinShots} from './dolphins.js';
 import {flowerFamilies,flowerShots} from './gardens.js';
 import {woodlandByKey,woodlandShots} from './woodland.js';
+import {prismByFamily,prismShots} from './prism.js';
 
 const WORDS = ['cat','hat','mat','dog','log','pot','sun','bug','cup','hen','pen','pig'];
 const TALES = {
@@ -27,27 +28,29 @@ const GAPS = [1,3,7,14,30];
 // for one of several picks, for a word in her album or for a number of finds.
 const [poppies,moonflowers,sunflowers]=flowerFamilies.map(family=>family.shots);
 const SHOW = [
-  {id:'rainbow',name:'Rainbow'},{id:'music',name:'Music'},
+  prismByFamily.rainbow[0],{id:'music',name:'Music'},
   {id:'stars',name:'More stars'},poppies[0],woodlandByKey.bunnies.shots[0],
-  {id:'fountains',name:'Star fountains'},{id:'rainbow2',name:'Double rainbow',after:'rainbow'},
-  {id:'blooms',name:'Flower fireworks'},moonflowers[0],woodlandByKey.parade.shots[0],
-  woodlandByKey.mushrooms.shots[0],dolphinShots[0],{id:'paint',name:'Paint fireworks'},
-  sunflowers[0],{id:'slide',name:'Rainbow slide',after:'rainbow'},poppies[1],{id:'fireflies',name:'Fireflies'},woodlandByKey.vines.shots[0],
+  {id:'fountains',name:'Star fountains'},prismByFamily.rainbow2[0],
+  prismByFamily.blooms[0],moonflowers[0],woodlandByKey.parade.shots[0],
+  woodlandByKey.mushrooms.shots[0],dolphinShots[0],prismByFamily.paint[0],
+  sunflowers[0],prismByFamily.slide[0],poppies[1],{id:'fireflies',name:'Fireflies'},woodlandByKey.vines.shots[0],
   woodlandByKey.elephants.shots[0],{id:'hats',name:'Hats',word:'hat',any:['bunnies','parade','elephants','whale',...dolphinFamilies.map(family=>family.levels[0].id)]},
-  moonflowers[1],{id:'picture',name:'Picture fireworks'},{id:'oak',name:'Oak tree'},sunflowers[1],
-  {id:'whale',name:'Ember Orca · Level 1'},{id:'ribbon',name:'Rainbow ribbon',after:'rainbow'},{id:'splash',name:'Big splash',after:'whale'},
+  moonflowers[1],prismByFamily.picture[0],{id:'oak',name:'Oak tree'},sunflowers[1],
+  {id:'whale',name:'Ember Orca · Level 1'},prismByFamily.ribbon[0],{id:'splash',name:'Big splash',after:'whale'},
   {id:'whale2',name:'Ember Orca · Level 2',after:'whale'},{id:'whale3',name:'Ember Orca · Level 3',after:'whale2'},
   poppies[2],moonflowers[2],sunflowers[2],...woodlandShots.filter(s=>s.level===2),
-  ...dolphinShots.slice(1),...woodlandShots.filter(s=>s.level===3)
+  ...dolphinShots.slice(1),...woodlandShots.filter(s=>s.level===3),
+  ...prismShots.filter(s=>s.level===2),...prismShots.filter(s=>s.level===3)
 ];
+const prismIds=key=>prismByFamily[key].map(s=>s.id);
 const SHOW_GROUPS = [
-  ['Rainbows & music',['rainbow','rainbow2','slide','ribbon','music']],
-  ['Sky',['stars','fountains','blooms','paint']],
+  ['Rainbows & music',[...['rainbow','rainbow2','slide','ribbon'].flatMap(prismIds),'music']],
+  ['Sky',['stars','fountains',...prismIds('blooms'),...prismIds('paint')]],
   ['Flowers',flowerShots.map(shot=>shot.id)],
   ['Ground',[...woodlandByKey.mushrooms.shots,...woodlandByKey.vines.shots].map(s=>s.id).concat('oak')],
   ['Visitors',[...woodlandByKey.bunnies.shots,...woodlandByKey.parade.shots,...woodlandByKey.elephants.shots].map(s=>s.id)],
   ['Dolphins',dolphinShots.map(shot=>shot.id)],
-  ['Big finishes',['fireflies','picture','whale','whale2','whale3','splash']],
+  ['Big finishes',['fireflies',...prismIds('picture'),'whale','whale2','whale3','splash']],
   ['Extras',['hats']]
 ];
 const isWord = w=>WORDS.includes(w);

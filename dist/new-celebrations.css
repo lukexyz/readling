@@ -13,6 +13,8 @@
 .study-page button{font:800 15px var(--sans);cursor:pointer;color:#fffaf0;border:1px solid #23453a;border-radius:26px;background:#224b3f;min-height:42px;padding:6px 16px}
 .study-page button:focus-visible,.study-page a:focus-visible,.study-page input:focus-visible{outline:3px solid #ad6324;outline-offset:3px}
 #together{white-space:nowrap;background:transparent;color:#244838}
+.study-page .compare-play{white-space:nowrap;background:transparent;color:#244838}
+.prism-review .plate::after{display:none}
 #studies{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.5vw,22px);padding-bottom:20px}
 #studies article{overflow:hidden;display:flex;flex-direction:column;border:1px solid #c9cdbc;background:#fffdf5;border-radius:16px;box-shadow:0 3px 0 #e0dfcd}
 .plate{position:relative;aspect-ratio:4/3;isolation:isolate;background:radial-gradient(ellipse at 48% 70%,var(--glow,#efcfaf),var(--sky,#c6d4bd) 95%)}
@@ -36,3 +38,16 @@
 @media(max-width:640px){.family-grid{grid-template-columns:1fr}.family-heading a{font-size:14px}}
 @media(max-width:850px) and (min-width:641px){#studies .body{padding:12px}.controls output{display:none}}
 @media(max-width:640px){.study-page .wrap{width:92vw}.study-page h1{margin-top:24px}#studies{grid-template-columns:1fr;gap:18px}.heading{align-items:flex-start}.heading p{font-size:14px}.mast .wrap{height:52px}#families{gap:4px}#families a{padding:4px 10px}.plate{max-height:310px}}
+@media(max-width:640px){
+  .prism-review .wrap{width:96vw}
+  .prism-review #studies:not(.overview),.prism-review .family-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .prism-review #studies article{border-radius:9px}
+  .prism-review #studies .body{padding:8px}
+  .prism-review h3{font-size:clamp(15px,3.4vw,20px);overflow-wrap:break-word}
+  .prism-review .level{font-size:10px}
+  .prism-review .caption{font-size:12px;line-height:1.32;margin-bottom:8px}
+  .prism-review .controls{flex-direction:column;align-items:stretch;gap:1px}
+  .prism-review .controls input{margin:0;height:24px}
+  .prism-review .controls output{display:none}
+  .prism-review .controls .play{min-width:0}
+}

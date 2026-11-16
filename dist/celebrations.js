@@ -2,7 +2,7 @@ import {SHOW, SHOW_GROUPS} from './game.js';
 import {icon} from './drawings.js';
 import {launchFinale, prepareShow} from './finale.js';
 import {preparePoppy} from './poppy.js';
-import {snailImage} from './show-creatures.js';
+import {dolphinShots,dolphinPoster} from './dolphins.js';
 
 // Pick the moment that shows what each addition does, including its supporting acts.
 const posters = {
@@ -16,7 +16,6 @@ const posters = {
   blooms: [1.65, 'Fireworks burst into flowers and petals.'],
   parade: [1.55, 'The animals from the word cards march across the stage.'],
   mushrooms: [1.76, 'Spotted mushrooms pop up among unfurling ferns.'],
-  dolphins: [.89, 'Two dolphins leap towards one another.'],
   paint: [2.18, 'Bright blobs of paint land and drip.'],
   slide: [1.62, 'A gold star rides the outer edge of the rainbow.'],
   fireflies: [1.81, 'Fireflies gather to spell the word cat.'],
@@ -25,10 +24,11 @@ const posters = {
   hats: [1.02, 'The hopping bunnies wear hats from a word card.'],
   picture: [1.06, 'A burst of stars draws the shape of a cat.'],
   oak: [3.32, 'An oak tree grows and drops its acorns.'],
-  snail: [2.08, 'A snail with a little flag inches across the stage.'],
-  whale: [1.16, 'A whale breaches, then falls back in a splash.'],
+  whale: [1.13, 'An orca surfaces and blows a plume of mist.'],
+  whale2: [1.03, 'An orca banks in the air, then lands in a broad fan of foam.'],
+  whale3: [1.39, 'An orca turns a full somersault and sends a tower of whitewater into the air.'],
   ribbon: [2.83, 'A rainbow ribbon curls into a bow.'],
-  splash: [2.52, 'The whale sends water flying and rain falls over the stage.']
+  splash: [2.22, 'The orca sends water flying and rain falls over the stage.']
 };
 
 const examples = ['cat', 'dog', 'hen', 'bug'];
@@ -48,6 +48,7 @@ function options(button) {
 }
 
 function drawPoster(button) {
+  if (button.dataset.group==='Dolphins') return;
   if (button.clientWidth) launchFinale(null, {...options(button), freeze:posters[button.dataset.id]?.[0] ?? 1});
 }
 
@@ -118,12 +119,20 @@ for (const {id, name} of SHOW) {
   button.setAttribute('aria-describedby', 'about-' + id);
   button.innerHTML = `<span class="preview-screen"><canvas width="420" height="260" aria-hidden="true"></canvas></span>
     <span class="card-footer"><span class="card-title"></span><span class="play-label" aria-hidden="true"></span></span>`;
-  button.querySelector('.card-title').textContent = name;
+  const dolphin=dolphinShots.find(shot=>shot.id===id);
+  if (dolphin) {
+    const still=new Image();
+    still.className='dolphin-poster';
+    still.alt='';
+    still.src=dolphinPoster(dolphin);
+    button.querySelector('.preview-screen').prepend(still);
+  }
+  button.querySelector('.card-title').textContent = name.replace(/Level (\d+)$/, 'Level\u00a0$1');
   setControl(button, false);
   const about = document.createElement('span');
   about.id = 'about-' + id;
   about.className = 'sr-only';
-  about.textContent = posters[id]?.[1] ?? name;
+  about.textContent = dolphin?.description ?? posters[id]?.[1] ?? name;
   item.append(button, about);
   grid.append(item);
   buttons.set(id, button);
@@ -140,8 +149,8 @@ function refresh(ids) {
 }
 prepareShow([...examples, 'hat']).then(() => refresh(['parade', 'picture', 'hats']));
 preparePoppy().then(() => refresh(['flowers']));
-snailImage().decode().then(() => refresh(['snail'])).catch(() => {});
 
+const requestedGroup=new URLSearchParams(location.search).get('group');
 for (const filter of ['All', ...SHOW_GROUPS.map(([name]) => name)]) {
   const control = document.createElement('button');
   control.type = 'button';
@@ -159,6 +168,7 @@ for (const filter of ['All', ...SHOW_GROUPS.map(([name]) => name)]) {
     status.textContent = visible + ' celebrations shown.';
   });
   filters.append(control);
+  if (filter===requestedGroup) control.click();
 }
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });

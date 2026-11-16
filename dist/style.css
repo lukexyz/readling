@@ -163,8 +163,6 @@ main.wrap{padding-block:29px 40px;outline:none}
 @keyframes shown{from{opacity:0}}
 @keyframes add-arrive{from{opacity:0;visibility:hidden;max-height:0;margin-top:0;padding-top:0;transform:translateY(18px)}to{max-height:520px}}
 @keyframes prize-arrive{0%{opacity:0;transform:translateY(38px) rotate(-18deg) scale(.5)}12%{opacity:1}55%{transform:translateY(-9px) rotate(5deg) scale(1.07)}78%{transform:translateY(3px) rotate(-5deg) scale(.99)}100%{transform:rotate(-3deg)}}
-@keyframes snail-cross{from{transform:translateX(-130%)}to{transform:translateX(100vw)}}
-@keyframes snail-inch{50%{transform:scaleX(1.07)}}
 @keyframes prize-bounce{0%{transform:translateY(38px) rotate(-18deg) scale(.5)}55%{transform:translateY(-9px) rotate(5deg) scale(1.07)}78%{transform:translateY(3px) rotate(-5deg) scale(.99)}100%{transform:rotate(-3deg)}}
 @keyframes prize-cheer{0%,100%{transform:rotate(-3deg)}40%{transform:translateY(-7px) rotate(3deg) scale(1.08)}}
 @keyframes star-prize{45%{transform:scale(1.22) rotate(-5deg)}}
@@ -202,8 +200,6 @@ main.wrap{padding-block:29px 40px;outline:none}
 .trial-line input:disabled+span{color:#8b9488}
 .trial-line small{color:var(--sub);font-weight:500;font-size:12px}
 .trial-line .round-button{width:36px;height:36px}
-.show-snail{position:fixed;left:0;bottom:3px;width:clamp(76px,9vw,116px);z-index:8;pointer-events:none;animation:snail-cross 24s linear both}
-.show-snail svg{display:block;width:100%;height:auto;transform-origin:0 100%;animation:snail-inch 1.5s ease-in-out infinite}
 .save-invite{max-width:430px;margin:22px auto 0;padding-top:16px;border-top:1px solid var(--line)}
 .save-invite p{font-size:14px;margin-bottom:10px}
 /* Google's Sign in with Google button, from its branding guidelines, scaled up evenly for small fingers. */

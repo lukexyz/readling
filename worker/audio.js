@@ -219,7 +219,7 @@ async function generate(env, clip, body, voice, speak) {
   } finally { await bucket.delete(lockKey); }
 }
 
-export function createAudioSite({ assets, clips, voice, cues }, speak = fetch) {
+export function createAudioSite({ assets, artwork = {}, upload, clips, voice, cues }, speak = fetch) {
   const byId = new Map(clips.map(c => [c.id, c]));
   const byPath = new Map(clips.map(c => [c.path, c]));
   function bundled(request, path) {
@@ -230,6 +230,30 @@ export function createAudioSite({ assets, clips, voice, cues }, speak = fetch) {
   async function handler(request, env) {
     const url = new URL(request.url), path = url.pathname;
     const read = request.method === 'GET' || request.method === 'HEAD';
+    const image = Object.hasOwn(artwork,path) && artwork[path];
+    if (image) {
+      const bucket = env.BUCKET, key = 'celebration-art/'+image.hash;
+      if (request.method === 'PUT') {
+        const grant = request.headers.get('X-Readling-Release') || '';
+        if (!upload || !(Date.now() < upload.until) || !/^[a-f0-9]{64}$/.test(grant) ||
+            await fingerprint(new TextEncoder().encode(grant)) !== upload.hash)
+          throw new StudioError(403,'Release access required.');
+        if (Number(request.headers.get('Content-Length')) !== image.size)
+          throw new StudioError(400,'Unexpected artwork size.');
+        const body = await readLimited(request.body,image.size);
+        if (body.length !== image.size || await fingerprint(body) !== image.hash)
+          throw new StudioError(400,'Artwork does not match this release.');
+        await bucket.put(key,body,{onlyIf:new Headers({'If-None-Match':'*'}),httpMetadata:{contentType:'image/webp'}});
+        return new Response(null,{status:204});
+      }
+      if (!read) throw new StudioError(405,'Unsupported method.');
+      const result = await (request.method === 'HEAD' ? bucket.head(key) : bucket.get(key));
+      if (!result) throw new StudioError(404,'Artwork has not been uploaded.');
+      const headers = {'Content-Type':'image/webp','Content-Length':String(image.size),
+        ETag:'"'+image.hash+'"','Cache-Control':'public, max-age=0, must-revalidate'};
+      if (request.headers.get('If-None-Match') === headers.ETag) return new Response(null,{status:304,headers});
+      return new Response(request.method==='HEAD' ? null : result.body,{headers});
+    }
     if (path === '/api/studio/session' && read) {
       return json({ owner: isOwner(request, env), signedIn: Boolean(request.headers.get('oai-authenticated-user-id')),
         connected: Boolean(env.ELEVENLABS_API_KEY), voice });

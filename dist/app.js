@@ -822,7 +822,7 @@ function trialDialog() {
     ${trialStats()}
     <p class="dialog-intro trial-count">The round button beside each one plays it by itself.</p>
     ${SHOW_GROUPS.map(([title,ids])=>`<fieldset class="trial-group"><legend>${title}</legend>${ids.map(id=>{
-      const s=named(id), open=trialOpen(s), needs=s.after?'needs '+named(s.after).name:s.any?'needs a visitor or the whale':'';
+      const s=named(id), open=trialOpen(s), needs=s.after?'needs '+named(s.after).name:s.any?'needs a visitor or the orca':'';
       return `<div class="trial-line ${needs?'child':''}"><label><input type="checkbox" data-trial="${id}" ${trial.has(id)?'checked':''} ${open?'':'disabled'}><span>${s.name}</span>${needs && !open?`<small>${needs}</small>`:''}</label>
         <button type="button" class="round-button" data-act="trial-one" data-pick="${id}" aria-label="Play ${s.name} by itself">${icon('play',15)}</button></div>`;
     }).join('')}</fieldset>`).join('')}

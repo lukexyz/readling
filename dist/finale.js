@@ -2,15 +2,18 @@ import {colours,gold,ink,cream,water,tau,clamp01,ease,easeIn,pop,bump,five,four,
 import {forms} from './drawings.js';
 import {pathData} from './game.js';
 import {SCENES} from './show-scenes.js';
-import {CREATURES,SNAIL} from './show-creatures.js';
+import {CREATURES} from './show-creatures.js';
+import {orcas} from './ember-breach.js';
+import {dolphinFamilies} from './dolphins.js';
+import {dolphins} from './show-dolphins.js';
 
 // The celebration show. It opens with a hush while her letters land, the star then reveals her picture,
 // and the things she has added take turns after that. Her stars are counted out at the end.
-const motion=matchMedia('(prefers-reduced-motion: reduce)');
 const GROUND=['flowers','mushrooms','vines','oak'], SKY=['stars','fountains','blooms','paint'], BOW=['slide','ribbon'];
 // Only two visitors and two big finishes play in one show, in rotation, so a full show stays near a quarter of a minute.
 const VISIT=['bunnies','parade','dolphins','elephants'], FINISH=['fireflies','picture','whale'];
-let stopActive=null, snail=null;
+let stopActive=null;
+const waitingForArtwork=new WeakMap();
 
 // A printed theatre stays on the page after the show and in reduced motion. The rainbows appear once she has added them.
 function finaleScenery(picks=[]) {
@@ -188,13 +191,35 @@ const BASE={
     }}
 };
 const pin=e=>({x:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.27});
-const PARTS={...BASE,...SCENES,...CREATURES};
+const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins};
+
+function rotateCast(mine,turn,all) {
+  if (all || mine.length<=2) return mine;
+  return [mine[turn%mine.length],mine[(turn+1)%mine.length]];
+}
+
+// Each family contributes its highest earned jump. Normal shows share one dolphin
+// slot; the grown-ups' full rehearsal includes one act from every chosen family.
+function visitors(have,turn,all) {
+  const jumps=dolphinFamilies.map(family=>family.levels.findLast(shot=>have(shot.id))?.id).filter(Boolean);
+  const available=VISIT.filter(id=>id==='dolphins' ? jumps.length : have(id));
+  const cast=rotateCast(available,turn,all);
+  const slot=cast.indexOf('dolphins');
+  if (slot<0) return cast;
+  // In a larger cast dolphins appear twice per rotation. Count their appearances
+  // separately so a visitor rotation cannot permanently skip a dolphin family.
+  const appearance=available.length<=2 ? turn : 2*Math.floor(turn/available.length)+slot;
+  cast.splice(slot,1,...(all ? jumps : [jumps[appearance%jumps.length]]));
+  return cast;
+}
 
 // Works out when each part of a show starts and how long the whole show runs. `letters` is how many of her letters
 // land before the picture, which happens only where her word is on the page, and `staged` says whether the page has the stage.
 // Each act is the part's name, its start, its length, and whether it then stays to the end.
 function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,stars=0,tier=0}={}) {
   const acts=[], have=id=>(id===alone || picks.includes(id)) && PARTS[id];
+  // Each show uses the highest earned orca in its single ocean-finale slot.
+  const whale=['whale3','whale2','whale'].find(have) || 'whale', contact=orcas[whale].contact;
   let end=0, hit=0;
   const add=(id,at,len=PARTS[id].len)=>{
     acts.push([id,at,Math.min(len,30),!!PARTS[id].stays]);
@@ -203,10 +228,10 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
   };
   if(alone) {
     const friends={rainbow2:['rainbow'],slide:['rainbow'],ribbon:['rainbow'],music:['notes'],
-      splash:['whale',...GROUND.filter(id=>picks.includes(id))],
-      hats:[['bunnies','parade','dolphins','elephants','whale'].find(id=>picks.includes(id)) || 'bunnies']}[alone] || [];
+      splash:[whale,...GROUND.filter(id=>picks.includes(id))],
+      hats:[visitors(have,turn,true)[0] || (have(whale)?whale:'bunnies')]}[alone] || [];
     for(const id of friends) add(id,.1);
-    if(PARTS[alone]) add(alone,alone==='splash'?1.95:friends.length?.6:.1);
+    if(PARTS[alone]) add(alone,alone==='splash'?.1+contact:friends.length?.6:.1);
     for(const [id,at] of acts) if(PARTS[id].stays) end=Math.max(end,at+PARTS[id].len+.9);
   } else {
     hit=n?.25+n*.5+.3:staged?.95:.74;
@@ -221,11 +246,11 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     sky.forEach((id,k)=>add(id,t+k*.3));
     bow.forEach((id,k)=>add(id,t+(sky.length?.2:0)+k*.7));
     if(sky.length || bow.length) t=Math.max(t,end-1.2);
-    for(const group of [VISIT,FINISH]) {
-      const mine=group.filter(have), cast=all || mine.length<=2?mine:[0,1].map(k=>mine[(turn+k)%mine.length]);
+    const finishes=FINISH.map(id=>id==='whale'?whale:id).filter(have);
+    for(const cast of [visitors(have,turn,all),rotateCast(finishes,turn,all)]) {
       cast.forEach((id,k)=>{
         const at=add(id,t);
-        if(id==='whale' && have('splash')) add('splash',at+1.85);
+        if(id===whale && have('splash')) add('splash',at+contact);
         t=at+PARTS[id].len*(k<cast.length-1?.55:1);
       });
       if(cast.length) t=Math.max(t,end)-.9;
@@ -236,28 +261,21 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
   }
   return {acts,hit,total:end+.6};
 }
-function releaseSnail() {
-  snail?.remove();
-  const el=snail=document.createElement('div');
-  el.className='show-snail';el.setAttribute('aria-hidden','true');el.innerHTML=SNAIL;
-  el.addEventListener('animationend',ev=>{if(ev.target===el){el.remove();if(snail===el)snail=null;}});
-  document.body.append(el);
-}
-function cancelFinale() {stopActive?.();snail?.remove();snail=null;}
+function cancelFinale() {stopActive?.();}
 
 // Plays her show over the page. With `alone` it plays one addition by itself, with `into` it loops in a small
 // canvas as a preview. Set `loop` to false for a user-triggered clip, or `freeze` to a time for a still.
 function launchFinale(stage,options={}) {
+  const motion=matchMedia('(prefers-reduced-motion: reduce)');
   const {picks=[],finds=[],word='',ink:writing=null,stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null,loop=true}=options;
   if(!into) cancelFinale();
   if(!into && freeze===null && (motion.matches || document.hidden)) return null;
-  if(alone==='snail' && !into && freeze===null){releaseSnail();return {hit:0,total:0};}
   const canvas=into || document.createElement('canvas'), ctx=canvas.getContext('2d');
   if(!ctx) return null;
   const real=!into && stage?.querySelector('.rainbow-theatre') && stage.querySelector('.reveal-art')?stage:null;
   if(!into){canvas.className='fireworks-screen';canvas.setAttribute('aria-hidden','true');document.body.append(canvas);}
   const sparks=[], rings=[];
-  let limit=320, frame=0, last=0, states=[];
+  let limit=320, frame=0, last=0, states=[], stopped=false;
   function spark(p) {
     sparks.push({age:0,life:1.5,size:6*e.u,rot:0,spin:0,kind:'star5',colour:gold,g:1,drag:.55,vx:0,vy:0,...p});
     if(sparks.length>limit) sparks.splice(0,sparks.length-limit);
@@ -366,13 +384,14 @@ function launchFinale(stage,options={}) {
     ctx.globalAlpha=1;
   }
   function stop(finished) {
+    if(stopped) return;
+    stopped=true;
     cancelAnimationFrame(frame);
     if(!into) {
       canvas.remove();stage?.classList.remove('show-playing');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
       if(stopActive===stop) stopActive=null;
-      if(finished===true && !alone && e.has('snail')) releaseSnail();
     }
     if(freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
   }
@@ -387,22 +406,39 @@ function launchFinale(stage,options={}) {
     if(!into) canvas.style.opacity=clamp01((e.total-e.time)/.4);
     frame=requestAnimationFrame(tick);
   }
-  reset();
-  if(real) {
-    stage.style.setProperty('--hit',e.hit+'s');stage.style.setProperty('--home',(alone?0:e.hit+.5)+'s');
-    stage.style.setProperty('--after',Math.max(0,e.total-.5)+'s');
-    stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
-  }
   if(!into) {
     stopActive=stop;
     window.addEventListener('resize',resize);window.addEventListener('scroll',locate,{passive:true});
     document.addEventListener('visibilitychange',hidden);motion.addEventListener('change',stop);
   }
-  const still=freeze!==null?freeze:into && loop && motion.matches?e.total*.55:null;
-  if(still!==null) {
-    while(e.time<still) advance(1/60);
-    picture();
-  } else {last=performance.now();frame=requestAnimationFrame(tick);}
+  waitingForArtwork.delete(canvas);
+  function start() {
+    if(stopped) return;
+    reset();
+    if(real) {
+      stage.style.setProperty('--hit',e.hit+'s');stage.style.setProperty('--home',(alone?0:e.hit+.5)+'s');
+      stage.style.setProperty('--after',Math.max(0,e.total-.5)+'s');
+      stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
+    }
+    const poster=PARTS[alone]?.poster;
+    const quietStill=poster===undefined ? e.total*.55 : acts.find(([id])=>id===alone)[1]+poster;
+    const still=freeze!==null?freeze:into && loop && motion.matches?quietStill:null;
+    if(still!==null) {
+      while(e.time<still) advance(1/60);
+      picture();
+    } else {last=performance.now();frame=requestAnimationFrame(tick);}
+  }
+  // A cold sprite sheet must be decoded before the clock starts, including for
+  // a reduced-motion still. A cancelled show or superseded poster stays stopped.
+  const pending=acts.map(([id])=>PARTS[id].prepare?.(e)).filter(Boolean);
+  if(pending.length) {
+    waitingForArtwork.set(canvas,stop);
+    Promise.all(pending).then(()=>{
+      if(waitingForArtwork.get(canvas)!==stop) return;
+      waitingForArtwork.delete(canvas);
+      start();
+    });
+  } else start();
   return {hit:e.hit,total:e.total,stop};
 }
 export {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow};

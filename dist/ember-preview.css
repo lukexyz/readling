@@ -1,0 +1,52 @@
+.orca-study { background:#f7f5eb; color:#223d33 }
+.orca-study .wrap { width:min(1260px,calc(100% - clamp(32px,7vw,108px))); margin-inline:auto }
+.orca-study header { border-bottom:1px solid #cbd0bf }
+.orca-study nav { min-height:68px; display:flex; align-items:center; justify-content:space-between; gap:16px }
+.orca-study .brand { display:flex; align-items:center; gap:9px; text-decoration:none; font:27px/1 var(--serif); letter-spacing:-.06em }
+.gallery-link { font-size:.9rem; font-weight:800; text-underline-offset:4px }
+.orca-study main { padding-block:clamp(30px,5vw,65px) 50px }
+.orca-study h1 { font-size:clamp(48px,7vw,88px); line-height:.99; letter-spacing:-.065em }
+.intro { margin:.85rem 0 0; max-width:49rem; color:#506057; font-size:clamp(16px,1.5vw,19px) }
+.toolbar, .settings, .settings label { display:flex; align-items:center; gap:12px; flex-wrap:wrap }
+.toolbar { justify-content:space-between; padding:15px 0; margin-top:clamp(18px,2.6vw,32px); border-top:1px solid #cbd0bf }
+.settings { gap:18px; font-weight:750; font-size:14px }
+.settings label { gap:7px }
+.settings input, .timeline { accent-color:#315242 }
+.settings select { color:inherit; background:#fffdf5; border:1px solid #b9c5b6; border-radius:7px; padding:6px 8px }
+.settings input { width:17px; height:17px; margin:0 }
+.play-all,.play { border:none; border-radius:24px; font-weight:850; line-height:1; padding:10px 16px; min-height:40px }
+.play-all { background:#29483a; color:#fffdf4 }
+.play-all::before,.play::before { content:''; display:inline-block; width:0; height:0; border-block:5px solid transparent; border-left:8px solid currentColor; margin-right:8px }
+button[data-playing=true]::before { width:8px; height:10px; border:0; border-inline:3px solid currentColor }
+.shots { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(12px,1.6vw,23px); align-items:stretch }
+.shot { min-width:0; display:flex; flex-direction:column; border:1px solid #bec6b6; border-radius:12px; background:#fffcf3; overflow:hidden; box-shadow:0 2px 0 #dce0d0 }
+.plate { position:relative; aspect-ratio:1.30; background:radial-gradient(ellipse at 55% 35%,#e6e6d9,#c7d9d2); border-bottom:1px solid #bac7b9 }
+[data-surface=grid] .plate { background:repeating-conic-gradient(#dfddd2 0% 25%,#f6f4e9 0% 50%) 0 0/22px 22px }
+[data-surface=night] .plate { background:#273c41 }
+.plate canvas { display:block; width:100%; height:100%; position:absolute; inset:0 }
+.load-note { position:absolute; inset:auto 10px 10px; text-align:center; color:#334b40; background:#f8f7eb; border-radius:6px; font-size:14px }
+.details { padding:clamp(14px,1.8vw,24px); display:flex; flex:1; flex-direction:column }
+.metadata { display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:12px; font-weight:800 }
+.level { color:#885336; letter-spacing:.10em; text-transform:uppercase }
+.status { color:#516455 }
+.shot h2 { font-size:clamp(25px,2.3vw,35px); margin:6px 0 7px; line-height:1.10 }
+.description { color:#4e5e55; line-height:1.45; font-size:15px; margin-bottom:18px }
+.transport { display:flex; align-items:center; gap:8px; margin-top:auto }
+.play { min-width:76px; font-size:14px; padding:8px 12px; color:#254237; background:#e3eadc; border:1px solid #c3d0bb }
+.timeline { min-width:18px; flex:1; width:100% }
+.clock { font-variant-numeric:tabular-nums; font-size:12px; min-width:42px; text-align:right; color:#526258 }
+.beats { display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:9px }
+.beats button { border:0; padding:5px 0; color:#54665a; background:transparent; font-size:13px; font-weight:780; text-decoration:underline; text-decoration-color:#a9b8a7; text-underline-offset:3px }
+.beats button:hover,.gallery-link:hover { color:#873f27 }
+@media(max-width:830px) {
+  .shots { grid-template-columns:1fr }
+  .shot { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) }
+  .plate { border-bottom:0; border-right:1px solid #bac7b9; min-height:100% }
+  .orca-study .wrap { max-width:670px }
+}
+@media(max-width:540px) {
+  .shot { display:flex }
+  .plate { min-height:0; border-right:0; border-bottom:1px solid #bac7b9 }
+  .toolbar { align-items:flex-start }
+  .settings { gap:10px }
+}

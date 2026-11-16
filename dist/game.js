@@ -1,3 +1,5 @@
+import {dolphinFamilies,dolphinShots} from './dolphins.js';
+
 const WORDS = ['cat','hat','mat','dog','log','pot','sun','bug','cup','hen','pen','pig'];
 const TALES = {
   cat:'A little cat curls up beside the path.',
@@ -26,19 +28,22 @@ const SHOW = [
   {id:'stars',name:'More stars'},{id:'flowers',name:'Flowers'},{id:'bunnies',name:'Bunnies'},
   {id:'fountains',name:'Star fountains'},{id:'rainbow2',name:'Double rainbow',after:'rainbow'},
   {id:'blooms',name:'Flower fireworks'},{id:'parade',name:'Parade',finds:2},
-  {id:'mushrooms',name:'Mushrooms'},{id:'dolphins',name:'Dolphins'},{id:'paint',name:'Paint fireworks'},
+  {id:'mushrooms',name:'Mushrooms'},dolphinShots[0],{id:'paint',name:'Paint fireworks'},
   {id:'slide',name:'Rainbow slide',after:'rainbow'},{id:'fireflies',name:'Fireflies'},{id:'vines',name:'Vines'},
-  {id:'elephants',name:'Elephants'},{id:'hats',name:'Hats',word:'hat',any:['bunnies','parade','dolphins','elephants','whale']},
-  {id:'picture',name:'Picture fireworks'},{id:'oak',name:'Oak tree'},{id:'snail',name:'Snail'},
-  {id:'whale',name:'Whale'},{id:'ribbon',name:'Rainbow ribbon',after:'rainbow'},{id:'splash',name:'Big splash',after:'whale'}
+  {id:'elephants',name:'Elephants'},{id:'hats',name:'Hats',word:'hat',any:['bunnies','parade','elephants','whale',...dolphinFamilies.map(family=>family.levels[0].id)]},
+  {id:'picture',name:'Picture fireworks'},{id:'oak',name:'Oak tree'},
+  {id:'whale',name:'Ember Orca · Level 1'},{id:'ribbon',name:'Rainbow ribbon',after:'rainbow'},{id:'splash',name:'Big splash',after:'whale'},
+  {id:'whale2',name:'Ember Orca · Level 2',after:'whale'},{id:'whale3',name:'Ember Orca · Level 3',after:'whale2'},
+  ...dolphinShots.slice(1)
 ];
 const SHOW_GROUPS = [
   ['Rainbows & music',['rainbow','rainbow2','slide','ribbon','music']],
   ['Sky',['stars','fountains','blooms','paint']],
   ['Ground',['flowers','mushrooms','vines','oak']],
-  ['Visitors',['bunnies','parade','dolphins','elephants']],
-  ['Big finishes',['fireflies','picture','whale','splash']],
-  ['Extras',['hats','snail']]
+  ['Visitors',['bunnies','parade','elephants']],
+  ['Dolphins',dolphinShots.map(shot=>shot.id)],
+  ['Big finishes',['fireflies','picture','whale','whale2','whale3','splash']],
+  ['Extras',['hats']]
 ];
 const isWord = w=>WORDS.includes(w);
 const clamp = (n, min, max)=>Math.min(max, Math.max(min, n));

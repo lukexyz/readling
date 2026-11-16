@@ -1,9 +1,16 @@
 {
-  "name":"readling-word-woods",
-  "private":true,
-  "type":"module",
-  "scripts":{
-    "voices":"node scripts/cache-voices.mjs",
-    "test":"node --test scripts/schedule.test.mjs scripts/album.test.mjs scripts/show.test.mjs &&node scripts/cache-voices.mjs --check"
+  "name": "readling-word-woods",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "voices": "node scripts/cache-voices.mjs",
+    "build": "node scripts/build-audio-site.mjs",
+    "test": "node --test scripts/*.test.mjs && node scripts/cache-voices.mjs --check"
+  },
+  "dependencies": {
+    "@breezystack/lamejs": "1.2.7"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
   }
 }

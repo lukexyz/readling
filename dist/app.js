@@ -535,7 +535,7 @@ function parents() {
     ${soundProgress()}
     <fieldset><legend>Move an album</legend><p>Download a copy here, open this Site on the other tablet and import it there. Importing combines the two collections.</p>
     <div class="actions">${action('Download album','export','','secondary')}${action('Import album','import','','secondary')}</div><input type="file" id="file-picker" accept="application/json,.json" hidden></fieldset>
-    <p class="credits"><a href="./assets/audio/CREDITS.txt" target="_blank" rel="noopener">Audio credits</a></p>`, 'Grown-ups');
+    <p class="credits"><a href="./audio-studio.html">Audio studio</a> · <a href="./assets/audio/CREDITS.txt" target="_blank" rel="noopener">Audio credits</a></p>`, 'Grown-ups');
   watchAccount();
 }
 function showCard(w) {

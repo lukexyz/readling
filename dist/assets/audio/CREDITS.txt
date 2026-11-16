@@ -51,6 +51,10 @@ clip boundaries and converting the audio to MP3. Some consonant endings
 were shortened. The slow blending models each use one continuous word
 recording, stretched in time while preserving pitch.
 
+The audio studio also includes a longer take of b from the same Australian
+English recording. Its full spoken release is retained, with the surrounding
+silence trimmed. The studio identifies any replacement the owner selects.
+
 Curious Learning repository notice
 https://github.com/curiouslearning/ftm-languagepacks/blob/7be4c9c922a6266b11f3f7821bb8ca6574f2cacd/LICENSE
 

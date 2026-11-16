@@ -2,9 +2,13 @@
 
 Serve `dist/` with any static web server. Progress, drawings and earned cards are saved in the player's browser. A grown-up can also sign in with Google to keep a copy in their account, once that is set up as described below.
 
-The public game plays bundled audio files. It has no speech-generation endpoint and needs no hosted credentials.
+The public game plays saved recordings. Open **Grown-ups → Audio studio** or `/audio-studio.html` to search and play the library. It opens on the short and full human takes of **b**. The current game take, the audition and the example word have separate play buttons.
 
-To change the narration, edit the prompts in `dist/voice-lines.js` or the word list and stories in `dist/game.js`. With Node.js and FFmpeg installed, run:
+The studio uses the same public Site. Sign in with the owner's ChatGPT account to give ElevenLabs a delivery direction or upload audio. **Generate preview** creates a cached draft with the configured voice. **Use in game** switches the public recording. For a slow blend, set the two letter-change times in seconds before using the take. **Compare bundled original** can restore the shipped sound. Public game playback and preview replays read audio files.
+
+The Sites Worker reads the runtime secrets `AUDIO_OWNER_EMAIL` and `ELEVENLABS_API_KEY`. The former is the email of the owner reported by Sites. Owner checks use the identity supplied by Sites on each editing request. R2 holds drafts, the active recording for each clip and blend timings. The original library stays in source. The Worker serves the existing URLs, including byte ranges for tablet players. The studio levels uploaded and generated audio before auditioning it. Run `npm run build` to build the Worker from `worker/audio.js` and `dist/`.
+
+To update the bundled narration, edit the prompts in `dist/voice-lines.js` or the word list and stories in `dist/game.js`. With Node.js and FFmpeg installed, run:
 
 ```sh
 npm run voices -- --key-file "/path/to/your/local/key-file"

@@ -32,6 +32,14 @@ const SHOW = [
   {id:'picture',name:'Picture fireworks'},{id:'oak',name:'Oak tree'},{id:'snail',name:'Snail'},
   {id:'whale',name:'Whale'},{id:'ribbon',name:'Rainbow ribbon',after:'rainbow'},{id:'splash',name:'Big splash',after:'whale'}
 ];
+const SHOW_GROUPS = [
+  ['Rainbows & music',['rainbow','rainbow2','slide','ribbon','music']],
+  ['Sky',['stars','fountains','blooms','paint']],
+  ['Ground',['flowers','mushrooms','vines','oak']],
+  ['Visitors',['bunnies','parade','dolphins','elephants']],
+  ['Big finishes',['fireflies','picture','whale','splash']],
+  ['Extras',['hats','snail']]
+];
 const isWord = w=>WORDS.includes(w);
 const clamp = (n, min, max)=>Math.min(max, Math.max(min, n));
 const num = (v, fallback=0)=>typeof v==='number' && Number.isFinite(v) ? v : fallback;
@@ -224,4 +232,4 @@ function pathData(points) {
   const path='M'+points.map(p=>p.join(' ')).join(' L');
   return points.length===1?path+' l0.05 0':path;
 }
-export {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData};
+export {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, SHOW_GROUPS, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData};

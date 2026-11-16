@@ -78,10 +78,15 @@ function cutout(word) {
       c.canvas=cv;c.ready=true;
     } catch { /* A picture that cannot be read is left out of the show. */ }
   };
+  // The gallery draws a single frame, so wait until the onload handler has made the cut-out.
+  c.loaded=new Promise(resolve=>{
+    img.addEventListener('load',()=>resolve(),{once:true});
+    img.addEventListener('error',()=>resolve(),{once:true});
+  });
   img.src='./assets/words/'+word+'.webp';
   return c;
 }
-function prepareShow(words) {for(const w of words) cutout(w);}
+function prepareShow(words) {return Promise.all(words.map(w=>cutout(w).loaded));}
 
 // The parts that belong to every show.
 const BASE={
@@ -241,9 +246,9 @@ function releaseSnail() {
 function cancelFinale() {stopActive?.();snail?.remove();snail=null;}
 
 // Plays her show over the page. With `alone` it plays one addition by itself, with `into` it loops in a small
-// canvas as a preview, and with `freeze` it draws the single frame at that many seconds so a frame can be checked.
+// canvas as a preview. Set `loop` to false for a user-triggered clip, or `freeze` to a time for a still.
 function launchFinale(stage,options={}) {
-  const {picks=[],finds=[],word='',ink:writing=null,stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null}=options;
+  const {picks=[],finds=[],word='',ink:writing=null,stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null,loop=true}=options;
   if(!into) cancelFinale();
   if(!into && freeze===null && (motion.matches || document.hidden)) return null;
   if(alone==='snail' && !into && freeze===null){releaseSnail();return {hit:0,total:0};}
@@ -293,9 +298,10 @@ function launchFinale(stage,options={}) {
   }
   function resize() {
     if(into) {
-      e.w=520;e.h=390;e.u=.6;
+      const {width=520,height=390,unit=.6}=options.previewSize || {};
+      e.w=width;e.h=height;e.u=unit;
       const wide=canvas.clientWidth || 260, dpr=Math.min(devicePixelRatio || 1,2);
-      canvas.width=Math.round(wide*dpr);canvas.height=Math.round(wide*dpr*.75);
+      canvas.width=Math.round(wide*dpr);canvas.height=Math.round(wide*dpr*e.h/e.w);
     } else {
       e.w=window.innerWidth;e.h=window.innerHeight;
       const dpr=Math.min(devicePixelRatio || 1,1.6,Math.sqrt(2000000/(e.w*e.h)));
@@ -367,8 +373,8 @@ function launchFinale(stage,options={}) {
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
       if(stopActive===stop) stopActive=null;
       if(finished===true && !alone && e.has('snail')) releaseSnail();
-      if(freeze===null) options.onEnd?.(finished===true);
     }
+    if(freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
   }
   function hidden() {if(document.hidden) stop();}
   function tick(now) {
@@ -376,7 +382,7 @@ function launchFinale(stage,options={}) {
     let dt=Math.min((now-last)/1000,1.2);last=now;
     if(into?!canvas.isConnected:stage && !stage.isConnected){stop();return;}
     for(;dt>0;dt-=1/30) advance(Math.min(dt,1/30));
-    if(e.time>=e.total){if(!into){stop(true);return;}reset();}
+    if(e.time>=e.total){if(!into || !loop){stop(true);return;}reset();}
     picture();
     if(!into) canvas.style.opacity=clamp01((e.total-e.time)/.4);
     frame=requestAnimationFrame(tick);
@@ -392,7 +398,7 @@ function launchFinale(stage,options={}) {
     window.addEventListener('resize',resize);window.addEventListener('scroll',locate,{passive:true});
     document.addEventListener('visibilitychange',hidden);motion.addEventListener('change',stop);
   }
-  const still=freeze!==null?freeze:into && motion.matches?e.total*.55:null;
+  const still=freeze!==null?freeze:into && loop && motion.matches?e.total*.55:null;
   if(still!==null) {
     while(e.time<still) advance(1/60);
     picture();

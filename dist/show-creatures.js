@@ -102,6 +102,13 @@ const SNAIL=`<svg viewBox="0 -26 124 106"><g stroke="#354435" stroke-width="2.6"
   <path d="M56 15L56-22" fill="none"/><path d="M56-22L80-14L56-6Z" fill="#ff635d"/>
 </g></svg>`;
 let snailPicture=null;
+function snailImage() {
+  if(!snailPicture) {
+    snailPicture=new Image();
+    snailPicture.src='data:image/svg+xml,'+encodeURIComponent(SNAIL.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="248" height="212" '));
+  }
+  return snailPicture;
+}
 
 const CREATURES={
   // Three bunnies pop up from below, one after another, and hop across.
@@ -189,11 +196,11 @@ const CREATURES={
   // The snail in a small preview. In the show it crosses the page itself, after everything else has finished.
   snail:{len:4,z:6,
     draw(e,s,t) {
-      if(!snailPicture){snailPicture=new Image();snailPicture.src='data:image/svg+xml,'+encodeURIComponent(SNAIL.replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="248" height="212" '));}
-      if(!snailPicture.complete || !snailPicture.naturalWidth) return;
+      const img=snailImage();
+      if(!img.complete || !img.naturalWidth) return;
       const wide=170*e.u;
       e.ctx.save();e.ctx.translate(e.w*.1+e.w*.5*t/4,e.h-wide*.86);e.ctx.scale(1+.05*Math.sin(t*6),1);
-      e.ctx.drawImage(snailPicture,0,0,wide,wide*106/124);e.ctx.restore();
+      e.ctx.drawImage(img,0,0,wide,wide*106/124);e.ctx.restore();
     }}
 };
-export {CREATURES,SNAIL};
+export {CREATURES,SNAIL,snailImage};

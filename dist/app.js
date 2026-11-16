@@ -2,7 +2,7 @@ import {icon, forms, letterForm} from './drawings.js';
 import {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow} from './finale.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
-import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData} from './game.js';
+import {WORDS, TALES, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, SHOW_GROUPS, clamp, newProfile, normalise, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData} from './game.js';
 import {cloud} from './cloud.js';
 const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
@@ -525,7 +525,7 @@ function parents() {
     <label class="setting-line"><span>Music in her show</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label>
     <label class="setting-line"><span>Memory cards before a new word</span><input type="checkbox" data-setting="memoryFirst" ${profile.settings.memoryFirst?'checked':''}></label></fieldset>
     <fieldset><legend>Her celebration show</legend><p>She has added ${profile.show.picks.length} of ${SHOW.length} things, and her show runs for about ${Math.round(showTimes(profile.show.picks).total)} seconds. Her first find or memory round earns a choice of two things to add, and every second one after that earns another. The music plays once she has added it.</p>
-    <div class="actions">${action('Play her show','play-show','','secondary')}${action('Try out the show','trial','','secondary')}</div></fieldset>
+    <div class="actions">${action('Play her show','play-show','','secondary')}${action('Try out the show','trial','','secondary')}<a class="btn secondary" href="./celebrations.html">Celebration gallery</a></div></fieldset>
     <fieldset><legend>Sounds covered in class</legend><p>Choose the sounds she has met. New words use only these sounds.</p>
     <div class="sound-checks">${[...CLASS_SOUNDS].map(c=>`<label><input type="checkbox" data-class-sound="${c}" ${profile.settings.sounds.includes(c)?'checked':''}><span>${c}</span></label>`).join('')}</div>
     <small id="available-count">${availableWords(profile).length} of 12 words available</small></fieldset>
@@ -790,11 +790,6 @@ function previewShow(options,then) {
     else if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
   },80);
 }
-// Trying out the show: a grown-up ticks any mix of additions and plays it. Her own show is not changed.
-// Something that builds on another, such as the second rainbow, can only be ticked once that one is.
-const TRIAL=[['To begin',['rainbow','rainbow2','slide','ribbon','music']],['Sky',['stars','fountains','blooms','paint']],
-  ['Ground',['flowers','mushrooms','vines','oak']],['Visitors',['bunnies','parade','dolphins','elephants']],
-  ['Big finishes',['fireflies','picture','whale','splash']],['Extras',['hats','snail']]];
 // When each part of a show plays on the page of a three-letter find, and how long the whole show runs.
 function showTimes(picks,options={}) {
   const staged=profile.settings.sparkles;
@@ -826,7 +821,7 @@ function trialDialog() {
     <div class="actions">${action('Play this show','trial-play','play')}${action('Tick everything','trial-all','','secondary')}${action('Clear','trial-none','','secondary')}${action('Her show','trial-hers','','secondary')}</div>
     ${trialStats()}
     <p class="dialog-intro trial-count">The round button beside each one plays it by itself.</p>
-    ${TRIAL.map(([title,ids])=>`<fieldset class="trial-group"><legend>${title}</legend>${ids.map(id=>{
+    ${SHOW_GROUPS.map(([title,ids])=>`<fieldset class="trial-group"><legend>${title}</legend>${ids.map(id=>{
       const s=named(id), open=trialOpen(s), needs=s.after?'needs '+named(s.after).name:s.any?'needs a visitor or the whale':'';
       return `<div class="trial-line ${needs?'child':''}"><label><input type="checkbox" data-trial="${id}" ${trial.has(id)?'checked':''} ${open?'':'disabled'}><span>${s.name}</span>${needs && !open?`<small>${needs}</small>`:''}</label>
         <button type="button" class="round-button" data-act="trial-one" data-pick="${id}" aria-label="Play ${s.name} by itself">${icon('play',15)}</button></div>`;

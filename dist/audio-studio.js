@@ -262,6 +262,10 @@ $('original').onclick = () => choosePreview({ id: 'original', name: 'Bundled ori
 $('latest').onclick = () => choosePreview(savedTake(state.clip, state.saved));
 $('generate').onclick = () => edit('generate'); $('use').onclick = () => edit('publish');
 $('upload').onchange = () => { if ($('upload').files.length) edit('upload'); };
+window.addEventListener('hashchange', () => {
+  const target = byId.get(location.hash.slice(1));
+  if (target && target.id !== state.clip?.id) selectClip(target);
+});
 selectClip(byId.get(location.hash.slice(1)) || byId.get('letter-b'));
 api('/api/studio/session').then(session => {
   state.session = { ...session, loaded: true }; renderControls();

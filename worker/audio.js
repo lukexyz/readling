@@ -273,7 +273,8 @@ export function createAudioSite({ assets, clips, voice, fullB, cues }, speak = f
     if (!read) throw new StudioError(405, 'Unsupported method.');
     if (path === '/assets/audio/blends/cues.json' && env.BUCKET) {
       const adjusted = { ...cues };
-      const list = await env.BUCKET.list({ prefix: 'live/blend-', include: ['customMetadata'], limit: 100 });
+      const list = await env.BUCKET.list({ prefix: 'live/blend-', include: ['customMetadata'], limit: 100 })
+        .catch(() => ({ objects: [] }));
       for (const item of list.objects) {
         const m = metadata(item);
         if (m.cues) adjusted[item.key.slice('live/blend-'.length)] = JSON.parse(m.cues);
@@ -282,7 +283,8 @@ export function createAudioSite({ assets, clips, voice, fullB, cues }, speak = f
     }
     const clip = byPath.get(path);
     if (clip && env.BUCKET) {
-      const file = await env.BUCKET.get(liveKey(clip));
+      // The bundled classroom recordings remain playable during a storage outage.
+      const file = await env.BUCKET.get(liveKey(clip)).catch(() => null);
       if (file && metadata(file).take !== 'original') {
         return serveBytes(request, new Uint8Array(await file.arrayBuffer()), file.httpMetadata.contentType, metadata(file).version);
       }

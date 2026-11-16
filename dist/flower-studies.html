@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flower studies · The Word Woods</title>
+  <link rel="icon" href="./assets/readling.svg">
+  <style>
+    @font-face{font-family:Young;src:url('./assets/fonts/young-serif.ttf')} @font-face{font-family:Nunito;src:url('./assets/fonts/nunito.ttf');font-weight:200 1000}
+    :root{--paper:#f8f5eb;--ink:#243b30;--rule:#cfcdbb;--serif:Young,Georgia,serif;font:16px/1.5 Nunito,system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+    *{box-sizing:border-box} body{margin:0} .wrap{width:min(1216px,calc(100% - clamp(32px,8vw,120px)));margin:auto}
+    a{color:inherit} button{font:inherit;color:inherit;cursor:pointer} :focus-visible{outline:3px solid #a25b27;outline-offset:4px}
+    header{border-bottom:1px solid var(--rule)} header .wrap{height:65px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .brand,.back{display:inline-flex;align-items:center;gap:9px;text-decoration:none} .brand{font:26px var(--serif);letter-spacing:-1.4px}.brand img{width:33px;height:33px}.back{font-weight:800;font-size:14px;min-height:44px}.back:hover,nav a:hover{text-decoration:underline}
+    .cover{position:relative;isolation:isolate;background:#1e3b31;color:#faf3d9;overflow:hidden}.cover .wrap{min-height:235px;display:flex;align-items:center;position:relative;padding-block:35px}.cover-copy{z-index:1;width:52%}
+    h1,h2,h3,p{margin:0} h1,h2,h3{font-family:var(--serif);font-weight:400;line-height:1.1;letter-spacing:-.045em}
+    h1{font-size:clamp(50px,6vw,86px)} .cover-copy p{color:#f0eedb;max-width:365px;margin-top:13px;font-size:17px}.cover-art{position:absolute;bottom:-2px;right:-2%;height:107%;width:53%;pointer-events:none}.cover-art svg{width:100%;height:100%}
+    nav{border-bottom:1px solid var(--rule)} nav .wrap{display:flex;flex-wrap:wrap;gap:4px 25px;padding-block:7px} nav a{display:flex;align-items:center;gap:8px;min-height:37px;font-size:14px;font-weight:800;text-decoration:none} nav i{width:10px;height:10px;border-radius:50%;background:var(--swatch);border:1px solid #243b3055}
+    main{padding-bottom:60px} section{margin-top:clamp(30px,4vw,53px);scroll-margin:20px} section+section{border-top:1px solid var(--rule);padding-top:clamp(26px,4vw,48px)}
+    .section-heading{display:flex;align-items:baseline;gap:14px 26px;flex-wrap:wrap;margin-bottom:16px} h2{font-size:clamp(28px,3.6vw,44px)}.section-heading p{color:#515e50;font-size:15px;max-width:52em}
+    .levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(10px,1.65vw,22px)}
+    article{min-width:0;background:#fffcf3;border:1px solid #c9c7b3;border-radius:13px;overflow:hidden;box-shadow:0 2px 0 #dedcca}
+    .stage{display:block;width:100%;overflow:hidden;aspect-ratio:1.68;isolation:isolate;border-bottom:1px solid #38483225}.stage svg{display:block;width:100%;height:100%}
+    .caption{padding:12px 15px 14px}.control-row{display:flex;align-items:center;justify-content:space-between;gap:6px}h3{font-size:22px}.caption p{font-size:14px;margin-top:4px;color:#515d51}
+    .play{background:#f0f0de;border:1px solid #cbd0bd;border-radius:22px;min-height:40px;padding:4px 13px;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:800}.play:hover{background:#e4e8d7}.play::before{content:'';width:0;height:0;border-left:8px solid currentColor;border-top:5px solid transparent;border-bottom:5px solid transparent}.playing .play{color:var(--paper);background:var(--ink)}.playing .play::before{width:8px;height:8px;border:0;background:currentColor}
+    .playing .stem{stroke-dasharray:1;animation:draw .9s ease-out var(--at,0s) both}
+    .playing .grow,.playing .fold,.playing .bell,.playing .ripple,.playing .drift,.playing .glow{transform-box:fill-box;animation:unfurl .86s cubic-bezier(.22,.8,.3,1.12) var(--at,0s) both;transform-origin:50% 100%}
+    .playing .fold{animation-name:pleat;transform-origin:center}.playing .bell{animation:chime 1.2s ease-out var(--at,0s) both;transform-origin:50% 0}.playing .ripple{animation-name:spread;animation-duration:1.6s;transform-origin:center}
+    .playing .glow{animation-name:shine;animation-duration:1.1s;transform-origin:center}.playing .drift{animation-name:arrive;animation-duration:1.25s;transform-origin:center}
+    @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}} @keyframes unfurl{from{opacity:0;transform:translateY(4px) scale(.25,.08) rotate(-12deg)}80%{transform:scale(1.03,1.04)}to{opacity:1;transform:none}}
+    @keyframes pleat{from{opacity:0;transform:scale(.05,.72) rotate(-30deg)}75%{transform:scale(1.06,.97) rotate(2deg)}to{opacity:1;transform:none}}
+    @keyframes chime{from{opacity:0;transform:scale(.25) rotate(-30deg)}44%{opacity:1;transform:rotate(15deg)}74%{transform:rotate(-8deg)}to{transform:none}}
+    @keyframes spread{from{opacity:0;transform:scale(.08)}30%{opacity:.9}to{opacity:1;transform:none}} @keyframes shine{from{opacity:0;transform:scale(.12)}65%{opacity:1;transform:scale(1.18)}to{transform:none}}
+    @keyframes arrive{from{opacity:0;transform:translate(-56px,16px) rotate(-14deg)}45%{opacity:1;transform:translate(-21px,-7px) rotate(6deg)}to{transform:none}}
+    @media(prefers-reduced-motion:reduce){.playing :is(.grow,.fold,.bell,.ripple,.drift,.glow,.stem){animation:fade .35s ease-out var(--at,0s) both}} @keyframes fade{from{opacity:.3}to{opacity:1}}
+    @media(max-width:760px){.caption{padding:9px 10px}h3{font-size:19px}.play{padding-inline:10px}.cover .wrap{min-height:195px}.cover-copy p{font-size:15px}.section-heading{gap:6px}}
+    @media(max-width:620px){.levels{grid-template-columns:1fr}.cover .wrap{min-height:200px}.cover-copy{width:68%}.cover-copy p{max-width:225px}.cover-art{right:-26%;width:72%;opacity:.88}.cover-copy h1{font-size:47px}nav .wrap{column-gap:15px}nav a{font-size:13px}.stage{aspect-ratio:1.85}.back{font-size:13px}.section-heading{display:block}.section-heading p{margin-top:6px}.caption{padding:10px 14px 12px}}
+  </style>
+</head>
+<body>
+<header><div class="wrap"><a class="brand" href="./"><img src="./assets/readling.svg" alt="">Readling</a><a class="back" href="./celebrations.html">← Celebration gallery</a></div></header>
+<div class="cover"><div class="wrap"><div class="cover-copy"><h1>Flower studies</h1><p>Four ideas for her flower celebration. Play each level to see what grows next.</p></div><div class="cover-art" aria-hidden="true"></div></div></div>
+<nav aria-label="Flower concepts"><div class="wrap" id="links"></div></nav>
+<main class="wrap" id="studies"><noscript>Enable JavaScript to see the flower studies.</noscript></main>
+<script>
+function floralTools(){
+  const W=420,H=250;
+  const group=(body, transform='', extra='')=>`<g transform="${transform}" ${extra}>${body}</g>`;
+  const path=(d,fill='none',stroke='none',w=1,extra='')=>`<path d="${d}" fill="${fill}" stroke="${stroke}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
+  const circle=(x,y,r,fill,extra='')=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}" ${extra}/>`;
+  const ellipse=(x,y,rx,ry,fill,extra='')=>`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" ${extra}/>`;
+  const seq=(n,draw)=>Array.from({length:n},(_,i)=>draw(i)).join('');
+  const pose=(x,y,s=1,angle=0)=>`translate(${x} ${y}) rotate(${angle}) scale(${s})`;
+  const fx=(body,kind,at)=>`<g class="${kind}" style="--at:${at.toFixed(2)}s">${body}</g>`;
+  const stem=(d,col,w,at)=>path(d,'none',col,w,`pathLength="1" class="stem" style="--at:${at.toFixed(2)}s"`);
+  const star=(x,y,r,col)=>group(path('M0 -1 Q.09 -.12 .75 0 Q.09 .12 0 1 Q-.09 .12 -.75 0 Q-.09 -.12 0 -1Z',col),pose(x,y,r));
+  function sky(id,top,bottom) {
+    return `<defs><linearGradient id="${id}-sky" x2="0" y2="1" gradientUnits="objectBoundingBox"><stop stop-color="${top}"/><stop offset="1" stop-color="${bottom}"/></linearGradient><pattern id="${id}-grain" width="13" height="17" patternUnits="userSpaceOnUse"><path d="M1 2h1m4 7h.7m5 5h1" stroke="#fff" opacity=".15" stroke-linecap="round"/></pattern></defs><rect width="420" height="250" fill="url(#${id}-sky)"/><rect width="420" height="250" fill="url(#${id}-grain)"/>`;
+  }
+  function svg(body,description) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="${description}">${body}</svg>`;
+  }
+
+  // Petals share a ruffled outline, with different bends and ink strokes on each layer.
+  function poppyHead(col,at) {
+    const [light,mid,dark]=col;
+    function petal(angle,scale,shade) {
+      const outline='M0 5 C-11 1 -37 -9 -35 -24 Q-36 -30 -29 -30 Q-27 -39 -17 -36 Q-13 -43 -5 -37 Q2 -41 8 -35 Q16 -36 20 -29 C23 -17 10 -2 0 5Z';
+      const veins=seq(7,i=>{const x=-29+i*7;return path(`M0 2 Q${x*.57} -9 ${x} ${-22-8*Math.sin(i*.55)}`,'none',dark,.7,'opacity=".55"')});
+      return group(path(outline,shade,dark,1.1)+veins,`rotate(${angle}) scale(${scale})`);
+    }
+    const heart=seq(26,i=>{const a=i*2.4,r=3+Math.sqrt(i)*1.35;const x=Math.cos(a)*r,y=Math.sin(a)*r*.69;return path(`M0 2L${x*1.14} ${y*1.36}`,'none','#442b31',1)+circle(x*1.14,y*1.36,1.15,'#f5cb64')})+ellipse(0,1,4,2.7,'#75908a');
+    return fx(petal(-41,.97,mid)+petal(31,1.06,light)+petal(102,.84,mid)+petal(-102,.81,light)+petal(153,.70,mid)+heart,'grow',at);
+  }
+  const poppyColours=[['#ff967b','#e95649','#9d4541'],['#ffd98d','#eea04e','#ab6c43'],['#f5b6af','#e78e91','#a15364']];
+  function fern(scale,turn) {
+    const leaves=seq(7,i=>{const y=-i*5,w=12-i*1.25;return path(`M0 ${y+1}q${-w} -2 ${-w-1} -10q8 1 ${w+1} 9m0 -2q${w} -3 ${w} -10q-8 2 ${-w} 9`,'#668872','#466955',.5)});
+    return group(path('M0 2Q1 -16 0 -39','none','#466955',1.2)+leaves,`rotate(${turn}) scale(${scale})`);
+  }
+  function poppyPlant(x,y,s,lean,col,at) {
+    const dx=lean, dy=(H-y)/s;
+    const stalk=stem(`M${-dx} ${dy+3} C${-dx-9} ${dy*.52} ${dx*.38} ${dy*.44} 0 0`,'#476953',2.7,at);
+    const foliage=group(fx(fern(.87,-40)+fern(.65,46),'grow',at+.28),`translate(${-dx*.32} ${dy*.66})`);
+    return group(stalk+foliage+poppyHead(col,at+.56),pose(x,y,s));
+  }
+  function bud(x,y,to) {
+    return stem(`M${x-10} 255 Q${x-18} ${y-23} ${x} ${y} q9 5 8 16`,'#536c57',2,to)+group(fx(path('M0 0C-9 5 -8 22 0 24C10 23 10 4 0 0Z','#97a47a','#456c55',1.1)+path('M0 2Q-2 13 0 21','none','#526c52',1),'grow',to+.5),pose(x+8,y+14,.8));
+  }
+  function butterfly(x,y,s,a,delay) {
+    return group(fx(path('M0 1Q-17 -27 -26 -18Q-31 -7 -11 3Q-18 15 -10 15Q-3 13 0 2M1 1Q18 -29 26 -20Q32 -5 10 3Q16 12 12 15Q4 14 1 2','#edb454','#745442',1.5)+path('M0 2l-13 -14m14 14 15 -16m-16 18 1 -12m0 1 -4 -5m4 5 5 -6','none','#654d40',1.4),'drift',delay),pose(x,y,s,a));
+  }
+  function meadow(n,id) {
+    let scene=sky(id,'#e5e5c8','#fcf0d9');
+    scene+=path('M0 202 Q95 178 165 202T334 199Q385 185 420 190V250H0Z','#9fae8f','none',0,'opacity=".21"');
+    if(n>1) scene+=bud(53,146,.15)+bud(358,137,.32)+poppyPlant(121,135,.70,-18,poppyColours[2],.14)+poppyPlant(303,130,.78,21,poppyColours[1],.28);
+    if(n===3) scene+=poppyPlant(63,111,.84,-26,poppyColours[1],.6)+poppyPlant(361,92,.77,24,poppyColours[2],.75)+poppyPlant(153,188,.64,-16,poppyColours[1],.95)+poppyPlant(266,175,.71,15,poppyColours[0],1.05);
+    scene+=poppyPlant(210,108,1.27,16,poppyColours[0],0)+bud(244,160,.27);
+    if(n===3) scene+=butterfly(128,65,.58,-18,1.65)+butterfly(287,44,.75,18,1.80);
+    return scene;
+  }
+
+  // Angular paper faces share a crease but catch the light from opposite sides.
+  const paperColours=[['#ffb798','#ea785f','#ba493e'],['#f6ce70','#dda044','#ac7237'],['#e5a8c8','#be779d','#8b557a']];
+  function foldedFlower(palette,tiers,at) {
+    const [sun,face,shade]=palette;
+    function wheel(k,r,tilt,a,b) {
+      return seq(k,i=>group(path('M0 4L-14 -15L-7 -37L0 -47L12 -28L14 -13Z',a)+path('M0 4L0 -47L12 -28L14 -13Z',b)+path('M0 -45L-7 -16L0 3','none','#fff3cf',.8,'opacity=".65"'),`rotate(${tilt+i*360/k}) scale(${r})`));
+    }
+    let body=wheel(7,1,0,face,shade);
+    if(tiers>=2) body+=wheel(9,.70,19,sun,face);
+    if(tiers===3) body+=wheel(9,.43,0,'#fff0be',sun);
+    return fx(body+group(path('M0 -9L8 -4L9 4L0 10L-9 4L-8 -4Z','#f5be5a')+path('M0 -9L0 10L-9 4L-8 -4Z','#d29244'),pose(0,0,tiers===1?.85:1)),'fold',at);
+  }
+  function paperPlant(x,y,s,pal,layers,at) {
+    const h=(H-y)/s;
+    let body=stem(`M-4 ${h}L5 ${h*.55}L0 0`,'#4c6859',3,at);
+    body+=group(fx(path('M0 12L-40 -14L-45 -31L-12 -20Z','#6e957f')+path('M0 12L-45 -31L-12 -20Z','#476d60')+path('M1 12L32 -23L42 -25L35 -8Z','#92ac87')+path('M1 12L42 -25L35 -8Z','#597d69'),'fold',at+.25),pose(2,h*.68));
+    return group(body+foldedFlower(pal,layers,at+.6),pose(x,y,s));
+  }
+  function paper(n,id) {
+    let body=sky(id,'#f2d9bd','#fff0ce');
+    body+=path('M0 246L67 218L137 241L223 217L298 234L376 216L420 227V250H0Z','#d2bd9c')+path('M0 250L67 218L44 250M152 250L223 217L204 250M327 250L376 216L357 250','#e4ceac');
+    if(n>1) body+=paperPlant(116,151,.65,paperColours[1],2,.29)+paperPlant(312,142,.71,paperColours[2],2,.47);
+    if(n===3) {
+      body+=paperPlant(49,121,.65,paperColours[2],2,.73)+paperPlant(365,100,.76,paperColours[1],3,.85);
+      body+=seq(8,i=>group(fx(path('M0 -7L5 0L0 7L-4 0Z',paperColours[i%3][1])+path('M0 -7L0 7L-4 0Z',paperColours[i%3][0]),'drift',1.45+i*.065),pose(40+i*47,33+(i%3)*15,.65,i*27)));
+    }
+    body+=paperPlant(209,107,n===3?1.62:1.34,paperColours[0],n,0);
+    return body;
+  }
+
+  // Curved stems carry translucent bells. The final bell lights the moth's path.
+  function bell(x,y,r,tilt,at,glow) {
+    let glass=path('M0 -17C-18 -15 -15 4 -25 14Q-23 19 -17 16Q-12 24 -6 18Q0 26 6 18Q15 23 17 16Q25 20 25 14C14 5 17 -14 0 -17Z','#87d8d6','#d5f6db',1.2);
+    glass+=path('M-3 -15Q-11 -5 -12 14Q-5 17 0 14Q5 18 10 16Q4 6 5 -7Z','#c7eee0')+path('M1 -14Q3 1 0 14M-7 -11Q-15 2 -18 12','none','#5cafa9',1);
+    glass+=path('M-4 -14L0 -20L5 -14Z','#a3c891')+path('M2 14L4 26','none','#e3c37a',1.7)+circle(4,27,3.6,'#ffe8a2');
+    return group(fx((glow?circle(2,11,45,'#a2fff0','opacity=".06"')+circle(2,11,32,'#a2fff0','opacity=".08"'):'')+glass,'bell',at),pose(x,y,r,tilt));
+  }
+  function bells(n,id) {
+    let body=sky(id,'#142b39','#335651')+circle(333,48,17,'#f5e4b5')+circle(340,42,18,'#1e353e');
+    body+=seq(28,i=>circle((i*97+16)%418,9+(i*47)%138,i%4===0?1.6:.8,'#e8dba9',`opacity="${.35+i%4*.15}"`));
+    body+=path('M0 217Q65 184 123 212T247 206T365 208L420 190V250H0Z','#243f3d');
+    function spray(x,y,s,count,lean,at) {
+      const h=(250-y)/s;
+      let plant=stem(`M-24 ${h}Q-56 66 -7 6Q8 -16 24 8`,'#a6b990',2.6,at);
+      for(let j=0;j<count;j++) {
+        const side=j%2===0?1:-1, yy=j*22, xx=22-j*8-(side<0?45:0);
+        if(j)plant+=stem(`M${-12-j*7} ${yy+18}Q${xx-7} ${yy-17} ${xx} ${yy+6}`,'#99b998',1.6,at+.15+j*.09);
+        plant+=bell(xx,yy+20,1-j*.065,side*8,at+.55+j*.13,n===3);
+      }
+      plant+=group(fx(path('M-24 0Q-86 -39 -75 -80Q-38 -65 -24 0Z','#619080')+path('M-24 0Q-19 -71 16 -80Q17 -37 -24 0Z','#739f89')+path('M-23 -4Q-58 -46 -71 -72M-23 -4Q-5 -47 13 -73','none','#b6bd8e',1),'grow',at+.18),`translate(0 ${h})`);
+      return group(plant,pose(x,y,s,lean));
+    }
+    if(n>1)body+=spray(124,112,.74,2,-9,.24)+spray(305,99,.77,2,12,.42);
+    if(n===3)body+=spray(53,133,.70,2,-7,.67)+spray(368,137,.67,2,7,.72);
+    body+=spray(197,68,1.12,n===1?1:3,0,0);
+    if(n===3) {
+      body+=seq(14,i=>fx(star(30+i*28,68+21*Math.sin(i*.68),2.5+(i%3),'#ffdf83'),'glow',1.2+i*.06));
+      body+=group(fx(path('M0 1Q-10 -21 -32 -17Q-29 -1 -13 7Q-19 17 -12 20L0 8L10 19Q17 16 13 7Q34 -3 32 -20Q15 -20 0 1Z','#f1ddb4','#bb9d81',1)+path('M0 3L-24 -12M0 4L23 -14M0 8V-3l-4 -6m4 6 4 -7','none','#937b77',1.4)+circle(-17,-5,3,'#cda385')+circle(17,-6,3,'#cda385'),'drift',1.95),pose(275,57,.86,-13));
+    }
+    return body;
+  }
+  // Water lilies open in layers of pointed petals; ripples and koi pass beneath the pads.
+  function lotus(x,y,size,tier,at) {
+    function petals(k,spread,height,outer,inner) {
+      return seq(k,i=>{const angle=(i/(k-1)-.5)*spread;
+        return group(path('M0 2Q-20 -15 0 -44Q18 -18 0 2Z',outer,inner,.8)+path('M0 1Q-5 -15 0 -42Q5 -17 0 1Z',inner,'none',0,'opacity=".48"'),`rotate(${angle}) scale(1 ${height})`);});
+    }
+    const bloom=petals(7,194,.85,'#ed9ca9','#ba6d89')+petals(5,132,1.06,'#ffe3d2','#de9dad')+(tier>1?petals(5,156,.64,'#fff5db','#eeadba'):'')+ellipse(0,1,7.5,3.1,'#eab85b');
+    return group(fx(bloom,'grow',at),pose(x,y,size));
+  }
+  function pad(x,y,s,angle,at) {
+    const form=path('M0 1L-40 11C-62 -11 -17 -27 18 -20C62 -12 63 12 17 21C3 23 -18 21 -36 15Z','#719d83','#b1c4a0',1)+seq(8,i=>{const a=(i*34-134)*Math.PI/180;return path(`M1 1Q${Math.cos(a)*16} ${Math.sin(a)*6} ${Math.cos(a)*41} ${Math.sin(a)*16}`,'none','#476f65',.85)});
+    return group(fx(form,'ripple',at),pose(x,y,s,angle));
+  }
+  function koi(x,y,s,angle,at) {
+    const fish=path('M-24 4Q-40 12 -46 -1L-35 1L-44 -12Q-32 -12 -23 -3C-7 -21 27 -12 31 -2Q32 11 9 11Q-10 11 -24 4Z','#f5ddbb','#557e78',1.2)+path('M-7 -13Q0 -9 -3 -3Q-7 4 -16 5Q-22 1 -18 -5Z M18 -10Q11 -5 16 0Q20 5 28 1L30 -3Q28 -8 18 -10Z','#df835d')+path('M0 6Q-2 18 -12 17L-10 9M-1 -10Q-8 -19 -12 -16L-8 -10','#d1bfa3')+circle(24,-5,1.55,'#384b45');
+    return group(fx(fish,'drift',at),pose(x,y,s,angle));
+  }
+  function pond(n,id) {
+    let body=sky(id,'#5d9698','#aec7ac');
+    body+=seq(18,i=>path(`M${(i*83)%410-12} ${13+i*14}q12 -2 27 0t26 -1`,'none','#e1e1bd',1,'opacity=".47"'));
+    function lily(x,y,s,tier,at) {
+      const rings=seq(3,i=>ellipse(0,7,54+i*12,14+i*4,'none',`stroke="#e1e4bd" stroke-width="1.15" opacity="${.9-i*.17}"`));
+      return group(fx(rings,'ripple',at),pose(x,y,s))+pad(x-10,y+2,s*.97,-9,at+.14)+lotus(x+3,y-4,s,tier,at+.5);
+    }
+    if(n>1)body+=lily(91,127,.72,2,.28)+lily(323,140,.79,2,.45);
+    if(n===3)body+=koi(90,202,.93,-18,1.48)+koi(314,62,.76,154,1.70)+lily(55,67,.54,1,.74)+lily(365,203,.57,1,.84);
+    body+=lily(210,152,n===1?1.22:1.35,n,0);
+    if(n===3)body+=seq(10,i=>fx(star(35+(i*79)%350,38+(i*37)%168,3.4+(i%3),'#f7e8b2'),'glow',1.65+i*.06));
+    return body;
+  }
+  return {svg,group,pose,poppyHead,poppyColours,fern,butterfly,meadow,paper,bells,pond};
+}
+function flowerPage() {
+  const art=floralTools();
+  const concepts=[
+    {id:'poppies',name:'Pressed poppies',colour:'#df735d',line:'Ruffled petals, fine ink lines and the flutter of wings.',draw:art.meadow,
+      levels:['A scarlet poppy opens beside a nodding bud.','Two new colours open around the first flower.','A meadow fills in and two butterflies sweep across it.']},
+    {id:'paper',name:'Paper theatre',colour:'#ddac56',line:'A garden made of creases, pleats and folded paper.',draw:art.paper,
+      levels:['Seven folded petals fan open.','Two smaller blooms join as a second paper wheel unfolds.','A third layer opens into a rosette as paper diamonds scatter.']},
+    {id:'bells',name:'Moonlit bells',colour:'#6cacae',line:'Translucent bells swing open under a crescent moon.',draw:art.bells,
+      levels:['One pale bell unfurls on a curved stem.','A cluster of bells opens in a swaying cascade.','A silver moth follows the lights through a grove of glowing bells.']},
+    {id:'lilies',name:'The lily pond',colour:'#c58b9e',line:'Water rings spread under lotus petals and drifting koi.',draw:art.pond,
+      levels:['A lotus opens above a single floating pad.','Two more lilies open on overlapping rings of water.','Koi glide between five flowers as glints travel across the pond.']}
+  ];
+  const hero=document.querySelector('.cover-art');
+  const branch='<g fill="none" stroke="#a8ae88" stroke-width="2.4"><path d="M175 255Q189 186 171 116M207 255Q228 156 281 67M225 257Q281 222 326 158M143 255Q135 198 93 167"/></g>';
+  const leafCluster=[[177,209,-33],[176,173,40],[218,219,-34],[248,147,46],[268,214,58],[131,222,-48]]
+    .map(([x,y,a])=>art.group(art.fern(1.15,a),art.pose(x,y))).join('');
+  const coverFlowers=[[171,116,1.34,-16,0],[281,67,1.15,15,1],[326,158,1.02,31,2],[93,167,.72,-32,1]]
+    .map(([x,y,s,a,p])=>art.group(art.poppyHead(art.poppyColours[p],0),art.pose(x,y,s,a))).join('');
+  hero.innerHTML=art.svg(branch+leafCluster+coverFlowers+art.butterfly(82,62,.65,-17,0),'A spray of ruffled poppies');
+  const main=document.querySelector('#studies');
+  const nav=document.querySelector('#links');
+  let active=null,timeout=0;
+  function stop() {
+    clearTimeout(timeout);
+    if (!active) return;
+    active.classList.remove('playing');
+    const button=active.querySelector('.play');
+    button.textContent='Play';
+    button.setAttribute('aria-label','Play '+active.dataset.title);
+    active=null;
+  }
+  for(const concept of concepts) {
+    const link=document.createElement('a');
+    link.href='#'+concept.id;
+    link.innerHTML=`<i aria-hidden="true" style="--swatch:${concept.colour}"></i>${concept.name}`;
+    nav.append(link);
+    const section=document.createElement('section');
+    section.id=concept.id;
+    section.setAttribute('aria-labelledby',concept.id+'-name');
+    section.innerHTML=`<div class="section-heading"><h2 id="${concept.id}-name">${concept.name}</h2><p>${concept.line}</p></div><div class="levels"></div>`;
+    main.append(section);
+    concept.levels.forEach((description,index)=>{
+      const level=index+1, id=concept.id+'-'+level, title=concept.name+', Flowers '+level;
+      const card=document.createElement('article');
+      card.dataset.title=title;
+      card.innerHTML=`<div class="stage">${art.svg(concept.draw(level,id),description)}</div><div class="caption"><div class="control-row"><h3>Flowers ${level}</h3><button type="button" class="play" aria-label="Play ${title}">Play</button></div><p>${description}</p></div>`;
+      section.querySelector('.levels').append(card);
+      const button=card.querySelector('button');
+      button.addEventListener('click',()=>{
+        const alreadyPlaying=active===card;
+        stop();
+        if(alreadyPlaying)return;
+        active=card;
+        card.classList.add('playing');
+        button.textContent='Stop';
+        button.setAttribute('aria-label','Stop '+title);
+        const animations=card.getAnimations({subtree:true});
+        const duration=Math.max(0,...animations.map(a=>a.effect.getComputedTiming().endTime));
+        timeout=setTimeout(stop,duration+60);
+      });
+    });
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+  window.addEventListener('pagehide',stop);
+}
+flowerPage();
+</script>
+</body>
+</html>

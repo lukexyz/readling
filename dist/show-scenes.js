@@ -1,4 +1,5 @@
 import {colours,gold,ink,cream,green,tau,clamp01,ease,easeIn,pop,bump,five,four,drawStar,paint,oval,flower,leafShape,band} from './show-kit.js';
+import {poppyScene} from './poppy.js';
 import {forms} from './drawings.js';
 
 // The star that reveals her picture, and everything she can add to the sky, the rainbow and the ground.
@@ -189,25 +190,7 @@ const SCENES={
     }},
 
   // Ground
-  flowers:{len:2.2,stays:true,z:1,
-    make(e) {
-      const n=Math.max(6,Math.min(13,Math.round(e.w/100)));
-      return {list:Array.from({length:n},(_,i)=>({x:(i+.25+e.rand()*.5)/n*e.w,tall:Math.min((80+e.rand()*105)*e.u,e.h*(.09+e.rand()*.11)),lean:(e.rand()-.5)*38*e.u,born:e.rand()*1.1,
-        r:(19+e.rand()*12)*e.u,colour:colours[Math.floor(e.rand()*7)],petals:5+Math.floor(e.rand()*2),phase:e.rand()*tau}))};
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx, wet=e.soak?pop((e.time-e.soak)/.5)*.38:0;
-      for(const f of s.list) {
-        const g=ease((t-f.born)/.7);
-        if(g<=0) continue;
-        const tall=f.tall*g*(1+wet), sway=Math.sin(t*1.7+f.phase)*4*e.u*g, by=e.h+2, tx=f.x+f.lean*g+sway, ty=by-tall;
-        ctx.beginPath();ctx.moveTo(f.x,by);ctx.quadraticCurveTo(f.x+f.lean*.2,by-tall*.6,tx,ty);
-        ctx.strokeStyle=ink;ctx.lineWidth=7*e.u;ctx.stroke();ctx.strokeStyle=green;ctx.lineWidth=4*e.u;ctx.stroke();
-        if(g>.5) leafShape(ctx,f.x+f.lean*.1,by-tall*.36,24*e.u*g,f.lean>0?-.55:Math.PI+.55);
-        const open=pop((t-f.born-.55)/.45);
-        if(open>0) flower(ctx,tx,ty,f.r*open*(1+wet*.6),Math.sin(t*1.3+f.phase)*.25,f.colour,f.petals);
-      }
-    }},
+  flowers:poppyScene,
   mushrooms:{len:2,stays:true,z:1,
     make(e) {
       const n=Math.max(3,Math.min(6,Math.round(e.w/230)));

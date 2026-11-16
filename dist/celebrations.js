@@ -1,6 +1,7 @@
 import {SHOW, SHOW_GROUPS} from './game.js';
 import {icon} from './drawings.js';
 import {launchFinale, prepareShow} from './finale.js';
+import {preparePoppy} from './poppy.js';
 import {snailImage} from './show-creatures.js';
 
 // Pick the moment that shows what each addition does, including its supporting acts.
@@ -8,7 +9,7 @@ const posters = {
   rainbow: [1.12, 'Seven bands of colour arc across the stage.'],
   music: [1.07, 'Coloured notes float up as the fanfare plays.'],
   stars: [1.94, 'Showers of gold and coloured stars burst across the sky.'],
-  flowers: [2.18, 'A row of flowers sprouts and opens.'],
+  flowers: [2.18, 'A scarlet poppy opens above grass and tiny leaves, beside a nodding bud.'],
   bunnies: [1.02, 'Three paper bunnies hop up from below.'],
   fountains: [1.6, 'Two fountains spray stars from the sides of the stage.'],
   rainbow2: [1.86, 'A smaller rainbow forms underneath the first.'],
@@ -108,6 +109,7 @@ const resize = new ResizeObserver(entries => {
 for (const {id, name} of SHOW) {
   const group = SHOW_GROUPS.find(([, ids]) => ids.includes(id))?.[0] ?? '';
   const item = document.createElement('li');
+  item.id = id;
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'gallery-card';
@@ -137,6 +139,7 @@ function refresh(ids) {
   }
 }
 prepareShow([...examples, 'hat']).then(() => refresh(['parade', 'picture', 'hats']));
+preparePoppy().then(() => refresh(['flowers']));
 snailImage().decode().then(() => refresh(['snail'])).catch(() => {});
 
 for (const filter of ['All', ...SHOW_GROUPS.map(([name]) => name)]) {

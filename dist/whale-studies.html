@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#eeece0"><title>Whale studies · The Word Woods</title>
+  <link rel="icon" href="./assets/readling.svg"><link rel="stylesheet" href="./style.css">
+  <style>
+    body{background:#f4f1e6;color:#243d37} .sheet{width:min(1220px,calc(100% - clamp(32px,8vw,104px)));margin:auto}
+    header{border-bottom:1px solid #cbcabc}header .sheet{display:flex;align-items:center;justify-content:space-between;min-height:65px;gap:14px}
+    a{color:inherit}.brand-link{display:flex;align-items:center;gap:10px;font:27px var(--serif);letter-spacing:-1.5px;text-decoration:none}.brand-link img{width:34px}.back-link{font-size:14px;font-weight:800}
+    .intro{display:flex;align-items:end;justify-content:space-between;gap:22px;padding:38px 0 23px;border-bottom:1px solid #adbaab;margin-bottom:23px}
+    h1{font-size:clamp(44px,6vw,78px);letter-spacing:-.06em;line-height:.99}.intro p{max-width:335px;color:#4a6058;font-size:16px}
+    .whales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px 24px;padding-bottom:54px}
+    article{min-width:0}.frame{position:relative;border:1px solid #243b332b;border-radius:10px;overflow:hidden;cursor:pointer;display:block;padding:0;width:100%;background:#25474c}
+    canvas{width:100%;aspect-ratio:640/336;display:block}.control{position:absolute;right:12px;bottom:12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;min-width:72px;min-height:36px;background:#f8f5e8;color:#193c36;border:1px solid #233c3555;border-radius:24px;font-size:14px;font-weight:850}.control i{width:0;height:0;border-left:9px solid;border-block:6px solid transparent}
+    [aria-pressed=true] .control i{width:9px;height:9px;border:0;background:currentColor}.caption{margin-top:12px}.caption h2{font-size:clamp(23px,3vw,35px);line-height:1.13}.caption p{font-size:15px;color:#496056;margin-top:5px}
+    @media(max-width:720px){.intro{display:block;padding-top:25px}.intro p{margin-top:12px;max-width:none}.whales{grid-template-columns:1fr;gap:26px}.back-link{font-size:13px}}
+  </style>
+</head>
+<body>
+<header><div class="sheet"><a class="brand-link" href="./"><img src="./assets/readling.svg" alt="">Readling</a><a class="back-link" href="./celebrations.html">← Celebration gallery</a></div></header>
+<main class="sheet"><div class="intro"><h1>Whale studies</h1><p>Play each Phase 1 study to see how the whale moves from the first swell to the crest.</p></div>
+<div class="whales" id="whales"></div><noscript>Enable JavaScript to play the whale studies.</noscript></main>
+<script type="module" src="./whale-studies.js"></script></body></html>

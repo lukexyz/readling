@@ -14,7 +14,7 @@ input.close();
 if (process.stdin.isTTY) process.stdin.setRawMode(false);
 if (!/^[a-f0-9]{64}$/.test(grant)) throw Error('Invalid release grant');
 const images=[];
-for (const folder of ['dolphins','ember-orca','flower-studies']) {
+for (const folder of ['dolphins','ember-orca','flower-studies','woodland']) {
   let names;
   try {names=await readdir(new URL(folder+'/',base));}
   catch (err) {if(err.code==='ENOENT') continue;throw err;}

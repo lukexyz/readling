@@ -1,3 +1,4 @@
+import {cutout,prepareShow} from './show-cutouts.js';
 import {colours,gold,ink,cream,water,tau,clamp01,ease,easeIn,pop,bump,five,four,starSvg,drawStar,paint,oval,flower,random} from './show-kit.js';
 import {forms} from './drawings.js';
 import {pathData} from './game.js';
@@ -8,6 +9,8 @@ import {dolphinFamilies} from './dolphins.js';
 import {dolphins} from './show-dolphins.js';
 import {flowerFamilies} from './gardens.js';
 import {flowers} from './show-flowers.js';
+import {highestWoodland} from './woodland.js';
+import {woodlandParts,paradeWords} from './show-woodland.js';
 
 // The celebration show. It opens with a hush while her letters land, the star then reveals her picture,
 // and the things she has added take turns after that. Her stars are counted out at the end.
@@ -37,61 +40,6 @@ function finaleScenery(picks=[]) {
     <rect x="5" y="5" width="810" height="260" rx="13" fill="none" stroke="#dbc38a" stroke-opacity=".6" stroke-width="1.5"/>
   </svg>`;
 }
-
-// Her finds as paper cut-outs. The cream paper that touches the edge of each picture is cut away,
-// and the inked lines are kept as points for the fireworks that take the picture's shape.
-const cutouts=new Map();
-function cutout(word) {
-  let c=cutouts.get(word);
-  if(c) return c;
-  c={ready:false,canvas:null,points:[]};cutouts.set(word,c);
-  const img=new Image();
-  img.onload=()=>{
-    const n=168, cv=document.createElement('canvas');cv.width=cv.height=n;
-    const x=cv.getContext('2d',{willReadFrequently:true});
-    try {
-      x.drawImage(img,0,0,n,n);
-      const data=x.getImageData(0,0,n,n), px=data.data;
-      const lum=i=>(px[i*4]*.3+px[i*4+1]*.59+px[i*4+2]*.11)/255;
-      // Paper next to an inked line stays, so a small gap in an outline does not let the cut leak inside.
-      const paper=new Uint8Array(n*n);
-      for(let i=0;i<n*n;i++){
-        if(lum(i)<.8) continue;
-        const col=i%n;let clear=true;
-        for(const d of [-n-1,-n,-n+1,-1,1,n-1,n,n+1]){
-          const j=i+d;
-          if(j>=0 && j<n*n && Math.abs(j%n-col)<=1 && lum(j)<.6){clear=false;break;}
-        }
-        paper[i]=clear?1:0;
-      }
-      const out=new Uint8Array(n*n), stack=[];
-      for(let i=0;i<n;i++) stack.push(i,(n-1)*n+i,i*n,i*n+n-1);
-      while(stack.length){
-        const i=stack.pop();
-        if(out[i] || !paper[i]) continue;
-        out[i]=1;const col=i%n;
-        if(col>0)stack.push(i-1);if(col<n-1)stack.push(i+1);if(i>=n)stack.push(i-n);if(i<n*n-n)stack.push(i+n);
-      }
-      const dark=[];
-      for(let i=0;i<n*n;i++){
-        if(out[i]) px[i*4+3]=0;
-        else if(lum(i)<.42) dark.push(i);
-      }
-      x.putImageData(data,0,0);
-      const every=Math.max(1,Math.floor(dark.length/170));
-      c.points=dark.filter((_,k)=>k%every===0).slice(0,180).map(i=>[(i%n)/n-.5,Math.floor(i/n)/n-.5]);
-      c.canvas=cv;c.ready=true;
-    } catch { /* A picture that cannot be read is left out of the show. */ }
-  };
-  // The gallery draws a single frame, so wait until the onload handler has made the cut-out.
-  c.loaded=new Promise(resolve=>{
-    img.addEventListener('load',()=>resolve(),{once:true});
-    img.addEventListener('error',()=>resolve(),{once:true});
-  });
-  img.src='./assets/words/'+word+'.webp';
-  return c;
-}
-function prepareShow(words) {return Promise.all(words.map(w=>cutout(w).loaded));}
 
 // The parts that belong to every show.
 const BASE={
@@ -193,7 +141,7 @@ const BASE={
     }}
 };
 const pin=e=>({x:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.27});
-const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers};
+const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts};
 
 function rotateCast(mine,turn,all) {
   if (all || mine.length<=2) return mine;
@@ -204,7 +152,7 @@ function rotateCast(mine,turn,all) {
 // slot; the grown-ups' full rehearsal includes one act from every chosen family.
 function visitors(have,turn,all) {
   const jumps=dolphinFamilies.map(family=>family.levels.findLast(shot=>have(shot.id))?.id).filter(Boolean);
-  const available=VISIT.filter(id=>id==='dolphins' ? jumps.length : have(id));
+  const available=VISIT.map(key=>key==='dolphins' ? (jumps.length && key) : highestWoodland(key,have)).filter(Boolean);
   const cast=rotateCast(available,turn,all);
   const slot=cast.indexOf('dolphins');
   if (slot<0) return cast;
@@ -221,7 +169,7 @@ function visitors(have,turn,all) {
 function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,stars=0,tier=0}={}) {
   const acts=[], have=id=>(id===alone || picks.includes(id)) && PARTS[id];
   const blooms=flowerFamilies.map(family=>family.shots.findLast(shot=>have(shot.id))?.id).filter(Boolean);
-  const ground=GROUND.filter(have);
+  const ground=GROUND.map(key=>key==='oak' ? (have(key) && key) : highestWoodland(key,have)).filter(Boolean);
   // Each show uses the highest earned orca in its single ocean-finale slot.
   const whale=['whale3','whale2','whale'].find(have) || 'whale', contact=orcas[whale].contact;
   let end=0, hit=0;
@@ -263,7 +211,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     if(tier){add('rosette',t);t+=1.1;}
     if(stars) add('tally',t,.22*stars+.95);
     else end=Math.max(end,t);
-    for (const [id,at,len] of acts) if (id==='oak' || flowers[id]) end=Math.max(end,at+len);
+    for (const [id,at,len] of acts) if (id==='oak' || flowers[id] || woodlandParts[id]?.stays) end=Math.max(end,at+len);
   }
   return {acts,hit,total:end+.6};
 }
@@ -339,6 +287,9 @@ function launchFinale(stage,options={}) {
 
   const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && word && spell?word.length:0,staged:!!real,stars,tier});
   e.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!!flowers[alone],oak:acts.some(([id])=>id==='oak')};
+  e.isolatedWoodland=!!woodlandParts[alone] || alone==='hats';
+  const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
+  e.paradeWords=paradeWords(paradeFinds,word,turn);
   e.hit=hit;e.total=total;
 
   function reset() {

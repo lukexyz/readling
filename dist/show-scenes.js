@@ -1,4 +1,4 @@
-import {colours,gold,ink,cream,green,tau,clamp01,ease,easeIn,pop,bump,five,four,drawStar,paint,oval,flower,leafShape,band} from './show-kit.js';
+import {colours,gold,ink,tau,clamp01,ease,pop,five,four,drawStar,paint,oval,band} from './show-kit.js';
 import {oakScene} from './oak.js';
 import {forms} from './drawings.js';
 
@@ -190,86 +190,9 @@ const SCENES={
     }},
 
   // Ground
-  mushrooms:{len:2,stays:true,z:1,
-    make(e) {
-      const n=Math.max(3,Math.min(6,Math.round(e.w/230)));
-      return {caps:Array.from({length:n},(_,i)=>({x:(i+.3+e.rand()*.4)/n*e.w,r:Math.min((30+e.rand()*24)*e.u,e.h*.06),born:.1+e.rand()*.9,tilt:(e.rand()-.5)*.25,colour:i%2?'#ff8f6b':colours[0]})),
-        ferns:Array.from({length:n-1},(_,i)=>({x:(i+1+(e.rand()-.5)*.3)/n*e.w,tall:Math.min((110+e.rand()*80)*e.u,e.h*.2),born:.3+e.rand()*.8,lean:(e.rand()-.5)*.5}))};
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx, wet=e.soak?pop((e.time-e.soak)/.5)*.3:0;
-      for(const f of s.ferns) {
-        const g=ease((t-f.born)/.9);
-        if(g<=0) continue;
-        // The frond unrolls from a curl as it grows.
-        let x=f.x, y=e.h+2, angle=-Math.PI/2+f.lean*.3;
-        const steps=14, piece=f.tall*g*(1+wet)/steps, curl=(1-g)*.5;
-        ctx.strokeStyle=ink;ctx.lineWidth=3*e.u;
-        for(let i=0;i<steps;i++) {
-          const nx=x+Math.cos(angle)*piece, ny=y+Math.sin(angle)*piece, size=(23-i*1.25)*e.u*g;
-          ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(nx,ny);ctx.stroke();
-          if(i>1 && size>3) for(const side of [-1,1]) leafShape(ctx,nx,ny,size,angle+side*1.15,green);
-          x=nx;y=ny;angle+=f.lean*.045+curl*(i/steps)*1.6;
-        }
-      }
-      for(const c of s.caps) {
-        const g=pop((t-c.born)/.4);
-        if(g<=0) continue;
-        const r=c.r*(1+wet*.5);
-        ctx.save();ctx.translate(c.x,e.h+2);ctx.rotate(c.tilt);ctx.scale(1,g);
-        ctx.beginPath();ctx.moveTo(-r*.3,0);ctx.quadraticCurveTo(-r*.22,-r*.9,-r*.26,-r*1.3);ctx.lineTo(r*.26,-r*1.3);ctx.quadraticCurveTo(r*.22,-r*.9,r*.3,0);ctx.closePath();
-        paint(ctx,cream,2*e.u);
-        ctx.beginPath();ctx.moveTo(-r,-r*1.2);ctx.bezierCurveTo(-r*.95,-r*2.5,r*.95,-r*2.5,r,-r*1.2);ctx.quadraticCurveTo(0,-r*.98,-r,-r*1.2);ctx.closePath();
-        paint(ctx,c.colour,2*e.u);
-        ctx.fillStyle=cream;
-        for(const [dx,dy,q] of [[-.45,-1.6,.17],[.12,-1.9,.2],[.52,-1.5,.13]]){ctx.beginPath();ctx.arc(dx*r,dy*r,q*r,0,tau);ctx.fill();}
-        ctx.restore();
-      }
-    }},
-  vines:{len:3.3,stays:true,z:1,
-    make(e) {
-      const u=e.u, n=96;
-      return {n,sides:[-1,1].map(side=>Array.from({length:n+1},(_,i)=>{
-        const q=i/n, edge=18*u+10*u*Math.sin(q*13);
-        if(q<.7){const v=q/.7;return [side<0?edge:e.w-edge,e.h-(e.h-24*u)*v];}
-        const v=(q-.7)/.3, from=side<0?18*u:e.w-18*u;
-        return [from+(e.w/2-from)*v,22*u+8*u*Math.sin(v*9)+(1-v)*4*u];
-      }))};
-    },
-    draw(e,s,t) {
-      const ctx=e.ctx, u=e.u, reach=ease(t/2.8)*s.n;
-      for(const pts of s.sides) {
-        const last=Math.floor(reach);
-        if(last<1) continue;
-        ctx.beginPath();pts.slice(0,last+1).forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
-        ctx.strokeStyle=ink;ctx.lineWidth=6.4*u;ctx.stroke();ctx.strokeStyle=green;ctx.lineWidth=3.6*u;ctx.stroke();
-        for(let i=4;i<=last;i+=4) {
-          const a=pts[i-1], b=pts[Math.min(s.n,i+1)], along=Math.atan2(b[1]-a[1],b[0]-a[0]), grown=pop((reach-i)/6);
-          if(i%16===8) flower(ctx,pts[i][0],pts[i][1],10*u*grown,i,colours[(i/8)%7 | 0],5);
-          else leafShape(ctx,pts[i][0],pts[i][1],17*u*grown,along+((i/4)%2?1:-1)*1.05);
-        }
-      }
-      const meet=pop((t-2.8)/.4);
-      if(meet>0) flower(ctx,e.w/2,24*u,21*u*meet,t*.6,colours[6],6);
-    }},
   oak:oakScene,
 
   // Her own finds
-  // The things in her album march along the bottom. The bug and the sun fly above them.
-  parade:{len:2.8,z:6,
-    draw(e,s,t) {
-      const ctx=e.ctx, u=e.u, list=(e.finds.length?e.finds:['cat','dog','hen']).slice(-9), size=122*u, gap=size*1.02;
-      const span=e.w+gap*list.length+size;
-      list.forEach((w,j)=>{
-        const c=e.cut(w), x=-size*.6+span*t/2.8-j*gap;
-        if(!c.ready || x<-size || x>e.w+size) return;
-        const flies=w==='bug' || w==='sun', hop=Math.abs(Math.sin(t*7.5+j*.9));
-        ctx.save();ctx.translate(x,flies?e.h-size*1.75-Math.sin(t*4+j)*22*u:e.h-size*.5-4*u-hop*16*u);ctx.rotate(flies?Math.sin(t*4+j)*.18:(hop-.5)*.14);
-        ctx.drawImage(c.canvas,-size/2,-size/2,size,size);
-        if(w!=='hat') e.hat(size*.04,-size*.3,-.08,size*.5);
-        ctx.restore();
-      });
-    }},
   // Fireflies rise and settle into the letters of her word, one letter after another, then drift away.
   fireflies:{len:2.6,z:7,
     make(e) {

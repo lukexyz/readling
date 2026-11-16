@@ -1,8 +1,11 @@
 import {gardens} from './gardens.js';
+import {woodlandFamilies} from './woodland.js';
+import {loadParadeExample} from './show-woodland.js';
 import {dolphinFamilies, dolphinPoster, loadDolphin} from './dolphins.js';
 import {shots as orcas, loadShot as loadOrca} from './ember-orca.js';
 
 const families = [
+  ...woodlandFamilies,
   ...gardens,
   ...dolphinFamilies.map(family => ({key:family.id, title:family.title, intro:family.motion,
     palette:['#52989b','#253e52'], shots:family.levels.map(shot => ({...shot, fps:30,
@@ -16,11 +19,13 @@ const families = [
 const $ = selector => document.querySelector(selector);
 const requested = new URLSearchParams(location.search).get('family');
 const family = families.find(item => item.key === requested);
-for (const item of [{key:'all',title:'All'},...families]) {
+const woodlandOnly=requested==='woodland';
+const selection=family ? [family] : woodlandOnly ? woodlandFamilies : families;
+for (const item of [{key:'all',title:'All'},{key:'woodland',title:'Woodland & animals'},...families]) {
   const link = document.createElement('a');
   link.href = '?family='+item.key;
   link.textContent = item.title;
-  if (item.key===(family?.key ?? 'all')) link.setAttribute('aria-current','page');
+  if (item.key===(family?.key ?? (woodlandOnly?'woodland':'all'))) link.setAttribute('aria-current','page');
   $('#families').append(link);
 }
 function makeCard(shot,index,grid) {
@@ -63,7 +68,7 @@ function makeCard(shot,index,grid) {
   async function ready() {
     if (asset) return;
     try {
-      pending ||= shot.load();
+      pending ||= shot.family==='parade' ? loadParadeExample(shot) : shot.load();
       asset=await pending;
     } finally { pending=null; }
   }
@@ -115,13 +120,13 @@ const together=$('#together');
 if (!family) {
   $('.heading').hidden=true;
   container.classList.add('overview');
-  container.parentElement.setAttribute('aria-label','All celebrations');
+  container.parentElement.setAttribute('aria-label',woodlandOnly?'Woodland and animal levels':'All celebrations');
   container.parentElement.removeAttribute('aria-labelledby');
 } else {
   $('#family').textContent=family.title;
   $('#intro').textContent=family.intro;
 }
-for (const entry of family ? [family] : families) {
+for (const entry of selection) {
   let grid=container;
   if (!family) {
     const section=document.createElement('section'), header=document.createElement('div');

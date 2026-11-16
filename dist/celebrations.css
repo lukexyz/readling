@@ -53,11 +53,10 @@
   left:var(--x,50%); top:calc(var(--y,50%) - var(--floor,0%) + var(--shift,0%));
   transform:translate(calc(-1 * var(--x,50%)),calc(-1 * var(--y,50%)));
 }
-.gallery-card[data-group="Visitors"],.gallery-card[data-group="Extras"],
-.gallery-card:is([data-id="mushrooms"],[data-id^="whale"],[data-id="splash"],[data-id="oak"]) { --y:100%; --floor:8%; }
+.gallery-card[data-group="Extras"],
+.gallery-card:is([data-id^="whale"],[data-id="splash"],[data-id="oak"]) { --y:100%; --floor:8%; }
 .gallery-card[data-group="Rainbows & music"] { --zoom:110%; }
 .gallery-card[data-id="music"] { --zoom:100%; }
-.gallery-card[data-id="mushrooms"] { --zoom:117%; }
 .gallery-card[data-id="fireflies"] { --shift:14%; }
 .gallery-card:is([data-id="stars"],[data-id="blooms"]) { --shift:8%; }
 .gallery-card[data-id="picture"] { --shift:10%; --zoom:115%; }

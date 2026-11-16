@@ -4,6 +4,8 @@ import {readFile,access} from 'node:fs/promises';
 import {SHOW,newProfile,normalise,startLesson,collect,finishTask,showChoices,showDue,addToShow,mergeAlbum,packAlbum} from '../dist/game.js';
 import {dolphinFamilies,dolphinShots,dolphinPoster} from '../dist/dolphins.js';
 import {flowerFamilies,flowerShots} from '../dist/gardens.js';
+import {woodlandFamilies,woodlandShots} from '../dist/woodland.js';
+import {paradeWords} from '../dist/show-woodland.js';
 // Checks for the celebration show she builds, in dist/game.js: what is offered, when, and how it is saved.
 // They use words from the first collection, so they need updating if those words change.
 const START=1e12;
@@ -12,6 +14,77 @@ function find(p,word) {
   return collect(p,START);
 }
 const copy=p=>normalise(JSON.parse(JSON.stringify(p)));
+
+test('old woodland and animal picks retain level one and can earn their own two upgrades', () => {
+  for (const {key,shots} of woodlandFamilies) {
+    const album=newProfile();
+    find(album,'cat');find(album,'hat');
+    const upgrades=shots.slice(1).map(s=>s.id);
+    album.show={tasks:120,picks:SHOW.map(s=>s.id).filter(id=>!upgrades.includes(id))};
+    const saved=copy(album);
+    assert.equal(shots[0].id,key);
+    assert(saved.show.picks.includes(key));
+    for (const id of upgrades) {
+      assert.deepEqual(showChoices(saved),[id]);
+      assert(addToShow(saved,id));
+    }
+    assert.deepEqual(copy(saved).show.picks,saved.show.picks);
+  }
+});
+
+test('ground and visitor slots use the highest selected level without duplicating a family', async () => {
+  const {planShow}=await import('../dist/finale.js');
+  const picks=woodlandShots.map(s=>s.id);
+  const full=planShow({picks,all:true});
+  const acts=full.acts.filter(([id])=>picks.includes(id));
+  assert.deepEqual(new Set(acts.map(([id])=>id)),new Set(woodlandFamilies.map(f=>f.shots[2].id)));
+  assert(acts.every(([,at,len])=>at+len<=full.total));
+  const visitors=woodlandFamilies.slice(2).flatMap(f=>f.shots.map(s=>s.id));
+  const seen=new Set();
+  for (let turn=0;turn<3;turn++) {
+    const shows=planShow({picks,turn}).acts.filter(([id])=>visitors.includes(id));
+    assert.equal(shows.length,2);
+    shows.forEach(([id])=>seen.add(id));
+  }
+  assert.equal(seen.size,3);
+  for (const shot of woodlandShots) {
+    const alone=planShow({picks,alone:shot.id});
+    assert.deepEqual(alone.acts.map(([id,,len])=>[id,len]),[[shot.id,shot.frames/24]]);
+  }
+  const splash=planShow({picks:[...picks,'whale2'],alone:'splash'}).acts.map(([id])=>id);
+  assert(splash.includes('vines-3') && splash.includes('mushrooms-3'));
+  assert(!splash.includes('vines') && !splash.includes('mushrooms'));
+});
+
+test('picture wagons lead with the current find and rotate through the collected words', () => {
+  const list=['cat','sun','hat','dog'];
+  assert.deepEqual(paradeWords(list,'cat',2),['cat','hat','dog','sun']);
+  assert.deepEqual(paradeWords(list,'pig',1),['sun','hat','dog','cat']);
+  assert.deepEqual(paradeWords([],'cat'),[]);
+  assert.deepEqual(list,['cat','sun','hat','dog']);
+});
+
+test('woodland takes include their frames, posters and synchronized animal tracks', async () => {
+  const dir=new URL('../dist/assets/woodland/',import.meta.url);
+  for (const shot of woodlandShots) {
+    const {frames,sheets,poster,anchors,hats}=JSON.parse(await readFile(new URL(shot.family+'-'+shot.level+'.json',dir)));
+    assert.equal(frames.length,shot.frames);
+    assert(frames[poster-1],shot.name);
+    await access(new URL(shot.still));
+    await Promise.all(sheets.map(name=>access(new URL(name,dir))));
+    if (['bunnies','elephants','parade'].includes(shot.family)) {
+      const tracks=shot.family==='parade' ? [anchors,hats] : [anchors];
+      for (const rows of tracks) {
+        assert.equal(rows.length,frames.length);
+        assert(rows[poster-1].some(Boolean),shot.name);
+        for (const row of rows) for (const point of row) {
+          if (point===null) continue;
+          assert(point.length===4 && point.every(Number.isFinite) && point[3]>0,shot.name);
+        }
+      }
+    }
+  }
+});
 
 test('each flower family unlocks one level at a time, including in an older Flowers album', () => {
   const base=newProfile();

@@ -3,7 +3,7 @@
 export async function loadSpriteShot(manifest) {
   const response = await fetch(manifest);
   if (!response.ok) throw new Error('Missing animation '+manifest.pathname);
-  const {frames, sheets:files} = await response.json();
+  const {frames, sheets:files, anchors, hats, poster} = await response.json();
   const sheets = await Promise.all(files.map(async file => {
     const image = new Image();
     image.src = new URL(file, manifest).href;
@@ -11,7 +11,7 @@ export async function loadSpriteShot(manifest) {
     return image;
   }));
   return {
-    length:frames.length,
+    length:frames.length, anchors, hats, poster,
     paint(ctx,index) {
       const frame = frames[index];
       if (!frame) return;

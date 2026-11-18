@@ -150,10 +150,41 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
   const ground=GROUND.map(key=>key==='oak' ? (have(key) && key) : highestWoodland(key,have)).filter(Boolean);
   // Each show uses the highest earned orca in its single ocean-finale slot.
   const whale=['whale3','whale2','whale'].find(have) || 'whale', contact=orcas[whale].contact;
-  let end=0, hit=0;
-  const add=(id,at,len=PARTS[id].len)=>{
-    acts.push([id,at,Math.min(len,30),!!PARTS[id].stays]);
-    if(!PARTS[id].stays) end=Math.max(end,at+Math.min(len,30));
+  const wetRabbit=(!alone || alone==='splash') && have('splash') && highestWoodland('bunnies',have);
+  const visitorSides={}, freeAt={left:0,right:0};
+  let lastSide='', end=0, hit=0;
+  function homeSide(id) {
+    if(woodlandParts[id]?.family==='elephants' || (orcas[id] && wetRabbit)) return 'left';
+    if(woodlandParts[id]?.family==='bunnies') return 'right';
+    return '';
+  }
+  function openSide(id,at,next) {
+    const home=homeSide(id);
+    if(home) return home;
+    const left=Math.max(at,freeAt.left), right=Math.max(at,freeAt.right);
+    if(left!==right) return left<right?'left':'right';
+    // When both are free, leave room for the next fixed entrance or answer the last visitor.
+    const other=homeSide(next) || lastSide;
+    if(other) return other==='left'?'right':'left';
+    return woodlandParts[id]?.family==='parade'?'left':'right';
+  }
+  const add=(id,at,len=PARTS[id].len,next='')=>{
+    len=Math.min(len,30);
+    if(isVisitor(id)) {
+      const side=id==='splash' ? visitorSides[whale] : openSide(id,at,next);
+      if(id==='splash') {
+        // The spray belongs to the orca. Its rabbit shakes dry across the panel.
+        if(wetRabbit) visitorSides[wetRabbit]='right';
+      } else {
+        at=Math.max(at,freeAt[side]);
+        if(id===whale && wetRabbit) at=Math.max(at,freeAt.right-contact);
+        lastSide=side;
+      }
+      visitorSides[id]=side;
+      freeAt[side]=Math.max(freeAt[side],at+len+.1);
+    }
+    acts.push([id,at,len,!!PARTS[id].stays]);
+    if(!PARTS[id].stays) end=Math.max(end,at+len);
     return at;
   };
   if(alone) {
@@ -178,7 +209,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     const finishes=FINISH.map(id=>id==='whale'?picked(whale):picked(id)).filter(Boolean);
     for(const cast of [visitors(have,turn,all),rotateCast(finishes,turn,all)]) {
       cast.forEach((id,k)=>{
-        const at=add(id,t);
+        const at=add(id,t,PARTS[id].len,cast[k+1]);
         if(id===whale && have('splash')) add('splash',at+contact);
         t=at+PARTS[id].len*(k<cast.length-1?.55:1);
       });
@@ -191,7 +222,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
       if (id==='oak' || flowers[id] || woodlandParts[id]?.stays || prismParts[id]?.stays) end=Math.max(end,at+len);
     }
   }
-  return {acts,hit,total:end+.6};
+  return {acts,hit,total:end+.6,visitorSides};
 }
 function cancelFinale() {stopActive?.();}
 
@@ -209,11 +240,7 @@ function launchFinale(stage,options={}) {
   if(!ctx || !floorCtx) return null;
   const real=!into && stage?.querySelector('.rainbow-theatre') && stage.querySelector('.reveal-art')?stage:null;
   const soundCount=options.soundCount??word.length;
-  const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
-  const visitorCanvas=real && acts.some(([id])=>isVisitor(id)) ? document.createElement('canvas') : null;
-  if(visitorCanvas) {
-    visitorCanvas.className='show-visitors';visitorCanvas.setAttribute('aria-hidden','true');real.append(visitorCanvas);
-  }
+  const {acts,hit,total,visitorSides}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
   if(!into){canvas.className='fireworks-screen';canvas.setAttribute('aria-hidden','true');document.body.append(canvas);}
   if(!into){floorCanvas.className='show-floor';floorCanvas.setAttribute('aria-hidden','true');document.body.append(floorCanvas);}
   let limit=320, frame=0, last=0, states=[], stopped=false;
@@ -239,8 +266,15 @@ function launchFinale(stage,options={}) {
     },
     on(name,...a) {if(freeze===null && !into) options[name]?.(...a);}};
   const floor={...e,ctx:floorCtx};
-  const visitors=visitorCanvas?{...e,ctx:visitorCanvas.getContext('2d')}:floor;
-  const groundViews=visitorCanvas?[floor,visitors]:[floor], views=[...groundViews,e];
+  const wings={};
+  if(real) for(const side of new Set(Object.values(visitorSides))) {
+    const layer=document.createElement('canvas');
+    layer.className='show-visitors';layer.dataset.side=side;layer.setAttribute('aria-hidden','true');
+    real.append(layer);wings[side]={...e,ctx:layer.getContext('2d'),panelSide:side};
+  }
+  const wingViews=Object.values(wings), groundViews=[floor,...wingViews], views=[...groundViews,e];
+  const splashView=wings[visitorSides.splash] || floor;
+  if(visitorSides.splash==='left' && wings.right) splashView.rabbitView=wings.right;
   for(const view of views) {
     view.sparks=[];view.rings=[];
     view.spark=p=>{
@@ -275,6 +309,24 @@ function launchFinale(stage,options={}) {
     const total=document.querySelector('#masthead .stars');
     if(total){const b=total.getBoundingClientRect();e.starHome={x:b.left+11,y:b.top+b.height/2};}
   }
+  function sizeStrip(view) {
+    const layer=view.ctx.canvas, rect=layer.getBoundingClientRect(), dpr=window.devicePixelRatio || 1;
+    const w=Math.max(1,Math.round(rect.width*dpr)), h=Math.max(1,Math.round(rect.height*dpr));
+    if(layer.width!==w) layer.width=w;
+    if(layer.height!==h) layer.height=h;
+    view.w=w;view.h=h;view.pixelsPerCssPixel=dpr;view.u=Math.min(1,h/360,w/480);
+    view.cx=w/2;view.cy=h/2;view.th={x:0,y:0,w,h};
+    view.ctx.lineJoin='round';view.ctx.lineCap='round';
+  }
+  // The illustration has its own ground. Visitors get the space below it, even
+  // when a caption wraps or the sticker choices open midway through a show.
+  const meadow=real?.querySelector('.show-stage');
+  function fitWings() {
+    const room=Math.max(1,Math.floor(real.getBoundingClientRect().bottom-meadow.getBoundingClientRect().bottom-6));
+    for(const view of wingViews) {
+      view.ctx.canvas.style.maxHeight=room+'px';sizeStrip(view);
+    }
+  }
   function resize() {
     if(into) {
       const {width=520,height=390,unit=.6}=options.previewSize || {};
@@ -290,36 +342,38 @@ function launchFinale(stage,options={}) {
     ctx.setTransform(canvas.width/e.w,0,0,canvas.height/e.h,0,0);ctx.lineJoin='round';ctx.lineCap='round';
     if(into) {
       floor.w=e.w;floor.h=e.h;floor.u=e.u;
+      floor.cx=e.w/2;floor.cy=e.h/2;floor.th={x:0,y:0,w:e.w,h:e.h};
     } else {
       const dpr=window.devicePixelRatio || 1;
       real?.querySelector('.meadow-garden')?.style.setProperty('--native-flower-width',480/dpr+'px');
-      for(const view of groundViews) {
-        const layer=view.ctx.canvas, rect=layer.getBoundingClientRect();
-        layer.width=Math.max(1,Math.round(rect.width*dpr));layer.height=Math.max(1,Math.round(rect.height*dpr));
-        view.w=layer.width;view.h=layer.height;view.pixelsPerCssPixel=dpr;
-        view.u=Math.min(1,view.h/360,view.w/480);
-        view.ctx.lineJoin='round';view.ctx.lineCap='round';
-      }
-    }
-    for(const view of groundViews) {
-      view.cx=view.w/2;view.cy=view.h/2;view.th={x:0,y:0,w:view.w,h:view.h};
+      sizeStrip(floor);
+      if(wingViews.length) fitWings();
     }
     locate();
   }
   resize();
+  const roomObserver=wingViews.length ? new ResizeObserver(()=>{
+    if(stopped) return;
+    fitWings();
+    if(states.length && (review || freeze!==null)) picture();
+  }) : null;
+  if(roomObserver) {roomObserver.observe(real);roomObserver.observe(meadow);}
 
   floor.soloPrism=!review && !!prismParts[alone];
   const meadowArches=real?acts.filter(([id])=>prismParts[id]?.stays)
     .map(([id,at])=>[real.querySelector(`[data-meadow-rainbow="${id}"]`),at]).filter(([arch])=>arch):[];
   floor.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!review && !!flowers[alone],oak:acts.some(([id])=>id==='oak')};
-  floor.isolatedWoodland=visitors.isolatedWoodland=!review && (!!woodlandParts[alone] || alone==='hats');
   const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
-  visitors.paradeWords=paradeWords(paradeFinds,word,turn);
+  const wagons=paradeWords(paradeFinds,word,turn);
+  for(const view of groundViews) {
+    view.isolatedWoodland=!review && (!!woodlandParts[alone] || alone==='hats');
+    view.paradeWords=wagons;
+  }
   for(const view of views) {view.hit=hit;view.total=total;}
   // The star, letters and badge still land on their actual targets in the word card and header.
   function viewFor(id) {
     if(Object.hasOwn(BASE,id) || id==='comet') return e;
-    return planted.get(id)?.view || (isVisitor(id)?visitors:floor);
+    return planted.get(id)?.view || wings[visitorSides[id]] || floor;
   }
 
   function reset() {
@@ -333,14 +387,14 @@ function launchFinale(stage,options={}) {
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
   function advance(dt) {
-    e.time+=dt;floor.time=visitors.time=e.time;
+    for(const view of views) view.time+=dt;
     for(const st of states) {
       const t=e.time-st.at, p=st.part;
       if(t<0) continue;
       if(p.cues) while(st.cue<p.cues.length && p.cues[st.cue][0]<=t) p.cues[st.cue++][1](st.view,st.s);
       if(p.step && (p.stays || t<=p.len)) p.step(st.view,st.s,t,dt);
     }
-    floor.soak=visitors.soak;
+    floor.soak=splashView.soak;
     for(const view of views) advanceParticles(view,dt);
   }
   function advanceParticles(view,dt) {
@@ -390,7 +444,8 @@ function launchFinale(stage,options={}) {
     if(!into) {
       canvas.remove();stage?.classList.remove('show-playing');
       floorCanvas.remove();
-      visitorCanvas?.remove();
+      roomObserver?.disconnect();
+      for(const view of wingViews) view.ctx.canvas.remove();
       for(const {layer} of planted.values()) layer.remove();
       for(const [arch] of meadowArches) arch.classList.remove('tracing');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);

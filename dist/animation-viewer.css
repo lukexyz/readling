@@ -17,6 +17,7 @@
 #counter,.review-viewport,.review-help { color:var(--sub); }
 .review-options button { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:5px 10px; min-height:40px; }
 .review-scene { text-align:center; }
+@media(min-width:721px) { .review-scene:has(> .show-visitors) { padding-bottom:48px; } }
 .review-scene h1 { margin-top:8px; }
 .review-scene.show-playing .reveal-art .stamp { animation:none; }
 .review-scene .tracing .meadow-bands path { stroke-dasharray:1 1; animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s) - var(--review-time,0s)) both paused; }

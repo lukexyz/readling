@@ -36,12 +36,23 @@ export async function loadParadeExample(shot) {
 function woodlandPart(shot) {
   const ground=shot.family==='vines' || shot.family==='mushrooms';
   const parade=shot.family==='parade';
+  // Use the herd's common ground line. The original Blender camera includes
+  // empty pixels below the feet and above the highest raised trunk.
+  const panelCrop=shot.family==='elephants' ? [0,48,480,282] : shot.crop;
   const artwork=new WeakMap();
   let pending,poster=(shot.frames-1)/shot.fps;
   // Bound the whole camera, including the jump. The tallest rabbit in level
   // one then occupies at most 72 CSS pixels on a desktop or tablet.
   function cameraHeight(e) {
+    if(shot.family==='elephants' && e.panelSide) return Math.min(e.h,130*e.pixelsPerCssPixel);
     return shot.family==='bunnies' && !e.preview ? Math.min(e.h,104*e.pixelsPerCssPixel) : e.h;
+  }
+  function place(e,width,centre) {
+    // Both animals face in towards the word, including any hat tracked to their head.
+    if(shot.family==='bunnies' && e.panelSide==='right') {
+      e.ctx.translate(e.w,0);e.ctx.scale(-1,1);
+    }
+    fitShot(e.ctx,e.panelSide ? panelCrop : shot.crop,e.w*width,cameraHeight(e),e.w*centre,e.h);
   }
   function paint(e,index) {
     const asset=artwork.get(e);
@@ -54,7 +65,7 @@ function woodlandPart(shot) {
     }
   }
   return {
-    len:shot.frames/shot.fps,stays:ground,z:ground ? 1 : 6,
+    family:shot.family,len:shot.frames/shot.fps,stays:ground,z:ground ? 1 : 6,
     get poster() { return poster; },
     async prepare(e) {
       try {
@@ -73,7 +84,7 @@ function woodlandPart(shot) {
       }
       const ctx=e.ctx;
       ctx.save();
-      fitShot(ctx,shot.crop,e.w*width,cameraHeight(e),e.w*centre,e.h);
+      place(e,width,centre);
       if(shot.family==='mushrooms' && e.soak) {
         const squash=.10*bump((e.time-e.soak)/.6);
         ctx.translate(0,shot.crop[3]*squash);ctx.scale(1,1-squash);
@@ -85,7 +96,8 @@ function woodlandPart(shot) {
       const up=bump((t-.20)/1.5);
       if (up<=0) return;
       e.ctx.save();
-      fitShot(e.ctx,shot.crop,e.w*.50,cameraHeight(e),e.w*.25,e.h);
+      const width=e.panelSide ? .86 : .5, centre=e.panelSide ? .5 : .25;
+      place(e,width,centre);
       e.ctx.translate(240,360+(1-up)*340);
       e.ctx.rotate(.08*up*Math.sin(t*36));e.ctx.translate(-240,-360);
       paint(e,Math.round(poster*shot.fps));

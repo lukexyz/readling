@@ -119,6 +119,36 @@ test('ground and visitor slots use the highest selected level without duplicatin
   assert(!splash.includes('vines') && !splash.includes('mushrooms'));
 });
 
+test('elephants march on the left, bunnies hop on the right and visitors share free corners', async () => {
+  const {planShow}=await import('../dist/finale.js');
+  for(const {id,family} of woodlandShots.filter(s=>['elephants','bunnies'].includes(s.family))) {
+    assert.equal(planShow({alone:id}).visitorSides[id],family==='elephants'?'left':'right',id);
+  }
+  for(const picks of [['bunnies','elephants'],['parade','elephants'],['bunnies','dolphins']]) {
+    const {visitorSides,acts}=planShow({picks});
+    assert.notEqual(visitorSides[picks[0]],visitorSides[picks[1]]);
+    const [first,second]=acts.filter(([id])=>picks.includes(id));
+    assert(second[1]<first[1]+first[2],'visitors in opposite corners can share a beat');
+  }
+  assert.equal(planShow({picks:['elephants'],alone:'hats'}).visitorSides.elephants,'left');
+  const picks=SHOW.map(s=>s.id);
+  for(let turn=0;turn<12;turn++) for(const all of [false,true]) {
+    const {acts,visitorSides,total}=planShow({picks,turn,all});
+    const until={left:0,right:0};
+    for(const [id,at,len] of acts) {
+      if(!visitorSides[id] || id==='splash') continue;
+      const side=visitorSides[id];
+      assert(at>=until[side],id+' has its corner to itself');
+      until[side]=at+len;
+      assert(until[side]<=total,id+' finishes within the show');
+    }
+  }
+  const splash=planShow({picks,alone:'splash'}).visitorSides;
+  assert.equal(splash.whale3,'left');
+  assert.equal(splash.splash,splash.whale3);
+  assert.equal(splash['bunnies-3'],'right');
+});
+
 test('picture wagons lead with the current find and rotate through the collected words', () => {
   const list=['cat','sun','hat','dog'];
   assert.deepEqual(paradeWords(list,'cat',2),['cat','hat','dog','sun']);

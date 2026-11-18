@@ -14,7 +14,7 @@ const whalePlace=e=>e.w*(e.w>e.h?.68:.5);
 const CREATURES={
   // The orca's splash soaks the whole show. Rain falls, the flowers shoot up and the bunnies shake themselves dry.
   splash:{len:1.9,z:6,
-    prepare(e) { return splashBunnies(e)?.prepare(e); },
+    prepare(e) { return splashBunnies(e)?.prepare(e.rabbitView || e); },
     cues:[[0,e=>{e.soak=e.time;spray(e,e.w/2,e.w,few(e,70),.95);}]],
     step(e,s,t,dt) {
       if(t<.2 || t>1.25) return;
@@ -30,7 +30,7 @@ const CREATURES={
         const x=place+side*e.w*.62*p, tall=54*u*(1-p)*clamp01(t/.1);
         ctx.beginPath();ctx.moveTo(x-56*u,e.h+4);ctx.quadraticCurveTo(x+side*14*u,e.h-tall*2,x+56*u,e.h+4);ctx.closePath();paint(ctx,foam,2.2*u);
       }
-      splashBunnies(e)?.shakeDry(e,t);
+      splashBunnies(e)?.shakeDry(e.rabbitView || e,t);
     }}
 };
 export {CREATURES};

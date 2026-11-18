@@ -12,7 +12,7 @@ function flowerPart(shot) {
       try {
         pending ||= shot.load().finally(()=>{pending=null;});
         artwork.set(e,await pending);
-        if (shot.family==='poppy') e.poppyReady=true;
+        e.flowerReady=true;
       } catch(error) { console.warn('Could not load '+shot.name,error); }
     },
     draw(e,state,time) {

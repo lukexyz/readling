@@ -891,9 +891,9 @@ function drawStars() {
 }
 // Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
 // The stars she has just earned wait out of her total until the show counts them in.
-function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,anywhere=false,narrated=false,ended=null}={}) {
+function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null}={}) {
   const stage=$('.victory');
-  if(!stage && !anywhere) return null;
+  if(!stage) return null;
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   const sounds=soundsOf(word);
@@ -919,13 +919,18 @@ function previewShow(options,then) {
     const word=view==='found'?pageWord():latest;
     if(word && view!=='found'){lastFound=null;lastRevealRoute='found/'+word;go('found/'+word);}
     encores++;
-    // The stage on the page shows the rainbows of the show being tried, and goes back to hers afterwards.
+    // A first-time visitor to Grown-ups can try the same meadow before collecting a word.
     const dress=(picks,alone)=>{const theatre=$('.meadow-scenery');if(theatre) theatre.outerHTML=finaleScenery(picks,alone);};
-    // A show that is still playing is stopped first, so that its ending does not undo the new stage.
     cancelFinale();
-    if(options.picks) dress(options.picks,options.alone);
-    const show=celebrate({word,anywhere:true,...options,ended:finished=>{if(options.picks) dress(profile.show.picks);if(finished) then?.();}});
-    if(!show){if(options.picks) dress(profile.show.picks);notice('The show cannot play while this device asks for less motion.');then?.();return;}
+    let sample;
+    if(!$('.victory .meadow-scenery')) {
+      sample=document.createElement('section');sample.className='found activity victory sample-show';
+      sample.innerHTML=`<h1>Celebration preview</h1><div class="show-stage">${finaleScenery(options.picks || profile.show.picks,options.alone)}<div class="reveal-art">${stamp(wordImage(word || WORDS[0]))}</div></div>`;
+      main.prepend(sample);sample.scrollIntoView({block:'nearest'});
+    } else if(options.picks) dress(options.picks,options.alone);
+    const restore=()=>{if(sample) sample.remove();else if(options.picks) dress(profile.show.picks);};
+    const show=celebrate({word,...options,ended:finished=>{restore();if(finished) then?.();}});
+    if(!show){restore();notice('The show cannot play while this device asks for less motion.');then?.();return;}
     if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare');}
     else if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
   },80);

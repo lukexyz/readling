@@ -26,6 +26,7 @@ let current,show,ready=false,playing=false,raf=0,selected=0,playhead=0,started=0
 // word card and UI controls never contribute to the reported artwork size.
 function canvasBounds(canvas) {
   if(!canvas || Number(canvas.style.opacity || 1)<.04) return null;
+  if(canvas instanceof HTMLImageElement && !canvas.naturalWidth) return null;
   const rect=canvas.getBoundingClientRect();
   if(!rect.width || !rect.height) return null;
   const scale=Math.min(1,560/rect.width,340/rect.height);
@@ -50,7 +51,15 @@ function canvasBounds(canvas) {
 }
 function measure() {
   const guide=get('bounds'), arch=meadow.querySelector('[data-meadow-rainbow="'+current+'"]');
-  const box=arch ? arch.getBoundingClientRect() : canvasBounds(document.querySelector(wholeScreen.has(current)?'.fireworks-screen':'.show-floor'));
+  const plant=meadow.querySelector('[data-meadow-flower="'+current+'"]'), visitors=scene.querySelector('.show-visitors');
+  const frame=arch || plant ? meadow : visitors ? scene : null;
+  const frameBox=frame?.getBoundingClientRect(), origin=frame===meadow?'Meadow':frame===scene?'Panel':'Screen';
+  const host=frame || document.body;
+  if(guide.parentElement!==host) host.append(guide);
+  const artwork=plant?.querySelector('canvas') || plant?.querySelector('img') || visitors ||
+    document.querySelector(wholeScreen.has(current)?'.fireworks-screen':'.show-floor');
+  const box=arch ? arch.getBoundingClientRect() : canvasBounds(artwork);
+  get('left-label').textContent=origin+' left';get('bottom-label').textContent=origin+' bottom';
   get('size-label').textContent=arch?'Full arch extent':'Visible artwork';
   get('viewport').textContent=Math.round(innerWidth)+' × '+Math.round(innerHeight)+' viewport';
   guide.hidden=!outline.checked || !box;
@@ -60,9 +69,11 @@ function measure() {
   }
   const {left,top,width,height}=box;
   get('size').textContent='≈ '+Math.round(width)+' × '+Math.round(height)+' px';
-  get('left').textContent=Math.round(left)+' px';
-  get('bottom').textContent=Math.round(innerHeight-top-height)+' px';
-  if(!guide.hidden) Object.assign(guide.style,{left:left+'px',top:top+'px',width:width+'px',height:height+'px'});
+  const fromLeft=left-(frameBox?.left??0), fromBottom=(frameBox?.bottom??innerHeight)-top-height;
+  get('left').textContent=Math.round(fromLeft)+' px';get('bottom').textContent=Math.round(fromBottom)+' px';
+  if(!guide.hidden) Object.assign(guide.style,{position:frame?'absolute':'fixed',top:'auto',
+    left:(fromLeft-(frame?.clientLeft || 0))+'px',bottom:(fromBottom-(frame?parseFloat(getComputedStyle(frame).borderBottomWidth):0))+'px',
+    width:width+'px',height:height+'px'});
 }
 function duration() {
   return current==='music' && soundOn && Number.isFinite(fanfare.duration) ? Math.max(show.total,fanfare.duration) : show.total;

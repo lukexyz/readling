@@ -5,7 +5,7 @@ import {CREATURES} from './show-creatures.js';
 import {orcas} from './ember-breach.js';
 import {dolphinFamilies} from './dolphins.js';
 import {dolphins} from './show-dolphins.js';
-import {flowerFamilies,flowerShots} from './gardens.js';
+import {flowerFamilies} from './gardens.js';
 import {flowers} from './show-flowers.js';
 import {highestWoodland} from './woodland.js';
 import {woodlandParts,paradeWords} from './show-woodland.js';
@@ -39,7 +39,9 @@ function meadowRainbow(shot) {
 
 // A printed theatre stays on the page after the show and in reduced motion. The rainbows appear once she has added them.
 function finaleScenery(picks=[],alone='') {
-  const poppy=flowerShots.findLast(shot=>shot.family==='poppy' && picks.includes(shot.id));
+  const plants=flowerFamilies.map(family=>family.shots.find(shot=>shot.id===alone) ||
+    family.shots.findLast(shot=>picks.includes(shot.id))).filter(Boolean);
+  const garden=plants.map(shot=>`<div class="meadow-flower" data-meadow-flower="${shot.id}"><img src="${shot.still}" alt="" width="480" height="360"></div>`).join('');
   const arches=['rainbow','rainbow2'].map(key=>
     prismByFamily[key].find(shot=>shot.id===alone) || highestPrism(key,id=>picks.includes(id))).filter(Boolean);
   return `<div class="meadow-scenery" aria-hidden="true"><svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none">
@@ -57,7 +59,7 @@ function finaleScenery(picks=[],alone='') {
       <path d="M24 238q23-2 43 3m-14 4 12 1m63 3 28 6m525-9 26-5m59-13 24-4"/>
       <path d="M79 237q-2-12-8-18m8 18q0-17 6-26m-6 26q4-9 9-12m648 10q-2-13-7-19m7 19q1-15 6-22"/>
     </g>
-  </svg><div class="meadow-poppy">${poppy?`<img src="${poppy.still}" alt="">`:''}</div></div>`;
+  </svg>${garden?`<div class="meadow-garden" data-count="${plants.length}" style="--native-flower-width:${480/(globalThis.devicePixelRatio || 1)}px">${garden}</div>`:''}</div>`;
 }
 
 // The parts that belong to every show.
@@ -116,6 +118,7 @@ const BASE={
 };
 const pin=e=>({x:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.27});
 const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts,...prismParts};
+const isVisitor=id=>Boolean(orcas[id] || dolphins[id] || (woodlandParts[id] && !woodlandParts[id].stays) || id==='splash');
 
 function rotateCast(mine,turn,all) {
   if (all || mine.length<=2) return mine;
@@ -205,6 +208,12 @@ function launchFinale(stage,options={}) {
   const floorCanvas=into || document.createElement('canvas'), floorCtx=floorCanvas.getContext('2d');
   if(!ctx || !floorCtx) return null;
   const real=!into && stage?.querySelector('.rainbow-theatre') && stage.querySelector('.reveal-art')?stage:null;
+  const soundCount=options.soundCount??word.length;
+  const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
+  const visitorCanvas=real && acts.some(([id])=>isVisitor(id)) ? document.createElement('canvas') : null;
+  if(visitorCanvas) {
+    visitorCanvas.className='show-visitors';visitorCanvas.setAttribute('aria-hidden','true');real.append(visitorCanvas);
+  }
   if(!into){canvas.className='fireworks-screen';canvas.setAttribute('aria-hidden','true');document.body.append(canvas);}
   if(!into){floorCanvas.className='show-floor';floorCanvas.setAttribute('aria-hidden','true');document.body.append(floorCanvas);}
   let limit=320, frame=0, last=0, states=[], stopped=false;
@@ -219,7 +228,7 @@ function launchFinale(stage,options={}) {
       e.spark(p);
     }
   }
-  const e={ctx,w:0,h:0,u:1,cx:0,cy:0,th:null,virtual:!real,word,soundCount:options.soundCount??word.length,finds,stars,tier,time:0,total:0,hit:0,soak:0,starHome:null,
+  const e={ctx,w:0,h:0,u:1,cx:0,cy:0,th:null,virtual:!real,word,soundCount,finds,stars,tier,time:0,total:0,hit:0,soak:0,starHome:null,
     preview:!!into,rand:random(1),has:id=>id===alone || picks.includes(id),cut:cutout,
     // Her hat sits on any creature that asks for one, once she has added hats to her show.
     hat(x,y,angle,size) {
@@ -230,7 +239,9 @@ function launchFinale(stage,options={}) {
     },
     on(name,...a) {if(freeze===null && !into) options[name]?.(...a);}};
   const floor={...e,ctx:floorCtx};
-  for(const view of [e,floor]) {
+  const visitors=visitorCanvas?{...e,ctx:visitorCanvas.getContext('2d')}:floor;
+  const groundViews=visitorCanvas?[floor,visitors]:[floor], views=[...groundViews,e];
+  for(const view of views) {
     view.sparks=[];view.rings=[];
     view.spark=p=>{
       view.sparks.push({age:0,life:1.5,size:6*view.u,rot:0,spin:0,kind:'star5',colour:gold,g:1,drag:.55,vx:0,vy:0,...p});
@@ -242,6 +253,16 @@ function launchFinale(stage,options={}) {
   if(tier && options.badgeSrc) {
     e.badgeImage=new Image();
     e.badgeImage.src=options.badgeSrc;
+  }
+  // The Blender camera and the printed poster occupy the same bed behind the word card.
+  const planted=new Map();
+  for(const [id] of acts) {
+    if(!real || !flowers[id]) continue;
+    const bed=real.querySelector(`[data-meadow-flower="${id}"]`);
+    if(!bed) continue;
+    const layer=document.createElement('canvas');layer.className='meadow-growth';layer.width=480;layer.height=360;
+    const view=Object.assign(Object.create(floor),{ctx:layer.getContext('2d'),w:480,h:360,flowerBed:{ids:[id],solo:true}});
+    bed.append(layer);planted.set(id,{layer,view});
   }
   function locate() {
     if(!real) {
@@ -270,36 +291,39 @@ function launchFinale(stage,options={}) {
     if(into) {
       floor.w=e.w;floor.h=e.h;floor.u=e.u;
     } else {
-      const rect=floorCanvas.getBoundingClientRect(), dpr=window.devicePixelRatio || 1;
-      floorCanvas.width=Math.max(1,Math.round(rect.width*dpr));
-      floorCanvas.height=Math.max(1,Math.round(rect.height*dpr));
-      floor.w=floorCanvas.width;floor.h=floorCanvas.height;
-      floor.pixelsPerCssPixel=dpr;
-      floor.u=Math.min(1,floor.h/360,floor.w/480);
-      floorCtx.lineJoin='round';floorCtx.lineCap='round';
+      const dpr=window.devicePixelRatio || 1;
+      real?.querySelector('.meadow-garden')?.style.setProperty('--native-flower-width',480/dpr+'px');
+      for(const view of groundViews) {
+        const layer=view.ctx.canvas, rect=layer.getBoundingClientRect();
+        layer.width=Math.max(1,Math.round(rect.width*dpr));layer.height=Math.max(1,Math.round(rect.height*dpr));
+        view.w=layer.width;view.h=layer.height;view.pixelsPerCssPixel=dpr;
+        view.u=Math.min(1,view.h/360,view.w/480);
+        view.ctx.lineJoin='round';view.ctx.lineCap='round';
+      }
     }
-    floor.cx=floor.w/2;floor.cy=floor.h/2;
-    floor.th={x:0,y:0,w:floor.w,h:floor.h};
+    for(const view of groundViews) {
+      view.cx=view.w/2;view.cy=view.h/2;view.th={x:0,y:0,w:view.w,h:view.h};
+    }
     locate();
   }
   resize();
 
-  const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && spell?e.soundCount:0,staged:!!real,stars,tier});
-  const hasPoppy=acts.some(([id])=>flowers[id]?.family==='poppy');
-  const poppyBed=hasPoppy && real?.querySelector('.meadow-poppy');
   floor.soloPrism=!review && !!prismParts[alone];
   const meadowArches=real?acts.filter(([id])=>prismParts[id]?.stays)
     .map(([id,at])=>[real.querySelector(`[data-meadow-rainbow="${id}"]`),at]).filter(([arch])=>arch):[];
   floor.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!review && !!flowers[alone],oak:acts.some(([id])=>id==='oak')};
-  floor.isolatedWoodland=!review && (!!woodlandParts[alone] || alone==='hats');
+  floor.isolatedWoodland=visitors.isolatedWoodland=!review && (!!woodlandParts[alone] || alone==='hats');
   const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
-  floor.paradeWords=paradeWords(paradeFinds,word,turn);
-  for(const view of [e,floor]) {view.hit=hit;view.total=total;}
+  visitors.paradeWords=paradeWords(paradeFinds,word,turn);
+  for(const view of views) {view.hit=hit;view.total=total;}
   // The star, letters and badge still land on their actual targets in the word card and header.
-  const viewFor=id=>Object.hasOwn(BASE,id) || id==='comet' ? e : floor;
+  function viewFor(id) {
+    if(Object.hasOwn(BASE,id) || id==='comet') return e;
+    return planted.get(id)?.view || (isVisitor(id)?visitors:floor);
+  }
 
   function reset() {
-    for(const view of [e,floor]) {
+    for(const view of views) {
       view.rand=random(977+turn*131);view.time=0;view.soak=0;view.sparks.length=0;view.rings.length=0;
     }
     states=acts.map(([id,at])=>{
@@ -309,14 +333,15 @@ function launchFinale(stage,options={}) {
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
   function advance(dt) {
-    e.time+=dt;floor.time=e.time;
+    e.time+=dt;floor.time=visitors.time=e.time;
     for(const st of states) {
       const t=e.time-st.at, p=st.part;
       if(t<0) continue;
       if(p.cues) while(st.cue<p.cues.length && p.cues[st.cue][0]<=t) p.cues[st.cue++][1](st.view,st.s);
       if(p.step && (p.stays || t<=p.len)) p.step(st.view,st.s,t,dt);
     }
-    advanceParticles(e,dt);advanceParticles(floor,dt);
+    floor.soak=visitors.soak;
+    for(const view of views) advanceParticles(view,dt);
   }
   function advanceParticles(view,dt) {
     const {rings,sparks}=view;
@@ -347,15 +372,16 @@ function launchFinale(stage,options={}) {
   }
   function picture() {
     ctx.clearRect(0,0,e.w,e.h);
-    if(!into) floorCtx.clearRect(0,0,floor.w,floor.h);
+    if(!into) for(const view of groundViews) view.ctx.clearRect(0,0,view.w,view.h);
+    for(const {view} of planted.values()) view.ctx.clearRect(0,0,view.w,view.h);
     let scattered=false;
     for(const st of states) {
       const p=st.part, t=e.time-st.at;
-      if(!scattered && (p.z || 0)>=5){confetti(floor);confetti(e);scattered=true;}
+      if(!scattered && (p.z || 0)>=5){for(const view of views) confetti(view);scattered=true;}
       if(t>=0 && (p.stays || t<=p.len) && p.draw){st.view.ctx.globalAlpha=1;p.draw(st.view,st.s,t);}
     }
-    if(!scattered){confetti(floor);confetti(e);}
-    ctx.globalAlpha=1;floorCtx.globalAlpha=1;
+    if(!scattered) for(const view of views) confetti(view);
+    for(const view of views) view.ctx.globalAlpha=1;
   }
   function stop(finished) {
     if(stopped) return;
@@ -364,7 +390,8 @@ function launchFinale(stage,options={}) {
     if(!into) {
       canvas.remove();stage?.classList.remove('show-playing');
       floorCanvas.remove();
-      if(poppyBed) poppyBed.hidden=false;
+      visitorCanvas?.remove();
+      for(const {layer} of planted.values()) layer.remove();
       for(const [arch] of meadowArches) arch.classList.remove('tracing');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
@@ -380,7 +407,7 @@ function launchFinale(stage,options={}) {
     for(;dt>0;dt-=1/30) advance(Math.min(dt,1/30));
     if(e.time>=e.total){if(!into || !loop){stop(true);return;}reset();}
     picture();
-    if(!into) floorCanvas.style.opacity=canvas.style.opacity=clamp01((e.total-e.time)/.4);
+    if(!into) for(const view of views) view.ctx.canvas.style.opacity=clamp01((e.total-e.time)/.4);
     frame=requestAnimationFrame(tick);
   }
   if(!into) {
@@ -399,14 +426,14 @@ function launchFinale(stage,options={}) {
     while(target-e.time>1/30) advance(1/30);
     if(target>e.time) advance(target-e.time);
     picture();
-    floorCanvas.style.opacity=canvas.style.opacity=clamp01((total-target)/.4);
+    for(const view of views) view.ctx.canvas.style.opacity=clamp01((total-target)/.4);
     if(real && meadowArches.length) stage.style.setProperty('--review-time',target+'s');
   }
   function start() {
     if(stopped) return;
     reset();
     if(real) {
-      if(poppyBed && floor.poppyReady) poppyBed.hidden=true;
+      for(const {view,layer} of planted.values()) if(!view.flowerReady) layer.remove();
       for(const [arch,at] of meadowArches) {
         arch.style.setProperty('--arch-start',at+'s');
         arch.classList.add('tracing');

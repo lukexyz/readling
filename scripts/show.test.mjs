@@ -175,9 +175,12 @@ test('each flower family unlocks one level at a time, including in an older Flow
 });
 
 test('mixed gardens and splash previews play the highest earned flower in each family', async () => {
-  const {planShow}=await import('../dist/finale.js');
+  const {planShow,finaleScenery}=await import('../dist/finale.js');
   const picks=['flowers','poppy-2','moonflower-1','sunflower-1','sunflower-2','sunflower-3','oak','splash'];
   const flowerActs=show=>show.acts.filter(([id])=>flowerShots.some(shot=>shot.id===id));
+  const plants=(alone='')=>[...finaleScenery(picks,alone).matchAll(/data-meadow-flower="([^"]+)"/g)].map(match=>match[1]);
+  assert.deepEqual(plants(),['poppy-2','moonflower-1','sunflower-3']);
+  assert.deepEqual(plants('flowers'),['flowers','moonflower-1','sunflower-3']);
   for (const alone of ['', 'splash']) {
     const show=planShow({picks,alone});
     const beds=flowerActs(show);

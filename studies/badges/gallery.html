@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f8f5ec">
+  <title>Badges &amp; stars · Readling</title>
+  <link rel="icon" href="__LOGO__">
+  <style>/* GALLERY_STYLE */</style>
+</head>
+<body>
+  <header class="mast"><div class="frame mast-inner">
+    <a href="#top" class="brand"><img src="__LOGO__" width="32" height="32" alt="">Readling</a>
+    <nav aria-label="Gallery"><a href="#badges">Badges</a><a href="#popovers">Star popovers</a><a href="#choices">Your picks</a></nav>
+  </div></header>
+  <main class="frame" id="top">
+    <header class="intro"><div><h1>Badges <em>&amp;</em> stars</h1>
+      <p>A little keepsake for each reading level. Choose your favourites, then try a star counter to go with them.</p></div>
+      <div class="intro-art" aria-hidden="true"><img data-art="poppy-3" alt=""><img data-art="moth-5" alt=""><img data-art="compass-3" alt=""></div>
+    </header>
+    <section id="badges" aria-labelledby="badges-title">
+      <div class="section-title"><div><h2 id="badges-title">Level badges</h2><p>Tap a badge for a closer look. A new level opens every three words.</p></div>
+        <label class="select-label" for="level-filter">Show <select id="level-filter">
+          <option value="all">All levels</option><option value="1">Level 1</option><option value="2">Level 2</option>
+          <option value="3">Level 3</option><option value="4">Level 4</option><option value="5">Level 5</option>
+        </select></label>
+      </div>
+      <div id="badge-board"></div>
+    </section>
+    <section id="popovers" aria-labelledby="pop-title">
+      <div class="section-title"><div><h2 id="pop-title">Star popovers</h2>
+        <p>Tap the star count to open a panel. Switch designs to compare the same album in each one.</p></div></div>
+      <div class="pop-layout">
+        <div class="pop-choices" role="group" aria-label="Popover concepts" id="styles"></div>
+        <div class="try-panel">
+          <div class="try-toolbar"><label class="select-label" for="sample">Sample album <select id="sample">
+            <option value="0">Just starting</option><option value="3">3 words found</option>
+            <option value="8" selected>8 words found</option><option value="12">All 12 words</option>
+          </select></label></div>
+          <div class="mini-game">
+            <div class="mini-head">
+              <span class="mini-brand"><img src="__LOGO__" width="27" height="27" alt="">Readling</span>
+              <div class="counter-anchor">
+                <button id="star-counter" aria-haspopup="dialog" aria-controls="star-panel" aria-expanded="false"></button>
+                <section id="star-panel" role="dialog" aria-labelledby="star-title" hidden></section>
+              </div>
+            </div>
+            <div class="album-scene" aria-hidden="true"><div class="album-lines"></div>
+              <div class="word-stamp"><img src="__CAT__" alt=""><b>cat</b></div>
+            </div>
+          </div>
+          <div class="pick-pop"><button type="button" id="choose-pop" class="plain-button"></button></div>
+        </div>
+      </div>
+    </section>
+    <section id="choices" aria-labelledby="choices-title"><div class="picks-head"><div><h2 id="choices-title">Your picks</h2>
+      <p id="selection-summary">Your choices will appear here.</p></div><button id="copy" class="primary" disabled>Copy picks</button></div>
+      <output id="copy-fallback" hidden></output></section>
+    <footer>Readling · The Word Woods</footer>
+  </main>
+  <dialog id="detail" aria-labelledby="detail-title">
+    <button class="close" id="detail-close" aria-label="Close badge preview">×</button>
+    <div class="detail-art"><img alt="" id="detail-img"></div>
+    <div class="detail-copy"><p id="detail-level"></p><h2 id="detail-title"></h2><p id="detail-note"></p>
+      <div class="detail-actions"><button class="primary" id="choose-one"></button><button class="plain-button" id="choose-set">Pick this whole set</button></div>
+    </div>
+  </dialog>
+  <div class="sr-only" id="announce" role="status" aria-live="polite"></div>
+  <noscript>Enable JavaScript to compare the badges and open the star panels.</noscript>
+  <script id="badge-art" type="application/json">__BADGE_ART__</script>
+  <script>/* GALLERY_SCRIPT */</script>
+</body>
+</html>

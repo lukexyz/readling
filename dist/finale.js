@@ -200,35 +200,45 @@ function launchFinale(stage,options={}) {
   if(!into) cancelFinale();
   if(!into && freeze===null && (motion.matches || document.hidden)) return null;
   const canvas=into || document.createElement('canvas'), ctx=canvas.getContext('2d');
-  if(!ctx) return null;
+  // Ground actors and show extras have their own small canvas. Its drawing units are
+  // device pixels; a 480 px render occupies 240 CSS px on a 2× tablet.
+  const floorCanvas=into || document.createElement('canvas'), floorCtx=floorCanvas.getContext('2d');
+  if(!ctx || !floorCtx) return null;
   const real=!into && stage?.querySelector('.rainbow-theatre') && stage.querySelector('.reveal-art')?stage:null;
   if(!into){canvas.className='fireworks-screen';canvas.setAttribute('aria-hidden','true');document.body.append(canvas);}
-  const sparks=[], rings=[];
+  if(!into){floorCanvas.className='show-floor';floorCanvas.setAttribute('aria-hidden','true');document.body.append(floorCanvas);}
   let limit=320, frame=0, last=0, states=[], stopped=false;
-  function spark(p) {
-    sparks.push({age:0,life:1.5,size:6*e.u,rot:0,spin:0,kind:'star5',colour:gold,g:1,drag:.55,vx:0,vy:0,...p});
-    if(sparks.length>limit) sparks.splice(0,sparks.length-limit);
-  }
-  function burst(x,y,n,energy,{sky=false,kind='mix',g=1,drag=.55}={}) {
-    rings.push({x,y,age:0,r:energy*.28*e.u});
+  function burst(e,x,y,n,energy,{sky=false,kind='mix',g=1,drag=.55}={}) {
+    e.ring(x,y,energy*.28*e.u);
     for(let i=0;i<n;i++) {
       const angle=i*tau/n+e.rand()*.15, speed=energy*(.35+e.rand()*.68)*e.u, sort=i%6;
       const p={x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed-(sky?energy*.52:35)*e.u,life:1.45+e.rand()*1.65,
         rot:e.rand()*tau,spin:e.rand()*5-2.5,g,drag,colour:i%4===0?gold:colours[i%colours.length]};
       if(kind==='flower') Object.assign(p,{kind:i%2?'petal':'flower',size:(i%2?4+e.rand()*3:9+e.rand()*6)*e.u,colour:colours[(i>>1)%7],life:2+e.rand()*1.2,spin:e.rand()*3-1.5});
       else Object.assign(p,{kind:sort===1 || sort===4?'strip':sort===3?'star4':'star5',size:(sort===0?10+e.rand()*10:3+e.rand()*6)*e.u});
-      spark(p);
+      e.spark(p);
     }
   }
   const e={ctx,w:0,h:0,u:1,cx:0,cy:0,th:null,virtual:!real,word,soundCount:options.soundCount??word.length,finds,stars,tier,time:0,total:0,hit:0,soak:0,starHome:null,
-    rand:random(1),has:id=>id===alone || picks.includes(id),spark,burst,ring:(x,y,r)=>rings.push({x,y,age:0,r}),cut:cutout,
+    preview:!!into,rand:random(1),has:id=>id===alone || picks.includes(id),cut:cutout,
     // Her hat sits on any creature that asks for one, once she has added hats to her show.
     hat(x,y,angle,size) {
       const c=e.has('hats') && cutout('hat');
       if(!c?.ready) return;
-      ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(c.canvas,-size/2,-size*.74,size,size);ctx.restore();
+      const pen=this.ctx;
+      pen.save();pen.translate(x,y);pen.rotate(angle);pen.drawImage(c.canvas,-size/2,-size*.74,size,size);pen.restore();
     },
     on(name,...a) {if(freeze===null && !into) options[name]?.(...a);}};
+  const floor={...e,ctx:floorCtx};
+  for(const view of [e,floor]) {
+    view.sparks=[];view.rings=[];
+    view.spark=p=>{
+      view.sparks.push({age:0,life:1.5,size:6*view.u,rot:0,spin:0,kind:'star5',colour:gold,g:1,drag:.55,vx:0,vy:0,...p});
+      if(view.sparks.length>limit) view.sparks.splice(0,view.sparks.length-limit);
+    };
+    view.burst=(...args)=>burst(view,...args);
+    view.ring=(x,y,r)=>view.rings.push({x,y,age:0,r});
+  }
   if(tier && options.badgeSrc) {
     e.badgeImage=new Image();
     e.badgeImage.src=options.badgeSrc;
@@ -257,6 +267,18 @@ function launchFinale(stage,options={}) {
       e.u=Math.max(.67,Math.min(1.22,e.w/900));limit=e.w<650?230:360;
     }
     ctx.setTransform(canvas.width/e.w,0,0,canvas.height/e.h,0,0);ctx.lineJoin='round';ctx.lineCap='round';
+    if(into) {
+      floor.w=e.w;floor.h=e.h;floor.u=e.u;
+    } else {
+      const rect=floorCanvas.getBoundingClientRect(), dpr=window.devicePixelRatio || 1;
+      floorCanvas.width=Math.max(1,Math.round(rect.width*dpr));
+      floorCanvas.height=Math.max(1,Math.round(rect.height*dpr));
+      floor.w=floorCanvas.width;floor.h=floorCanvas.height;
+      floor.u=Math.min(1,floor.h/360,floor.w/480);
+      floorCtx.lineJoin='round';floorCtx.lineCap='round';
+    }
+    floor.cx=floor.w/2;floor.cy=floor.h/2;
+    floor.th={x:0,y:0,w:floor.w,h:floor.h};
     locate();
   }
   resize();
@@ -264,43 +286,49 @@ function launchFinale(stage,options={}) {
   const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && spell?e.soundCount:0,staged:!!real,stars,tier});
   const hasPoppy=acts.some(([id])=>flowers[id]?.family==='poppy');
   const poppyBed=hasPoppy && real?.querySelector('.meadow-poppy');
-  const poppyCanvas=poppyBed ? document.createElement('canvas') : null;
-  if (poppyCanvas) {
-    poppyCanvas.width=480;poppyCanvas.height=360;
-    e.poppyCtx=poppyCanvas.getContext('2d');
-  }
-  e.soloPrism=!!prismParts[alone];
+  floor.soloPrism=!!prismParts[alone];
   const meadowArches=real?acts.filter(([id])=>prismParts[id]?.stays)
     .map(([id,at])=>[real.querySelector(`[data-meadow-rainbow="${id}"]`),at]).filter(([arch])=>arch):[];
-  e.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!!flowers[alone],oak:acts.some(([id])=>id==='oak')};
-  e.isolatedWoodland=!!woodlandParts[alone] || alone==='hats';
+  floor.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!!flowers[alone],oak:acts.some(([id])=>id==='oak')};
+  floor.isolatedWoodland=!!woodlandParts[alone] || alone==='hats';
   const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
-  e.paradeWords=paradeWords(paradeFinds,word,turn);
-  e.hit=hit;e.total=total;
+  floor.paradeWords=paradeWords(paradeFinds,word,turn);
+  for(const view of [e,floor]) {view.hit=hit;view.total=total;}
+  // The star, letters and badge still land on their actual targets in the word card and header.
+  const viewFor=id=>Object.hasOwn(BASE,id) || id==='comet' ? e : floor;
 
   function reset() {
-    e.rand=random(977+turn*131);e.time=0;e.soak=0;sparks.length=0;rings.length=0;
-    states=acts.map(([id,at])=>({at,part:PARTS[id],cue:0,s:PARTS[id].make?.(e) || {}}));
+    for(const view of [e,floor]) {
+      view.rand=random(977+turn*131);view.time=0;view.soak=0;view.sparks.length=0;view.rings.length=0;
+    }
+    states=acts.map(([id,at])=>{
+      const view=viewFor(id),part=PARTS[id];
+      return {at,part,view,cue:0,s:part.make?.(view) || {}};
+    });
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
   function advance(dt) {
-    e.time+=dt;
+    e.time+=dt;floor.time=e.time;
     for(const st of states) {
       const t=e.time-st.at, p=st.part;
       if(t<0) continue;
-      if(p.cues) while(st.cue<p.cues.length && p.cues[st.cue][0]<=t) p.cues[st.cue++][1](e,st.s);
-      if(p.step && (p.stays || t<=p.len)) p.step(e,st.s,t,dt);
+      if(p.cues) while(st.cue<p.cues.length && p.cues[st.cue][0]<=t) p.cues[st.cue++][1](st.view,st.s);
+      if(p.step && (p.stays || t<=p.len)) p.step(st.view,st.s,t,dt);
     }
+    advanceParticles(e,dt);advanceParticles(floor,dt);
+  }
+  function advanceParticles(view,dt) {
+    const {rings,sparks}=view;
     for(let i=rings.length-1;i>=0;i--){rings[i].age+=dt;if(rings[i].age>.48)rings.splice(i,1);}
     for(let i=sparks.length-1;i>=0;i--) {
       const p=sparks[i];p.age+=dt;
-      if(p.age>=p.life || p.y>e.h+60){sparks.splice(i,1);continue;}
-      p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.exp(-p.drag*dt);p.vy+=200*e.u*p.g*dt;p.rot+=p.spin*dt;
+      if(p.age>=p.life || p.y>view.h+60){sparks.splice(i,1);continue;}
+      p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.exp(-p.drag*dt);p.vy+=200*view.u*p.g*dt;p.rot+=p.spin*dt;
     }
   }
-  function confetti() {
+  function confetti({ctx,rings,sparks,u}) {
     for(const r of rings) {
-      ctx.globalAlpha=(1-r.age/.48)*.84;ctx.strokeStyle='#eab447';ctx.lineWidth=3*e.u;
+      ctx.globalAlpha=(1-r.age/.48)*.84;ctx.strokeStyle='#eab447';ctx.lineWidth=3*u;
       ctx.beginPath();ctx.arc(r.x,r.y,5+r.r*r.age/.48,0,tau);ctx.stroke();
     }
     for(const p of sparks) {
@@ -318,14 +346,15 @@ function launchFinale(stage,options={}) {
   }
   function picture() {
     ctx.clearRect(0,0,e.w,e.h);
+    if(!into) floorCtx.clearRect(0,0,floor.w,floor.h);
     let scattered=false;
     for(const st of states) {
       const p=st.part, t=e.time-st.at;
-      if(!scattered && (p.z || 0)>=5){confetti();scattered=true;}
-      if(t>=0 && (p.stays || t<=p.len) && p.draw){ctx.globalAlpha=1;p.draw(e,st.s,t);}
+      if(!scattered && (p.z || 0)>=5){confetti(floor);confetti(e);scattered=true;}
+      if(t>=0 && (p.stays || t<=p.len) && p.draw){st.view.ctx.globalAlpha=1;p.draw(st.view,st.s,t);}
     }
-    if(!scattered) confetti();
-    ctx.globalAlpha=1;
+    if(!scattered){confetti(floor);confetti(e);}
+    ctx.globalAlpha=1;floorCtx.globalAlpha=1;
   }
   function stop(finished) {
     if(stopped) return;
@@ -333,7 +362,8 @@ function launchFinale(stage,options={}) {
     cancelAnimationFrame(frame);
     if(!into) {
       canvas.remove();stage?.classList.remove('show-playing');
-      poppyCanvas?.remove();
+      floorCanvas.remove();
+      if(poppyBed) poppyBed.hidden=false;
       for(const [arch] of meadowArches) arch.classList.remove('tracing');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
@@ -349,7 +379,7 @@ function launchFinale(stage,options={}) {
     for(;dt>0;dt-=1/30) advance(Math.min(dt,1/30));
     if(e.time>=e.total){if(!into || !loop){stop(true);return;}reset();}
     picture();
-    if(!into) canvas.style.opacity=clamp01((e.total-e.time)/.4);
+    if(!into) floorCanvas.style.opacity=canvas.style.opacity=clamp01((e.total-e.time)/.4);
     frame=requestAnimationFrame(tick);
   }
   if(!into) {
@@ -362,7 +392,7 @@ function launchFinale(stage,options={}) {
     if(stopped) return;
     reset();
     if(real) {
-      if(e.poppyCtx && e.poppyReady) poppyBed.append(poppyCanvas);
+      if(poppyBed && floor.poppyReady) poppyBed.hidden=true;
       for(const [arch,at] of meadowArches) {
         arch.style.setProperty('--arch-start',at+'s');
         arch.classList.add('tracing');
@@ -381,7 +411,7 @@ function launchFinale(stage,options={}) {
   }
   // A cold sprite sheet must be decoded before the clock starts, including for
   // a reduced-motion still. A cancelled show or superseded poster stays stopped.
-  const pending=acts.map(([id])=>PARTS[id].prepare?.(e)).filter(Boolean);
+  const pending=acts.map(([id])=>PARTS[id].prepare?.(viewFor(id))).filter(Boolean);
   if(pending.length) {
     waitingForArtwork.set(canvas,stop);
     Promise.all(pending).then(()=>{

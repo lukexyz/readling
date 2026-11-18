@@ -1,4 +1,5 @@
-import {archBox,prismShots} from './prism.js';
+import {prismShots} from './prism.js';
+import {fitShot} from './sprite-shot.js';
 import {clamp01} from './show-kit.js';
 import {cutout,prepareShow} from './show-cutouts.js';
 
@@ -106,22 +107,10 @@ function prismPart(shot) {
       const asset=playback.get(e);
       if (!asset) return;
       const ctx=e.ctx;
-      let x,y,w,h;
-      if (e.soloPrism) {
-        const fit=Math.min(e.w/384,e.h/288);
-        w=384*fit;h=288*fit;x=(e.w-w)/2;y=(e.h-h)/2;
-      } else if (arch) {
-        const box=archBox;
-        w=e.th.w*box[2];h=e.th.h*box[3];x=e.th.x+e.th.w*box[0];y=e.th.y+e.th.h*box[1];
-      } else {
-        const size=Math.min(e.w*.70,e.h*.71*4/3);
-        const centre=family==='blooms'?.34:family==='paint'?.67:.5;
-        w=size;h=w*.75;
-        x=Math.max(0,Math.min(e.w-w,e.w*centre-w/2));
-        y=Math.max(0,e.h*.49-h*.60);
-      }
+      const centre=e.soloPrism || arch ? .5 : family==='blooms'?.34:family==='paint'?.67:.5;
+      const width=e.w*Math.min(centre,1-centre)*2;
       ctx.save();
-      ctx.translate(x,y);ctx.scale(w/384,h/288);
+      fitShot(ctx,shot.crop,width,e.h,e.w*centre,e.h);
       asset.paint(ctx,Math.min(frames-1,Math.floor(t*fps)));
       ctx.restore();
     }

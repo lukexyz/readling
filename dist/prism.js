@@ -40,5 +40,3 @@ export const prismByFamily=Object.fromEntries(prismFamilies.map(f=>[f.key,f.shot
 export function highestPrism(key,have) {
   return prismByFamily[key]?.findLast(s=>have(s.id));
 }
-// Both families share the same Blender camera. Their feet line up when the two frames are registered.
-export const archBox=[.04,.018,.92,1.25];

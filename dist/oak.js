@@ -1,4 +1,4 @@
-import {loadSpriteShot} from './sprite-shot.js';
+import {fitShot,loadSpriteShot} from './sprite-shot.js';
 
 const manifest = new URL('./assets/flower-studies/oak-3.json', import.meta.url);
 let canopy, pending;
@@ -14,11 +14,9 @@ export const oakScene = {
   },
   draw(e, state, time) {
     if (!canopy) return;
-    const scale = e.virtual ? Math.min(e.w/480, e.h/360) : Math.min(e.w*.54/480, e.h*.66/360);
-    const left = e.virtual ? (e.w-480*scale)/2 : -12*scale;
+    const width=e.w*(e.preview?1:.54);
     e.ctx.save();
-    e.ctx.translate(left, e.h-360*scale);
-    e.ctx.scale(scale, scale);
+    fitShot(e.ctx,[0,0,480,360],width,e.h,e.preview?e.w/2:width/2,e.h);
     canopy.paint(e.ctx, Math.min(canopy.length-1, Math.max(0, Math.floor(time*24))));
     e.ctx.restore();
   }

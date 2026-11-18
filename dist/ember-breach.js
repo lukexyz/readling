@@ -1,4 +1,5 @@
 import {fps,loadShot,shots} from './ember-orca.js';
+import {fitShot} from './sprite-shot.js';
 
 let hats, loadingHats;
 function prepareHats() {
@@ -30,15 +31,11 @@ function orca(shot) {
     draw(e,state,t) {
       if (!asset) return;
       const frame=Math.floor(t*fps);
-      const [x,y,w,h]=shot.crop;
-      const widthFraction=e.virtual ? .89 : [.47,.62,.74][shot.level-1];
-      const heightFraction=e.virtual ? .89 : [.40,.57,.67][shot.level-1];
-      const scale=Math.min(e.w*widthFraction/w,e.h*heightFraction/h);
-      const centre=Math.min(e.w*(e.virtual || e.w<=e.h?.50:.68),e.w*.98-w*scale/2);
+      const width=e.w*(e.preview?.89:[.47,.62,.74][shot.level-1]);
+      const centre=e.preview?e.w/2:Math.min(e.w*.66,e.w-width/2);
       const ctx=e.ctx;
       ctx.save();
-      ctx.translate(centre-(x+w/2)*scale,e.h-2*e.u-(y+h)*scale);
-      ctx.scale(scale,scale);
+      fitShot(ctx,shot.crop,width,e.h*(e.preview?.89:1),centre,e.h);
       asset.paint(ctx,frame);
       const head=hats?.[shot.level]?.[frame];
       if (head && e.has('hats')) e.hat(...head);

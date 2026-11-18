@@ -10,8 +10,8 @@ import {KEY,STAGES,unitsOf,newProfile,findNext,startLesson,collect} from '../dis
 const dist=new URL('../dist/',import.meta.url), origin='http://readling.test';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,args:['--disable-logging']});
 const errors=[];
-async function openGame(seed, motion='reduce') {
-  const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:motion});
+async function openGame(seed, motion='reduce', screen={}) {
+  const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:motion,...screen});
   await context.route('**/*',async route=>{
     const req=route.request(), url=new URL(req.url());
     if(url.origin!==origin) return route.abort();
@@ -74,7 +74,67 @@ function before(target) {
   while(findNext(p)!==target){const w=findNext(p);assert(w,'Target reachable: '+target);startLesson(p,w);p.lesson.i=w.length;collect(p);}
   return p;
 }
+async function checkCelebrationSize() {
+  const page=await openGame(null,'no-preference',{viewport:{width:1024,height:768},deviceScaleFactor:2,hasTouch:true});
+  await page.locator('summary.stars').tap();
+  await page.locator('.badge-pocket').getByRole('heading',{name:'Oak keepsakes'}).waitFor();
+  const starter=page.locator('.badge-pocket img[src$="/oak-1.webp"]').first();
+  await starter.evaluate(im=>im.decode());
+  await page.keyboard.press('Escape');
+  // Measure real atlas draws, including their transform to the backing canvas.
+  await page.evaluate(()=>{
+    const draw=CanvasRenderingContext2D.prototype.drawImage;
+    window.shotDraws=[];
+    CanvasRenderingContext2D.prototype.drawImage=function(image,...args) {
+      if(args.length===8 && image.src && /\/assets\/(woodland|dolphins|ember-orca|flower-studies|prism)\//.test(image.src)) {
+        const transform=this.getTransform();
+        window.shotDraws.push({layer:this.canvas.className,scaleX:Math.hypot(transform.a,transform.b)*args[6]/args[2],
+          scaleY:Math.hypot(transform.c,transform.d)*args[7]/args[3]});
+      }
+      return draw.call(this,image,...args);
+    };
+  });
+  async function measure(id,expected) {
+    await page.waitForFunction(()=>window.shotDraws.length>0);
+    const result=await page.evaluate(()=>{
+      const floor=document.querySelector('.show-floor'), box=floor.getBoundingClientRect();
+      return {draws:window.shotDraws,top:box.top,bottom:box.bottom,height:box.height,h:innerHeight,
+        pixels:floor.height,cssWidth:box.width,width:floor.width,dpr:devicePixelRatio};
+    });
+    assert(Math.abs(result.bottom-result.h)<1 && result.height<=result.h*.28+1,id+' stays in the bottom strip');
+    assert.equal(result.width,Math.round(result.cssWidth*result.dpr));
+    assert.equal(result.pixels,Math.round(result.height*result.dpr));
+    for(const {layer,scaleX,scaleY} of result.draws) {
+      assert.equal(layer,'show-floor',id);
+      assert(Math.abs(scaleX-scaleY)<.0001 && scaleX>0 && scaleX<=1.0001,id+' preserves native proportions and resolution');
+      if(expected!==undefined) assert(Math.abs(scaleX-expected)<.001,id+' uses native pixels when it fits');
+    }
+    return result;
+  }
+  await act(page,'parents');await act(page,'trial');
+  await page.locator('[data-act="trial-one"][data-pick="bunnies"]').tap();
+  await measure('Grown-ups bunny',1);
+  // Snapshot one real frame from each renderer without waiting out seven shows.
+  for(const id of ['elephants-3','dolphins','whale3','flowers','oak','blooms-3','rainbow']) {
+    await page.evaluate(async id=>{
+      const {launchFinale}=await import('/finale.js');
+      window.shotDraws=[];launchFinale(null,{alone:id,word:'cat',freeze:1.25});
+    },id);
+    await measure(id,1);
+  }
+  await page.setViewportSize({width:720,height:360});
+  await page.evaluate(async()=>{
+    const {launchFinale}=await import('/finale.js');
+    window.shotDraws=[];launchFinale(null,{picks:['bunnies'],word:'cat',freeze:2.4});
+  });
+  const small=await measure('bunny in a mixed show');
+  assert(Math.abs(small.draws[0].scaleY-small.pixels/360)<.001,'short viewports scale the camera frame down to fit');
+  await page.evaluate(async()=>{(await import('/finale.js')).cancelFinale();});
+  assert.equal(await page.locator('.show-floor,.fireworks-screen').count(),0);
+  await page.context().close();
+}
 try {
+  await checkCelebrationSize();
   const fresh=await openGame();await act(fresh,'discover');await traceAndBlend(fresh,'cat');
   const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
   assert((await starter.locator('img').getAttribute('src')).endsWith('/oak-1.webp'));

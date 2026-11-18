@@ -1,6 +1,7 @@
 import {woodlandShots, highestWoodland} from './woodland.js';
 import {cutout,prepareShow} from './show-cutouts.js';
 import {bump} from './show-kit.js';
+import {fitShot} from './sprite-shot.js';
 
 export function paradeWords(finds,word,turn=0) {
   if (!finds.length) return [];
@@ -58,28 +59,30 @@ function woodlandPart(shot) {
       } catch(error) {console.warn('Could not load '+shot.name,error);}
     },
     draw(e,state,time) {
-      let width=1, height=1, centre=.5, wet=1;
+      let width=1, centre=.5;
       if (!e.isolatedWoodland) {
         if (shot.family==='mushrooms') {
-          width=.43;height=.40;centre=.77;
-          if (e.soak) wet+=.1*Math.min(1,(e.time-e.soak)*2);
-        } else if (shot.family==='vines') { width=.96;height=.88; }
-        else { width=.86;height=.62; }
+          width=.43;centre=.77;
+        } else if (shot.family==='vines') { width=.96; }
+        else { width=.86; }
       }
-      const scale=Math.min(e.w*width/480,e.h*height/360),ctx=e.ctx;
+      const ctx=e.ctx;
       ctx.save();
-      ctx.translate(e.w*centre,e.h);
-      ctx.scale(scale,scale*wet);ctx.translate(-240,-360);
+      fitShot(ctx,shot.crop,e.w*width,e.h,e.w*centre,e.h);
+      if(shot.family==='mushrooms' && e.soak) {
+        const squash=.10*bump((e.time-e.soak)/.6);
+        ctx.translate(0,shot.crop[3]*squash);ctx.scale(1,1-squash);
+      }
       paint(e,Math.min(shot.frames-1,Math.floor(time*shot.fps)));
       ctx.restore();
     },
     shakeDry(e,t) {
       const up=bump((t-.20)/1.5);
       if (up<=0) return;
-      const scale=Math.min(e.w*.5/480,e.h*.35/360);
       e.ctx.save();
-      e.ctx.translate(e.w*.25,e.h+(1-up)*340*scale);
-      e.ctx.rotate(.08*up*Math.sin(t*36));e.ctx.scale(scale,scale);e.ctx.translate(-240,-360);
+      fitShot(e.ctx,shot.crop,e.w*.50,e.h,e.w*.25,e.h);
+      e.ctx.translate(240,360+(1-up)*340);
+      e.ctx.rotate(.08*up*Math.sin(t*36));e.ctx.translate(-240,-360);
       paint(e,Math.round(poster*shot.fps));
       e.ctx.restore();
     }

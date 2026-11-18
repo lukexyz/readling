@@ -161,12 +161,12 @@ main.wrap{padding-block:29px 40px;outline:none}
 .rainbow-theatre{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
 .meadow-scenery{position:absolute;inset:0;z-index:-1;pointer-events:none}
 .meadow-poppy{position:absolute;bottom:0;left:1%;width:min(34%,180px);aspect-ratio:4/3}
-.meadow-poppy img,.meadow-poppy canvas{display:block;width:100%;height:100%}
-.meadow-poppy:has(canvas) img{display:none}
+.meadow-poppy img{display:block;width:100%;height:100%}
 .victory .reveal-art{margin:0;display:grid;place-items:center}
 .victory .stamp{box-shadow:1px 3px 0 #49624c30,0 6px 12px #40543e1c;transform:rotate(-3deg)}
 .victory .found-word{margin-top:11px}
 .fireworks-screen{position:fixed;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;user-select:none}
+.show-floor{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);margin-inline:auto;width:min(100%,960px);height:min(28vh,320px);height:min(28dvh,320px);z-index:7;pointer-events:none;user-select:none}
 @media (prefers-reduced-motion:no-preference){
   .tracing .meadow-bands path{stroke-dasharray:1 1;animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s)) both}
   .tracing .meadow-gilding{animation:meadow-glint .55s ease-out calc(var(--arch-start) + .9s) both}

@@ -1,4 +1,5 @@
 import {dolphinShots,loadDolphin} from './dolphins.js';
+import {fitShot} from './sprite-shot.js';
 
 let hats,loadingHats;
 function prepareHats() {
@@ -29,13 +30,10 @@ function dolphinPart(shot) {
     draw(e,state,time) {
       if (!asset) return;
       const frame=Math.floor(time*30);
-      const [, ,width,height]=shot.crop;
-      const scale=e.virtual ? Math.min(e.w/width,e.h/height) : Math.min(e.w*.84/width,e.h*.64/height);
-      const centre=e.w*(!e.virtual && e.w>e.h ? .43 : .5);
+      const centre=e.w*(e.preview ? .5 : .43);
       const ctx=e.ctx;
       ctx.save();
-      ctx.translate(centre-width*scale/2,e.h-height*scale);
-      ctx.scale(scale,scale);
+      fitShot(ctx,shot.crop,e.w*(e.preview?1:.84),e.h,centre,e.h);
       asset.paint(ctx,frame);
       if (e.has('hats')) {
         for (const anchor of hats?.[shot.take]?.[frame] || []) e.hat(...anchor);

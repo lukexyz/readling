@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#274031">
+  <title>Animation viewer · Readling</title>
+  <link rel="icon" href="./assets/readling.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./animation-viewer.css">
+  <script type="module" src="./animation-viewer.js"></script>
+</head>
+<body class="review-page">
+  <a class="skip-link" href="#picker">Skip to animations</a>
+  <header id="masthead">
+    <div class="wrap mast-row review-mast">
+      <a class="brand" href="./"><img src="./assets/readling.svg" width="41" height="41" alt="">Readling</a>
+      <span class="review-title">Animation viewer</span>
+      <div class="review-playback" role="group" aria-label="Playback">
+        <button id="play" type="button" disabled>Play</button>
+        <label class="sr-only" for="timeline">Animation time</label>
+        <input id="timeline" type="range" min="0" max="1" step=".01" value="0" disabled>
+        <output id="clock" for="timeline">0.0 s</output>
+      </div>
+      <div class="mast-end"><a href="./celebrations.html">Gallery</a><span class="stars" aria-label="Sample star counter"><span aria-hidden="true">★</span> 5 stars</span></div>
+    </div>
+  </header>
+  <main class="wrap" id="main">
+    <div class="page-top review-controls">
+      <div class="review-picker">
+        <button type="button" id="previous" aria-label="Previous animation" title="Previous animation (left arrow)">‹</button>
+        <label class="sr-only" for="picker">Choose an animation</label>
+        <select id="picker"></select>
+        <button type="button" id="next" aria-label="Next animation" title="Next animation (right arrow)">›</button>
+      </div>
+      <div class="review-options">
+        <span id="counter" aria-live="polite"></span>
+        <label><input id="outline" type="checkbox" checked> Outline</label>
+        <button id="sound" type="button" aria-pressed="false" hidden>Sound off</button>
+      </div>
+      <div class="review-info" aria-label="Frame measurements">
+        <dl class="review-metrics">
+          <div><dt id="size-label">Visible artwork</dt><dd id="size">—</dd></div>
+          <div><dt>From left</dt><dd id="left">—</dd></div>
+          <div><dt>From bottom</dt><dd id="bottom">—</dd></div>
+        </dl>
+        <p class="review-viewport"><span id="viewport"></span><br>CSS pixels</p>
+      </div>
+    </div>
+    <p id="load-status" role="status"></p>
+    <section class="found activity victory review-scene" id="scene" aria-label="Sample word reveal">
+      <div class="kicker">In your album</div>
+      <h1>A woodland find</h1>
+      <div class="show-stage" id="word-stage" title="Tap either side to step through animations">
+        <div class="reveal-art"><span class="stamp"><span class="stamp-face"><img class="word-art" src="./assets/words/hat.webp" alt="A hat" draggable="false"></span></span></div>
+        <button class="scene-edge before" tabindex="-1" type="button" aria-label="Step back from the meadow"><span aria-hidden="true">‹</span></button>
+        <button class="scene-edge after" tabindex="-1" type="button" aria-label="Step forward from the meadow"><span aria-hidden="true">›</span></button>
+      </div>
+      <div class="found-word"><strong>hat</strong></div>
+      <p>A hat for a very small head!</p>
+    </section>
+    <p class="review-help">Tap either side of the meadow or use the arrow keys to step. Drag the timeline to inspect a frame.</p>
+  </main>
+  <div id="bounds" aria-hidden="true" hidden></div>
+  <noscript>Turn on JavaScript to use the animation viewer.</noscript>
+</body>
+</html>

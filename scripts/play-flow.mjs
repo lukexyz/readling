@@ -5,7 +5,7 @@ import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {chromium} from 'playwright-core';
 import worker from '../dist/server/index.js';
-import {KEY,STAGES,unitsOf,newProfile,findNext,startLesson,collect} from '../dist/game.js';
+import {KEY,STAGES,SHOW,unitsOf,newProfile,findNext,startLesson,collect} from '../dist/game.js';
 
 const dist=new URL('../dist/',import.meta.url), origin='http://readling.test';
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,args:['--disable-logging']});
@@ -113,7 +113,8 @@ async function checkCelebrationSize() {
   }
   await act(page,'parents');await act(page,'trial');
   await page.locator('[data-act="trial-one"][data-pick="bunnies"]').tap();
-  await measure('Grown-ups bunny',1);
+  const bunnyFrame=await measure('Grown-ups bunny');
+  assert(Math.abs(bunnyFrame.draws[0].scaleY*360/bunnyFrame.dpr-104)<1,'even a solo bunny fits a 104 CSS pixel camera frame');
   // Snapshot one real frame from each renderer without waiting out seven shows.
   for(const id of ['elephants-3','dolphins','whale3','flowers','oak','blooms-3','rainbow']) {
     await page.evaluate(async id=>{
@@ -131,6 +132,24 @@ async function checkCelebrationSize() {
   assert(Math.abs(small.draws[0].scaleY-small.pixels/360)<.001,'short viewports scale the camera frame down to fit');
   await page.evaluate(async()=>{(await import('/finale.js')).cancelFinale();});
   assert.equal(await page.locator('.show-floor,.fireworks-screen').count(),0);
+  const albumBeforeViewer=await saved(page);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.goto(origin+'/animation-viewer.html');
+  const pick=page.locator('#picker');
+  await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
+  assert.equal(await pick.inputValue(),'bunnies');
+  const listed=await pick.locator('option').evaluateAll(opts=>opts.map(o=>o.value));
+  assert.deepEqual(listed.toSorted(),[...SHOW.map(effect=>effect.id),'comet','tally','rosette'].toSorted());
+  const box=await page.locator('#bounds').boundingBox();
+  assert(box && box.height<=74 && box.y>240,'the viewer measures the actual bunny near the bottom');
+  await page.getByRole('button',{name:'Previous animation',exact:true}).tap();
+  assert.equal(await pick.inputValue(),'rosette');
+  await page.keyboard.press('ArrowRight');
+  await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
+  assert.equal(await pick.inputValue(),'bunnies');
+  await page.locator('#timeline').fill('0.9');
+  assert((await page.locator('#clock').textContent()).startsWith('0.9'));
+  assert.deepEqual(await saved(page),albumBeforeViewer,'a review session never changes the album');
   await page.context().close();
 }
 try {

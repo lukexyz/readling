@@ -158,7 +158,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
       splash:[whale,...blooms,...ground],
       hats:[visitors(have,turn,true)[0] || (have(whale)?whale:'bunnies')]}[alone] || [];
     for(const id of friends) add(id,.1);
-    if(PARTS[alone]) add(alone,alone==='splash'?.1+contact:friends.length?.6:.1);
+    if(PARTS[alone]) add(alone,alone==='splash'?.1+contact:friends.length?.6:.1,alone==='tally'?.22*stars+.95:PARTS[alone].len);
     for(const [id,at] of acts) if(PARTS[id].stays) end=Math.max(end,at+PARTS[id].len+.9);
   } else {
     hit=n?.25+n*.5+.3:staged?.95:.74;
@@ -196,9 +196,9 @@ function cancelFinale() {stopActive?.();}
 // canvas as a preview. Set `loop` to false for a user-triggered clip, or `freeze` to a time for a still.
 function launchFinale(stage,options={}) {
   const motion=matchMedia('(prefers-reduced-motion: reduce)');
-  const {picks=[],finds=[],word='',stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null,loop=true}=options;
+  const {picks=[],finds=[],word='',stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null,loop=true,review=false}=options;
   if(!into) cancelFinale();
-  if(!into && freeze===null && (motion.matches || document.hidden)) return null;
+  if(!into && !review && freeze===null && (motion.matches || document.hidden)) return null;
   const canvas=into || document.createElement('canvas'), ctx=canvas.getContext('2d');
   // Ground actors and show extras have their own small canvas. Its drawing units are
   // device pixels; a 480 px render occupies 240 CSS px on a 2× tablet.
@@ -274,6 +274,7 @@ function launchFinale(stage,options={}) {
       floorCanvas.width=Math.max(1,Math.round(rect.width*dpr));
       floorCanvas.height=Math.max(1,Math.round(rect.height*dpr));
       floor.w=floorCanvas.width;floor.h=floorCanvas.height;
+      floor.pixelsPerCssPixel=dpr;
       floor.u=Math.min(1,floor.h/360,floor.w/480);
       floorCtx.lineJoin='round';floorCtx.lineCap='round';
     }
@@ -286,11 +287,11 @@ function launchFinale(stage,options={}) {
   const {acts,hit,total}=planShow({picks,alone,all,turn,letters:real && spell?e.soundCount:0,staged:!!real,stars,tier});
   const hasPoppy=acts.some(([id])=>flowers[id]?.family==='poppy');
   const poppyBed=hasPoppy && real?.querySelector('.meadow-poppy');
-  floor.soloPrism=!!prismParts[alone];
+  floor.soloPrism=!review && !!prismParts[alone];
   const meadowArches=real?acts.filter(([id])=>prismParts[id]?.stays)
     .map(([id,at])=>[real.querySelector(`[data-meadow-rainbow="${id}"]`),at]).filter(([arch])=>arch):[];
-  floor.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!!flowers[alone],oak:acts.some(([id])=>id==='oak')};
-  floor.isolatedWoodland=!!woodlandParts[alone] || alone==='hats';
+  floor.flowerBed={ids:acts.map(([id])=>id).filter(id=>flowers[id]),solo:!review && !!flowers[alone],oak:acts.some(([id])=>id==='oak')};
+  floor.isolatedWoodland=!review && (!!woodlandParts[alone] || alone==='hats');
   const paradeFinds=alone && !finds.length ? ['cat','dog','hen'] : finds;
   floor.paradeWords=paradeWords(paradeFinds,word,turn);
   for(const view of [e,floor]) {view.hit=hit;view.total=total;}
@@ -371,7 +372,7 @@ function launchFinale(stage,options={}) {
     }
     if(freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
   }
-  function hidden() {if(document.hidden) stop();}
+  function hidden() {if(document.hidden && !review) stop();}
   function tick(now) {
     // A slow tablet draws fewer frames. The show still keeps real time, in steps small enough to stay smooth.
     let dt=Math.min((now-last)/1000,1.2);last=now;
@@ -385,9 +386,22 @@ function launchFinale(stage,options={}) {
   if(!into) {
     stopActive=stop;
     window.addEventListener('resize',resize);window.addEventListener('scroll',locate,{passive:true});
-    document.addEventListener('visibilitychange',hidden);motion.addEventListener('change',stop);
+    document.addEventListener('visibilitychange',hidden);if(!review) motion.addEventListener('change',stop);
   }
   waitingForArtwork.delete(canvas);
+  let quietStill=0;
+  // The full-size viewer drives this same show by time. Rewinding recreates the
+  // seeded particles and poses, so scrubbing never depends on the previous frame.
+  function seek(seconds,rewind=false) {
+    if(stopped) return;
+    const target=Math.max(0,Math.min(seconds,total));
+    if(rewind || target<e.time) reset();
+    while(target-e.time>1/30) advance(1/30);
+    if(target>e.time) advance(target-e.time);
+    picture();
+    floorCanvas.style.opacity=canvas.style.opacity=clamp01((total-target)/.4);
+    if(real && meadowArches.length) stage.style.setProperty('--review-time',target+'s');
+  }
   function start() {
     if(stopped) return;
     reset();
@@ -402,7 +416,8 @@ function launchFinale(stage,options={}) {
       stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
     }
     const poster=PARTS[alone]?.poster;
-    const quietStill=poster===undefined ? e.total*.55 : acts.find(([id])=>id===alone)[1]+poster;
+    quietStill=poster===undefined ? e.total*.55 : acts.find(([id])=>id===alone)[1]+poster;
+    if(review) {seek(quietStill);return;}
     const still=freeze!==null?freeze:into && loop && motion.matches?quietStill:null;
     if(still!==null) {
       while(e.time<still) advance(1/60);
@@ -412,14 +427,17 @@ function launchFinale(stage,options={}) {
   // A cold sprite sheet must be decoded before the clock starts, including for
   // a reduced-motion still. A cancelled show or superseded poster stays stopped.
   const pending=acts.map(([id])=>PARTS[id].prepare?.(viewFor(id))).filter(Boolean);
+  if(review && e.badgeImage) pending.push(e.badgeImage.decode());
+  let ready;
   if(pending.length) {
     waitingForArtwork.set(canvas,stop);
-    Promise.all(pending).then(()=>{
+    ready=Promise.all(pending).then(()=>{
       if(waitingForArtwork.get(canvas)!==stop) return;
       waitingForArtwork.delete(canvas);
       start();
     });
   } else start();
+  if(review) return {hit,total,stop,seek,ready:ready || Promise.resolve(),get posterTime(){return quietStill;}};
   return {hit:e.hit,total:e.total,stop};
 }
 export {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow};

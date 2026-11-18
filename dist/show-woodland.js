@@ -38,6 +38,11 @@ function woodlandPart(shot) {
   const parade=shot.family==='parade';
   const artwork=new WeakMap();
   let pending,poster=(shot.frames-1)/shot.fps;
+  // Bound the whole camera, including the jump. The tallest rabbit in level
+  // one then occupies at most 72 CSS pixels on a desktop or tablet.
+  function cameraHeight(e) {
+    return shot.family==='bunnies' && !e.preview ? Math.min(e.h,104*e.pixelsPerCssPixel) : e.h;
+  }
   function paint(e,index) {
     const asset=artwork.get(e);
     if (!asset) return;
@@ -68,7 +73,7 @@ function woodlandPart(shot) {
       }
       const ctx=e.ctx;
       ctx.save();
-      fitShot(ctx,shot.crop,e.w*width,e.h,e.w*centre,e.h);
+      fitShot(ctx,shot.crop,e.w*width,cameraHeight(e),e.w*centre,e.h);
       if(shot.family==='mushrooms' && e.soak) {
         const squash=.10*bump((e.time-e.soak)/.6);
         ctx.translate(0,shot.crop[3]*squash);ctx.scale(1,1-squash);
@@ -80,7 +85,7 @@ function woodlandPart(shot) {
       const up=bump((t-.20)/1.5);
       if (up<=0) return;
       e.ctx.save();
-      fitShot(e.ctx,shot.crop,e.w*.50,e.h,e.w*.25,e.h);
+      fitShot(e.ctx,shot.crop,e.w*.50,cameraHeight(e),e.w*.25,e.h);
       e.ctx.translate(240,360+(1-up)*340);
       e.ctx.rotate(.08*up*Math.sin(t*36));e.ctx.translate(-240,-360);
       paint(e,Math.round(poster*shot.fps));

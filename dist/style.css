@@ -33,7 +33,7 @@ p{line-height:1.52}
 .tab{padding:10px 15px;font-size:15px;border:1px solid transparent;border-radius:24px;gap:7px;min-height:41px}
 .tab.selected{background:#e4eadb;border-color:#d3dac8}
 .tab:hover,.parents-link:hover,.back:hover,.ink-tools button:hover{background:#e8eadf}
-.mast-end{margin-left:auto;display:flex;align-items:center;gap:17px}
+.mast-end{position:relative;margin-left:auto;display:flex;align-items:center;gap:17px}
 .stars{display:inline-flex;gap:5px;align-items:center;font-weight:800;font-size:15px;white-space:nowrap}
 .stars .icon,.reward .icon{fill:#e7c46b;stroke:#695321}
 .mast-rule{height:22px;border-left:1px solid var(--line)}
@@ -187,6 +187,62 @@ main.wrap{padding-block:29px 40px;outline:none}
 .handwritten svg{height:39px;width:42px}
 .reward{background:#f4e9c5;color:#58481f;border:1px solid #dfc98d;padding:5px 12px;border-radius:20px;margin-top:7px}
 .unlock-note{font-size:14px;margin-top:9px}
+.badge-menu{position:relative}
+.badge-menu>summary{display:flex;min-height:44px;cursor:pointer;border-radius:10px;padding:4px 6px;list-style:none}
+.badge-menu>summary::-webkit-details-marker{display:none}
+.badge-menu>summary:hover,.badge-menu[open]>summary{background:var(--sage)}
+.badge-caret{width:6px;height:6px;border:solid currentColor;border-width:0 1.5px 1.5px 0;transform:rotate(45deg);margin:-3px 2px 0 3px}
+.badge-menu[open] .badge-caret{transform:rotate(225deg);margin-top:3px}
+.current-badge{padding:2px 12px 2px 4px;min-height:42px}
+.current-badge img,.badge-pin img,.badge-inspect img{object-fit:contain}
+.badge-theme-oak{--badge-paper:#eef1df;--badge-edge:#aebb9d;--badge-ink:#304c3a;--badge-detail:#4f674f}
+.badge-theme-poppy{--badge-paper:#fff0df;--badge-edge:#cba78b;--badge-ink:#5e372f;--badge-detail:#7f5140}
+.badge-theme-moth{--badge-paper:#283e4a;--badge-edge:#7b96a0;--badge-ink:#fff3d3;--badge-detail:#d0e1dd}
+.badge-theme-book{--badge-paper:#fcf7e7;--badge-edge:#c8b998;--badge-ink:#304738;--badge-detail:#5c6958}
+.badge-theme-compass{--badge-paper:#f6edd9;--badge-edge:#baa27b;--badge-ink:#52412b;--badge-detail:#715c3b}
+.badge-pocket,.album-badges,.badge-award,.badge-inspect{color:var(--badge-ink);background:var(--badge-paper);border:1px solid var(--badge-edge);border-radius:14px}
+.badge-pocket{position:absolute;top:calc(100% + 6px);right:0;z-index:15;width:min(340px,calc(100vw - 32px));padding:19px;box-shadow:0 9px 26px #263c3129}
+.badge-pocket.badge-theme-oak{background:radial-gradient(ellipse at 92% 117%,#dce6c9 0 33%,transparent 33.5%),var(--badge-paper)}
+.badge-pocket.badge-theme-poppy{border-bottom:5px double var(--badge-edge)}
+.badge-pocket.badge-theme-moth{background:radial-gradient(circle at 85% 12%,#eeddb3 1px,transparent 2px),radial-gradient(circle at 91% 22%,#d0e1dd 1px,transparent 2px),var(--badge-paper)}
+.badge-pocket.badge-theme-book{border-left:5px solid #a46a50;border-radius:5px 13px 13px 5px}
+.badge-pocket.badge-theme-compass{outline:1px solid var(--badge-edge);outline-offset:-5px}
+.badge-caption{color:var(--badge-detail);font-size:12px;font-weight:800;margin-bottom:3px}
+.badge-pocket h2{font-size:27px}
+.badge-pocket p,.badge-award p,.badge-inspect p{color:var(--badge-detail);font-size:14px}
+.badge-progress{display:block;appearance:none;width:100%;height:9px;margin:10px 0 6px;border:1px solid var(--badge-edge);border-radius:6px;overflow:hidden;background:var(--badge-paper);color:var(--badge-ink);accent-color:var(--badge-ink)}
+.badge-progress::-webkit-progress-bar{background:var(--badge-paper)}
+.badge-progress::-webkit-progress-value{background:var(--badge-ink)}
+.badge-progress::-moz-progress-bar{background:var(--badge-ink)}
+.badge-pocket .back{color:var(--badge-ink);margin:9px 0 -6px;padding:8px 0}
+.badge-pocket .back:hover{background:transparent;text-decoration:underline}
+.badge-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:center;gap:5px;list-style:none;padding:0;margin:10px 0}
+.badge-strip li{display:grid;place-items:center;min-width:0}
+.badge-pin,.badge-space{display:grid;place-items:center;aspect-ratio:1}
+.badge-pin{border:1px solid transparent;background:transparent;border-radius:10px;padding:0;width:100%;max-width:68px;min-height:40px}
+.badge-pin img{display:block;width:100%;height:auto}
+.badge-pin:hover,.badge-pin:focus-visible{background:#ffffff36;border-color:var(--badge-edge)}
+.badge-space{width:70%;max-width:42px;border:1px dashed var(--badge-edge);border-radius:50%;color:var(--badge-detail)}
+.badge-counts{display:flex;justify-content:space-between;gap:6px;margin:12px 0 0;padding-top:10px;border-top:1px solid var(--badge-edge)}
+.badge-counts dt,.album-badges small{color:var(--badge-detail);font-size:12px;font-weight:700}
+.badge-counts dd{margin:1px 0 0;font-size:17px;font-weight:850}
+.album-badges{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px 15px;width:fit-content;max-width:100%;padding:8px 13px;margin:7px 0 12px}
+.album-badges h3{font-size:20px}
+.album-badges .badge-strip{width:min(235px,100%);margin:0}
+.badge-award,.badge-handoff{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}
+.badge-award{width:fit-content;max-width:100%;margin:13px auto 0;padding:7px 14px;text-align:left}
+.badge-award .badge-pin{width:58px}
+.badge-award strong,.badge-inspect strong{display:block;font-family:var(--serif);font-weight:400;font-size:20px}
+.badge-handoff{border-left:1px solid var(--badge-edge);padding-left:9px}
+.badge-inspect{text-align:center;padding:14px 12px 22px}
+.badge-inspect img{display:block;width:min(100%,205px);height:auto;margin:0 auto 8px}
+@media(max-width:540px){
+  .badge-menu{position:static}
+  .badge-award{flex-wrap:nowrap;display:grid;grid-template-columns:52px 1fr;justify-items:start}
+  .badge-award .badge-pin{width:52px}
+  .badge-handoff{grid-column:1/-1;width:100%;display:grid;grid-template-columns:52px 1fr;justify-content:start;border-left:0;border-top:1px solid var(--badge-edge);padding:6px 0 0}
+  .badge-handoff>.icon{display:none}
+}
 .round-done .reveal-art{display:flex;gap:clamp(6px,1.4vw,14px)}
 .round-done .show-stage .reveal-art{max-width:calc(100% - 24px);min-width:0}
 .round-done .reveal-art .stamp,.round-done .reveal-art .stamp-face{min-width:0}

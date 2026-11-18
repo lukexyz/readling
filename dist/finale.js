@@ -87,10 +87,18 @@ const BASE={
         drawStar(e.ctx,x,y,size,a*5,five,'#ffd752');
       }
     }},
-  // A rosette is pinned to the stage when she finishes a collection of three.
+  // Pin the badge she just earned in the meadow. Standalone show studies can use a plain rosette.
   rosette:{len:1.5,stays:true,z:7,
     cues:[[.2,e=>{const p=pin(e);e.burst(p.x,p.y,54,330);}]],
     draw(e,s,t) {
+      if(e.badgeImage) {
+        if(!e.badgeImage.complete || !e.badgeImage.naturalWidth) return;
+        const p=pin(e), side=Math.min(108*e.u,e.th.w*.22,e.th.h*.48);
+        const size=side*(.72+.28*ease(t/.24));
+        e.ctx.save();e.ctx.globalAlpha=clamp01(t/.16);
+        e.ctx.drawImage(e.badgeImage,p.x-size/2,p.y-size/2,size,size);e.ctx.restore();
+        return;
+      }
       const ctx=e.ctx, p=pin(e), r=44*e.u, size=t<.2?4-3*ease(t/.2):1+.12*bump((t-.2)/.3);
       ctx.save();ctx.translate(p.x,p.y);ctx.rotate(-.12+Math.sin(t*2)*.03);ctx.scale(size,size);ctx.globalAlpha=clamp01(t/.12);
       for(const [side,colour] of [[-1,colours[0]],[1,colours[4]]]) {
@@ -221,6 +229,10 @@ function launchFinale(stage,options={}) {
       ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.drawImage(c.canvas,-size/2,-size*.74,size,size);ctx.restore();
     },
     on(name,...a) {if(freeze===null && !into) options[name]?.(...a);}};
+  if(tier && options.badgeSrc) {
+    e.badgeImage=new Image();
+    e.badgeImage.src=options.badgeSrc;
+  }
   function locate() {
     if(!real) {
       const wide=Math.min(e.w*.86,820);

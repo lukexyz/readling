@@ -76,6 +76,12 @@ function before(target) {
 }
 try {
   const fresh=await openGame();await act(fresh,'discover');await traceAndBlend(fresh,'cat');
+  const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
+  assert((await starter.locator('img').getAttribute('src')).endsWith('/oak-1.webp'));
+  await fresh.locator('.badge-award img').evaluate(im=>im.decode());
+  await fresh.locator('summary.stars').click();
+  const firstMeter=fresh.getByRole('progressbar',{name:'Progress to badge 2'});
+  assert.deepEqual(await firstMeter.evaluate(meter=>[meter.value,meter.max]),[1,3]);
   await fresh.context().close();
   const original=STAGES[0].entries.map(e=>e.word), ink=[[[20,25],[60,65]]];
   const seed={version:1,stars:55,settings:{sounds:[...new Set(original.join(''))].sort().join(''),voice:false,memoryFirst:false},
@@ -86,8 +92,26 @@ try {
   await picture(p,'cat','.card-dialog');await p.locator('.card-dialog .handwritten').waitFor();await act(p,'dismiss');
   await act(p,'home');await act(p,'discover');await traceAndBlend(p,'pig',1);
   await p.getByText(/Stage 2 is open!/).waitFor();
+  const graduation=p.locator('.badge-award img');
+  assert.deepEqual(await graduation.evaluateAll(async images=>{
+    await Promise.all(images.map(im=>im.decode()));
+    return images.map(im=>new URL(im.src).pathname.split('/').at(-1));
+  }),['oak-5.webp','poppy-1.webp']);
+  await p.locator('summary.stars').click();
+  await p.locator('.badge-pocket').getByRole('heading',{name:'Poppy ribbons'}).waitFor();
+  assert.deepEqual(await p.getByRole('progressbar',{name:'Progress to badge 2'}).evaluate(meter=>[meter.value,meter.max]),[0,2]);
+  await p.keyboard.press('Escape');
   await act(p,'parents');await p.locator('[data-class-sound=sh]').uncheck();await act(p,'dismiss');
-  await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-discover]').click();
+  await act(p,'album');
+  const oldStage=p.locator('.album-stage').first();
+  await oldStage.locator('summary').click();
+  const oldBadge=oldStage.getByRole('button',{name:'Oak keepsakes, badge 5 of 5'});
+  await oldBadge.click();
+  await p.locator('.badge-inspect img').evaluate(im=>im.decode());
+  await act(p,'dismiss');
+  await oldBadge.waitFor();
+  assert(await oldBadge.evaluate(el=>el===document.activeElement));
+  await p.locator('[data-act=stage-discover][data-stage="2"]').click();
   await p.locator('.copy-word[aria-label=chip]').waitFor();
   await act(p,'parents');await p.locator('[data-class-sound=sh]').check();await act(p,'dismiss');
   await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-discover]').click();

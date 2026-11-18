@@ -1,10 +1,18 @@
 import {parse} from './vendor/toml.js';
 import {readSpelling} from './phonics.js';
 
+const badgeFamilies=['oak','poppy','moth','book','compass'];
+const badgeNames={
+  oak:'Oak keepsakes', poppy:'Poppy ribbons', moth:'Moon moths', book:'Pocket field guides', compass:'Star compasses',
+  'autumn-oak':'Autumn acorns', 'golden-poppy':'Golden poppies', 'twilight-moth':'Twilight moths',
+  'tide-book':'Tidepool journals', 'silver-compass':'Silver compasses', 'frost-oak':'Frosted oaks',
+  'starlight-poppy':'Starlight poppies'
+};
+
 export function parseCatalogue(source) {
   const {stages}=parse(source), byWord=new Map(), numbers=new Set();
   if(!Array.isArray(stages) || !stages.length) throw Error('The catalogue needs numbered stages.');
-  const ordered=stages.slice().sort((a,b)=>a.number-b.number).map(({number,name,words})=>{
+  const ordered=stages.slice().sort((a,b)=>a.number-b.number).map(({number,name,words,badges})=>{
     if(!Number.isSafeInteger(number) || number<1 || numbers.has(number)) throw Error('Invalid or repeated stage '+number);
     numbers.add(number);
     if(!Array.isArray(words) || !words.length) throw Error('Empty stage '+number);
@@ -20,7 +28,10 @@ export function parseCatalogue(source) {
     });
     const core=entries.filter(e=>!e.bonus);
     if(!core.length) throw Error('Stage '+number+' needs a core word');
+    const badgeId=badges ?? badgeFamilies[(number-1)%badgeFamilies.length];
+    if(typeof badgeId!=='string' || !Object.hasOwn(badgeNames,badgeId)) throw Error('Unknown badge set in stage '+number);
     return {number,name:typeof name==='string'?name:'Collection '+number,entries,core,
+      badges:{id:badgeId,name:badgeNames[badgeId],family:badgeId.split('-').at(-1)},
       goal:number===1?core.length:Math.min(8,core.length)};
   });
   if(ordered[0].number!==1) throw Error('The first collection must be stage 1');

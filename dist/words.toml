@@ -4,6 +4,7 @@
 [[stages]]
 number = 1
 name = "The Word Woods"
+badges = "oak"
 words = [
   { word = "cat", tale = "A little cat curls up beside the path." },
   { word = "hat", tale = "A hat for a very small head!" },
@@ -22,6 +23,7 @@ words = [
 [[stages]]
 number = 2
 name = "Letters that team up"
+badges = "poppy"
 words = [
   { word = "ship", tale = "The little ship puts out to sea. Where is it going?", tags = ["sh"], art = "woodcut" },
   { word = "shop", tale = "The shop has just opened. What would you buy?", tags = ["sh"], bonus = true, art = "woodcut" },
@@ -52,6 +54,7 @@ words = [
 [[stages]]
 number = 3
 name = "Short vowel finds"
+badges = "moth"
 words = [
   { word = "bag" },
   { word = "bat" },
@@ -94,6 +97,7 @@ words = [
 [[stages]]
 number = 4
 name = "Consonants side by side"
+badges = "book"
 words = [
   { word = "lamp", tale = "A lamp glows beside the woodland path.", art = "woodcut" },
   { word = "tent", art = "woodcut", voice = "en_US" },
@@ -138,6 +142,7 @@ words = [
 [[stages]]
 number = 5
 name = "Longer sound trails"
+badges = "compass"
 words = [
   { word = "stamp", tale = "Where will the letter with this stamp go?", art = "woodcut" },
   { word = "stump", art = "woodcut" },
@@ -175,6 +180,7 @@ words = [
 [[stages]]
 number = 6
 name = "Vowel teams"
+badges = "autumn-oak"
 words = [
   { word = "bee" },
   { word = "tree" },
@@ -222,6 +228,7 @@ words = [
 [[stages]]
 number = 7
 name = "The helping e"
+badges = "golden-poppy"
 words = [
   { word = "cake" },
   { word = "bike" },
@@ -278,6 +285,7 @@ words = [
 [[stages]]
 number = 8
 name = "Sounds with r"
+badges = "twilight-moth"
 words = [
   { word = "car" },
   { word = "barn" },
@@ -315,6 +323,7 @@ words = [
 [[stages]]
 number = 9
 name = "Round vowels and diphthongs"
+badges = "tide-book"
 words = [
   { word = "moon", voice = "en_US" },
   { word = "spoon" },
@@ -355,6 +364,7 @@ words = [
 [[stages]]
 number = 10
 name = "More ways to spell a sound"
+badges = "silver-compass"
 words = [
   { word = "night" },
   { word = "light" },
@@ -406,6 +416,7 @@ words = [
 [[stages]]
 number = 11
 name = "Two beats to read"
+badges = "frost-oak"
 words = [
   { word = "rabbit", voice = "en_US" },
   { word = "kitten", reading = "k i tt e:uh n", voice = "en_US" },
@@ -447,6 +458,7 @@ words = [
 [[stages]]
 number = 12
 name = "Words inside words"
+badges = "starlight-poppy"
 words = [
   { word = "starfish" },
   { word = "cowboy" },

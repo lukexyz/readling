@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {readFile} from 'node:fs/promises';
 import {parseCatalogue} from '../dist/catalogue.js';
 import {STAGES,ENTRIES,WORDS,TALES,soundsOf,unitsOf,newProfile,normalise,stageProgress,availableWords,
   findNext,startLesson,collect,reviewQueue,recordRead,swapPairs,packAlbum,mergeAlbum,DAY} from '../dist/game.js';
@@ -79,6 +81,44 @@ test('a restricted v1 class stays restricted; saved cards, ink and in-progress l
   restricted.settings.sounds=['sh','i','p'];assert.deepEqual(availableWords(restricted),['ship']);
   p.settings.sounds=[...new Set(starter.join(''))].sort().join('');
   assert.equal(findNext(normalise(p)),'ship','an old default album sees the next stage');
+});
+test('every graduation keeps the completed badges and opens the next five-piece set',async()=>{
+  const p=newProfile(), art=new Set();
+  for(const [index,stage] of STAGES.entries()) {
+    const current=()=>stageProgress(p)[index];
+    const milestones=[1,2,3,4].map(step=>Math.ceil(stage.goal*step/4));
+    assert.equal(current().badgeRank,1);
+    assert.equal(current().nextBadgeAt,milestones[0]);
+    if(STAGES[index+1]) assert.equal(stageProgress(p)[index+1].badgeRank,0);
+    for(let i=0;i<stage.goal;i++) {
+      const result=find(p,stage.core[i].word), rank=1+milestones.filter(n=>n<=i+1).length;
+      assert.equal(current().badgeRank,rank);
+      assert.equal(result.badgeEarned,milestones.includes(i+1)?rank:0);
+      assert.equal(current().nextBadgeAt,milestones[rank-1] ?? null);
+    }
+    assert.equal(find(p,stage.core[0].word).badgeEarned,0);
+    for(let rank=1;rank<=5;rank++) {
+      const path=new URL('../dist/assets/badges/'+stage.badges.id+'-'+rank+'.webp',import.meta.url);
+      const data=await readFile(path);
+      assert.equal(data.toString('ascii',8,12),'WEBP');
+      art.add(createHash('sha256').update(data).digest('hex'));
+    }
+  }
+  assert.equal(art.size,STAGES.length*5);
+  assert(stageProgress(normalise(JSON.parse(packAlbum(p)))).every(s=>s.badgeRank===5 && s.nextBadgeAt===null));
+});
+test('bonus finds, rewrites and memory keep the same badges; merging old albums restores earned sets',()=>{
+  assert.equal(stageProgress(newProfile())[0].nextBadgeAt,3);
+  const p=fullStarter();
+  assert.equal(stageProgress(p)[1].nextBadgeAt,2);
+  find(p,'ship');find(p,'shop');find(p,'ship');recordRead(p,'ship');
+  assert.equal(stageProgress(p)[1].badgeRank,1);
+  assert.equal(stageProgress(p)[1].found,1);
+  const other=fullStarter();find(other,'fish');
+  const copy=mergeAlbum(normalise(p),normalise(other));
+  assert.deepEqual(stageProgress(copy).slice(0,3).map(s=>s.badgeRank),[5,2,0]);
+  copy.settings.sounds=[];
+  assert.deepEqual(stageProgress(copy).slice(0,3).map(s=>s.badgeRank),[5,2,0]);
 });
 test('memory attributes a team hint to sh and aligns unequal lengths without marking a shared suffix',()=>{
   const p=fullStarter();for(const w of ['ship','shop','chip'])find(p,w);

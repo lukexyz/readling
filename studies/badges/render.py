@@ -2,6 +2,8 @@
 
 blender -b -t 8 --python-exit-code 1 -P studies/badges/render.py
 Add -- proof to render a small sample of each family without saving the master.
+Add -- editions to render the later stages' finishes and engravings.
+After both full renders, run python studies/badges/pack.py --game.
 """
 import math
 import sys
@@ -13,7 +15,9 @@ from mathutils import Vector
 ROOT = Path(__file__).resolve().parents[2]
 RAW = ROOT / "assets/videos/badge-studies"
 RAW.mkdir(parents=True, exist_ok=True)
-PROOF = "--" in sys.argv and "proof" in sys.argv[sys.argv.index("--") + 1:]
+options = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+PROOF = "proof" in options
+EDITIONS = "editions" in options
 TAU = math.tau
 sin, cos = math.sin, math.cos
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -62,6 +66,31 @@ for spec in [
     ("pages","F2DDA9",.04,.62), ("paper edge","BB935F",.14,.51), ("teal","347E7E",.28,.31)
 ]:
     mat(*spec)
+
+finishes = {
+    "autumn-oak": {"bark":"613824", "heartwood":"F4CA8B", "moss":"B74A29", "shoot":"E49537", "nut":"8B4425"},
+    "golden-poppy": {"poppy":"F5B833", "cherry":"CA6A1C", "apricot":"FFE17B", "ribbon":"375871", "ribbon back":"273E58"},
+    "twilight-moth": {"jade":"9573BC", "seafoam":"D4B8D6", "moth edge":"51466F", "midnight":"403452", "gilt":"E4C68E"},
+    "tide-book": {"linen":"277F83", "moss":"467D96", "leather":"263E66", "cloth":"306B78", "midnight":"184F62",
+                  "poppy":"EE845D", "gilt":"C6A370", "light gold":"F4E2BD"},
+    "silver-compass": {"bronze":"626D79", "gilt":"BBCAD1", "light gold":"EFF9F8", "midnight":"204C62",
+                       "jade":"75BCBD", "teal":"297F8D", "ivory":"E5ECE5"},
+    "frost-oak": {"bark":"455457", "oak":"ABB8B0", "heartwood":"E0DFCD", "grain":"89988C", "moss":"568782",
+                  "shoot":"ABCCC1", "nut":"78958D", "bronze":"627C7B", "light gold":"F3F9F4"},
+    "starlight-poppy": {"poppy":"F1EDDD", "cherry":"C9BBD1", "apricot":"FFF2C7", "ribbon":"654668",
+                        "ribbon back":"43374F", "bronze":"8A6C3E", "ink":"493B55"}
+}
+original_colors = {name: tuple(material.diffuse_color) for name,material in materials.items()}
+
+
+def apply_finish(key):
+    palette = finishes[key]
+    for name, material in materials.items():
+        rgb = original_colors[name]
+        if name in palette:
+            rgb = tuple(linear(int(palette[name][i:i+2], 16) / 255) for i in (0,2,4)) + (1,)
+        material.diffuse_color = rgb
+        material.node_tree.nodes.get("Principled BSDF").inputs["Base Color"].default_value = rgb
 
 
 def obj(name, data, material=None):
@@ -366,6 +395,31 @@ def compass(level):
     number(level,0,.004,.409,.77,"ink")
 
 
+def engraving(key):
+    if key == "autumn-oak":
+        leaf(-.52,-.45,.27,-.35,.33,.09,"moss",True)
+    elif key == "golden-poppy":
+        for side in (-1,1):
+            for y in (-.82,-.95):
+                bead("Seed pearl",side*.47,y,-.02,.038,.038,.026,"ivory")
+    elif key == "twilight-moth":
+        for side in (-1,1):
+            star("Wing star",side*.93,.39,.304,.15,"light gold")
+    elif key == "tide-book":
+        for y in (-.61,-.68):
+            wire("Gilt wave",[(i*.032-.32,y+.023*sin(i*.43),.241) for i in range(24)],.012,"light gold")
+    elif key == "silver-compass":
+        for side in (-1,1):
+            star("Polar star",side*.40,.41,.23,.096,"ivory")
+    elif key == "frost-oak":
+        for i in range(6):
+            a = i*TAU/6
+            wire("Frost crystal",[(.48,-.44,.268),(.48+.16*cos(a),-.44+.16*sin(a),.268)],.012,"bark")
+    elif key == "starlight-poppy":
+        for side in (-1,1):
+            star("Ribbon star",side*.48,-.89,-.035,.115,"light gold")
+
+
 world=bpy.data.worlds.new("Studio linen")
 scene.world=world
 world.use_nodes=True
@@ -393,12 +447,14 @@ lights=[light("Large linen softbox",(-3.3,4.7,6.2),490,4.2,(1,.90,.77)),
         light("Edge strip",(-.7,-3.3,2.4),120,2.0,(1,.82,.68))]
 families={"oak":oak,"poppy":poppy,"moth":moth,"book":book,"compass":compass}
 offsets=[]
-for row,(key,construct) in enumerate(families.items()):
+for row,key in enumerate(finishes if EDITIONS else families):
+    family=key.rsplit("-",1)[-1]
     for level in ([4] if PROOF else range(1,6)):
         collection=bpy.data.collections.new(f"{key.title()} · {level}")
         scene.collection.children.link(collection)
-        construct(level)
-        if key=="book":
+        families[family](level)
+        if EDITIONS: engraving(key)
+        if family=="book":
             parent=obj("Bound at an angle",None)
             for child in list(collection.objects):
                 if child!=parent: child.parent=parent
@@ -412,12 +468,13 @@ look(camera,(0,0,.1))
 camera_data.ortho_scale=2.95
 scene.render.resolution_x=scene.render.resolution_y=224 if PROOF else 384
 for group,key,level,_ in offsets:
+    if EDITIONS and (level==1 or PROOF): apply_finish(key)
     for ob in group.objects: ob.hide_render=False
     scene.render.filepath=str(RAW/f"{key}-{level}{'-proof' if PROOF else ''}.png")
     bpy.ops.render.render(write_still=True)
     for ob in group.objects: ob.hide_render=True
 
-if not PROOF:
+if not PROOF and not EDITIONS:
     # Keep every editable mesh in a named collection on a single contact sheet.
     for group,key,level,row in offsets:
         for ob in group.objects:

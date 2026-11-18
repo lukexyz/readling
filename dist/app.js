@@ -3,7 +3,7 @@ import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
 import {SOUNDS,displaySound} from './phonics.js';
-import {WORDS, TALES, STAGES, ENTRIES, unitsOf, soundsOf, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, SHOW_GROUPS, clamp, newProfile, normalise, stageProgress, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData} from './game.js';
+import {WORDS, TALES, STAGES, ENTRIES, unitsOf, soundsOf, ALPHABET, CLASS_SOUNDS, KEY, DAY, SHOW, SHOW_GROUPS, BADGES_PER_STAGE, clamp, newProfile, normalise, stageProgress, availableWords, findNext, getLevel, startLesson, collect, dueWords, reviewQueue, pictureChoices, recordRead, finishTask, showChoices, showDue, addToShow, mergeAlbum, packAlbum, swapPairs, pathData} from './game.js';
 import {cloud} from './cloud.js';
 const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
@@ -199,7 +199,8 @@ function render() {
   main.innerHTML=pages[view]();
   if(view==='found' && raw!==lastRevealRoute) {
     const fresh=lastFound?.word===arg && lastFound.fresh;
-    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:fresh && lastFound.levelUp?getLevel(profile):0});
+    const rank=fresh?revealBadge(lastFound):0;
+    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:rank,badgeSrc:rank?badgeArt(stageOf(arg),rank):''});
   }
   lastRevealRoute=view==='found'?raw:'';
   if(view==='learn') bindLesson();
@@ -215,7 +216,8 @@ function drawHeader() {
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
     <nav class="tabs" aria-label="Game pages">${tabs.map(([route,sym,text])=>`<button class="tab ${active===route?'selected':''}" ${active===route?'aria-current="page"':''} data-act="${route}">${icon(sym,18)}<span>${text}</span></button>`).join('')}</nav>
-    <div class="mast-end"><span class="stars" aria-label="${profile.stars} stars">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span></span>
+    <div class="mast-end"><details class="badge-menu"><summary class="stars" aria-label="${profile.stars} stars, my badges">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span><span class="badge-caret" aria-hidden="true"></span></summary>
+    ${badgePocket()}</details>
     <span class="mast-rule"></span><button class="parents-link" data-act="parents" aria-label="Grown-ups and settings">${icon('gear',20)}<span>Grown-ups</span></button></div>
   </div>`;
 }
@@ -267,14 +269,71 @@ function homePage() {
     ${action(cta,next,'play','gold')}</div>
   </section>
   ${!shown && n<WORDS.length && next!=='parents'?`<div class="album-extra"><span>The open stages have no more words using her selected sounds.</span>${action('Choose class sounds','parents','','secondary')}</div>`:''}
-  <div class="section-heading"><h2>Your field kit</h2><span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
+  <div class="section-heading"><h2>Your field kit</h2>${currentBadgeButton()}</div>
   <section class="kit-grid" aria-label="More ways to play">
     <button class="kit album-kit" data-act="album"><img src="./assets/album.webp" alt=""><span class="kit-copy"><strong>My word album</strong><span>Your book of woodland finds.</span><small>${n} of ${WORDS.length} collected</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
     <button class="kit memory-kit" data-act="review"><img src="./assets/memory.webp" alt=""><span class="kit-copy"><strong>Memory game</strong><span>Turn a card and read it again.</span><small>${ready?ready+' ready to revisit':n>1?'Play with your words':n?'Find one more word to play':'Uses your collected words'}</small></span><span class="circle-arrow">${icon('arrow',19)}</span></button>
   </section>`;
 }
 const escapeText=s=>s.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const stageLabel=w=>{const s=STAGES.find(s=>s.number===ENTRIES.get(w).stage);return 'Stage '+s.number+' · '+escapeText(s.name);};
+const stageOf=word=>STAGES.find(s=>s.number===ENTRIES.get(word).stage);
+const stageLabel=word=>{const s=stageOf(word);return 'Stage '+s.number+' · '+escapeText(s.name);};
+const badgeArt=(stage,rank)=>`./assets/badges/${stage.badges.id}-${rank}.webp`;
+
+function currentBadgeButton() {
+  const {stage,badgeRank}=stageProgress(profile).findLast(s=>s.open);
+  return `<button type="button" class="level current-badge" data-act="inspect-badge" data-stage="${stage.number}" data-rank="${badgeRank}" aria-label="Level ${getLevel(profile)}, view ${stage.badges.name} badge ${badgeRank}"><img width="36" height="36" src="${badgeArt(stage,badgeRank)}" alt=""> Level ${getLevel(profile)}</button>`;
+}
+
+function badgeButton(stage,rank) {
+  return `<button type="button" class="badge-pin" data-act="inspect-badge" data-stage="${stage.number}" data-rank="${rank}"
+    aria-label="${stage.badges.name}, badge ${rank} of ${BADGES_PER_STAGE}"><img src="${badgeArt(stage,rank)}" alt="" width="64" height="64" loading="lazy"></button>`;
+}
+function badgeStrip({stage,badgeRank}) {
+  return `<ol class="badge-strip" aria-label="${stage.badges.name}, ${badgeRank} of ${BADGES_PER_STAGE} badges">${Array.from({length:BADGES_PER_STAGE},(_,i)=>{
+    const rank=i+1;
+    return `<li>${rank<=badgeRank?badgeButton(stage,rank):`<span class="badge-space">${icon('lock',15)}<span class="sr-only">Badge ${rank} locked</span></span>`}</li>`;
+  }).join('')}</ol>`;
+}
+function badgePocket() {
+  const current=stageProgress(profile).findLast(s=>s.open);
+  const {stage,found,nextBadgeAt,badgeRank}=current;
+  const wordType=stage.core.length<stage.entries.length?'core word':'word';
+  const left=nextBadgeAt===null?0:nextBadgeAt-found;
+  const hint=left?`Find ${left} more ${wordType}${left===1?'':'s'} for badge ${badgeRank+1}.`:'You collected all five badges!';
+  const previous=left?Math.ceil((badgeRank-1)*stage.goal/(BADGES_PER_STAGE-1)):0;
+  const target=(nextBadgeAt ?? stage.goal)-previous;
+  const earned=Math.min(found-previous,target);
+  const reads=Object.values(profile.cards).reduce((sum,card)=>sum+card.reviews,0);
+  return `<section class="badge-pocket badge-theme-${stage.badges.family}" aria-label="Reading progress">
+    <div class="badge-caption">Stage ${stage.number} · ${escapeText(stage.name)}</div><h2>${stage.badges.name}</h2>
+    ${badgeStrip(current)}
+    <progress class="badge-progress" value="${earned}" max="${target}" aria-label="${left?'Progress to badge '+(badgeRank+1):'Stage badges complete'}" aria-describedby="badge-next">${earned} of ${target}</progress>
+    <p id="badge-next">${hint}</p>
+    <dl class="badge-counts"><div><dt>Words</dt><dd>${count()}</dd></div><div><dt>Sounds</dt><dd>${Object.keys(profile.sounds).length}</dd></div><div><dt>Memory reads</dt><dd>${reads}</dd></div></dl>
+    <button type="button" class="back" data-act="album">My word album ${icon('arrow',16)}</button></section>`;
+}
+function inspectBadge(number,rank) {
+  const progress=stageProgress(profile).find(s=>s.stage.number===number);
+  if(!progress || !Number.isInteger(rank) || rank<1 || rank>progress.badgeRank) return;
+  const {stage}=progress;
+  openDialog(`<div class="badge-inspect badge-theme-${stage.badges.family}">
+    <img src="${badgeArt(stage,rank)}" alt="${stage.badges.name}, badge ${rank}" width="192" height="192">
+    <strong>Badge ${rank} of ${BADGES_PER_STAGE}</strong><p>Stage ${stage.number} · ${escapeText(stage.name)}</p></div>`,stage.badges.name);
+}
+// The first badge is already in the album at the start. Give it its own reveal on the first find.
+function revealBadge(found) {
+  return found.badgeEarned || (found.fresh && count()===1 ? 1 : 0);
+}
+function badgeAward(word,found) {
+  const badgeEarned=revealBadge(found), unlocked=found.unlocked;
+  if(!badgeEarned) return '';
+  const stage=stageOf(word), next=STAGES.find(s=>s.number===unlocked);
+  const complete=badgeEarned===BADGES_PER_STAGE;
+  return `<div class="badge-award badge-theme-${stage.badges.family}">${badgeButton(stage,badgeEarned)}
+    <div><strong>${stage.badges.name}</strong><p>${complete?'You collected all five!':`You earned badge ${badgeEarned} of ${BADGES_PER_STAGE}!`}</p></div>
+    ${next?`<div class="badge-handoff">${icon('arrow',20)}${badgeButton(next,1)}<div><strong>Stage ${next.number} is open!</strong><p>Your next set is ${next.badges.name}.</p></div></div>`:''}</div>`;
+}
 const unitAt=(word,pos)=>unitsOf(word).findIndex(u=>u.positions.includes(pos));
 function wordPrint(word,active=-1,options={}) {
   return `<div class="word-print ${options.cls || ''}" aria-label="${word}" style="--letters:${word.length}">${[...word].map((c,i)=>{
@@ -325,7 +384,7 @@ function foundPage(word) {
   const fresh=lastFound?.word===word && lastFound.fresh;
   const lvl=fresh && lastFound.levelUp;
   const next=primaryAction();
-  return `<div class="page-top">${back()}<span class="level">${icon('sprout',17)} Level ${getLevel(profile)}</span></div>
+  return `<div class="page-top">${back()}${currentBadgeButton()}</div>
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?(ENTRIES.get(word).bonus?'Bonus find':'New discovery'):'In your album'}</div>
       <h1>${fresh?'Look what you found!':'A woodland find'}</h1>
       <div class="show-stage">${profile.settings.sparkles?finaleScenery(profile.show.picks):''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
@@ -333,7 +392,7 @@ function foundPage(word) {
       <p>${TALES[word]?escapeText(TALES[word]):'What do you notice in your picture?'}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
-      ${fresh && lastFound.unlocked?`<p class="unlock-note">Stage ${lastFound.unlocked} is open! A new collection is waiting in your album.</p>`:''}
+      ${fresh?badgeAward(word,lastFound):''}
       <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Find another word',next):action('Play memory','review')}</div>
       ${showPanel()}${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
 }
@@ -349,12 +408,14 @@ function albumPage() {
   return `<div class="page-top">${back()}<span class="level">${icon('album',17)} ${n} / ${WORDS.length} collected</span></div>
     <div class="album-head"><div><h1>My word album</h1><p>${n?'Tap a find to hear its word and see your writing.':'Each word you discover earns a place on these pages.'}</p></div>
     ${next==='start-round'?action('Play memory first',next,'play'):next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
-    ${stages.map(({stage,open,found},i)=>{
+    ${stages.map((progress,i)=>{
+      const {stage,open,found}=progress;
       const got=stage.entries.filter(e=>profile.cards[e.word]).length, previous=STAGES[i-1];
       const heading=`Stage ${stage.number} · ${escapeText(stage.name)}`;
       if(!open && !got) return `<div class="locked-stage">${icon('lock',17)} <span>${heading}</span><small>Find ${previous.goal} core words in Stage ${previous.number} to open.</small></div>`;
       const nextWord=open && findNext(profile,stage.number), bonusWord=open && findNext(profile,stage.number,true);
       return `<details class="album-stage" ${stage===latest?'open':''}><summary>${heading} <small>${got} / ${stage.entries.length}</small></summary>
+      ${open?`<section class="album-badges badge-theme-${stage.badges.family}"><div><h3>${stage.badges.name}</h3><small>${progress.badgeRank} of ${BADGES_PER_STAGE} badges</small></div>${badgeStrip(progress)}</section>`:''}
       ${open && STAGES[i+1] && !stages[i+1].open?`<p>${Math.max(0,stage.goal-found)} more core finds open Stage ${STAGES[i+1].number}.</p>`:''}
       ${nextWord && nextWord!==bonusWord?`<button class="btn secondary" data-act="stage-discover" data-stage="${stage.number}">Find a word in this stage</button>`:''}
       ${bonusWord?`<button class="btn secondary" data-act="stage-bonus" data-stage="${stage.number}">Find a bonus word</button>`:''}
@@ -644,6 +705,7 @@ function dispatch(act,el) {
     case 'home':case 'album':case 'review':case 'scene':go(act);break;
     case 'shelf':shelfOpen=!shelfOpen;drawShelf();$('.shelf-toggle').focus({preventScroll:true});break;
     case 'parents':parents();break;
+    case 'inspect-badge':inspectBadge(Number(el.dataset.stage),Number(el.dataset.rank));break;
     case 'dismiss':dialog.close();break;
     case 'discover':startOrResume();break;
     case 'stage-discover':case 'stage-bonus':{const w=findNext(profile,Number(el.dataset.stage),act==='stage-bonus'); if(w)startOrResume(w);break;}
@@ -686,7 +748,10 @@ function dispatch(act,el) {
     case 'trial-all':trial=new Set(SHOW.map(s=>s.id));trialDialog();break;
     case 'trial-none':trial=new Set();trialDialog();break;
     case 'trial-hers':trial=new Set(profile.show.picks);trialDialog();break;
-    case 'trial-play':previewShow({picks:[...trial],all:true,stars:5,tier:trialRosette?Math.max(2,getLevel(profile)):0},trialDialog);break;
+    case 'trial-play':{
+      const {stage,badgeRank}=stageProgress(profile).findLast(s=>s.open);
+      previewShow({picks:[...trial],all:true,stars:5,tier:trialRosette?badgeRank:0,badgeSrc:trialRosette?badgeArt(stage,badgeRank):''},trialDialog);break;
+    }
     case 'trial-one':{
       // One thing by itself, with whatever it builds on and the rest of what is ticked.
       const id=el.dataset.pick, base=SHOW.find(s=>s.id===id).after;
@@ -758,6 +823,16 @@ document.addEventListener('click',e=>{
   if(el.dataset.letter) useSound(el.dataset.letter);
   else if(el.dataset.act) dispatch(el.dataset.act,el);
 });
+document.addEventListener('pointerdown',e=>{
+  const menu=$('.badge-menu[open]');
+  if(menu && !dialog.open && !menu.contains(e.target)) menu.open=false;
+});
+document.addEventListener('keydown',e=>{
+  const menu=$('.badge-menu[open]');
+  if(e.key==='Escape' && menu && !dialog.open) {
+    menu.open=false;menu.querySelector('summary').focus();e.preventDefault();
+  }
+});
 document.addEventListener('change',e=>{
   const el=e.target;
   if(el.dataset.setting){profile.settings[el.dataset.setting]=el.checked;save();if(!profile.settings.voice)stopSound();}
@@ -793,13 +868,13 @@ function drawStars() {
 }
 // Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
 // The stars she has just earned wait out of her total until the show counts them in.
-function celebrate({word='',stars=0,held=false,tier=0,alone='',all=false,spell=true,picks=profile.show.picks,anywhere=false,narrated=false,ended=null}={}) {
+function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,anywhere=false,narrated=false,ended=null}={}) {
   const stage=$('.victory');
   if(!stage && !anywhere) return null;
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   const sounds=soundsOf(word);
-  const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,alone,all,spell,turn:profile.show.tasks+encores,
+  const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',sounds[i]),
     onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
     onStar:()=>{if(starsHeld){starsHeld--;drawStars();}},
@@ -841,7 +916,7 @@ function showTimes(picks,options={}) {
 function trialStats() {
   const picks=[...trial], tier=trialRosette?2:0, plan=showTimes(picks,{all:true,tier}), secs=n=>(Math.round(n*10)/10).toFixed(1);
   const turns=Array.from({length:12},(_,turn)=>showTimes(picks,{turn,tier}).total), low=Math.min(...turns), high=Math.max(...turns);
-  const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'The rosette'};
+  const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'Her stage badge'};
   const rows=plan.acts.map(([id,at,len,stays])=>({name:base[id] || SHOW.find(s=>s.id===id)?.name || id,at,end:stays?plan.total:Math.min(plan.total,at+len),stays}));
   // The fanfare starts once her word has been said, a little after the picture appears.
   if(trial.has('music')) rows.push({name:'Music',at:plan.hit+.65,end:Math.min(plan.total,plan.hit+.65+3.7)});
@@ -868,7 +943,7 @@ function trialDialog() {
       return `<div class="trial-line ${needs?'child':''}"><label><input type="checkbox" data-trial="${id}" ${trial.has(id)?'checked':''} ${open?'':'disabled'}><span>${s.name}</span>${needs && !open?`<small>${needs}</small>`:''}</label>
         <button type="button" class="round-button" data-act="trial-one" data-pick="${id}" aria-label="Play ${s.name} by itself">${icon('play',15)}</button></div>`;
     }).join('')}</fieldset>`).join('')}
-    <fieldset><legend>Ending</legend><label class="setting-line"><span>Finish a collection, for the rosette</span><input type="checkbox" id="trial-rosette" ${trialRosette?'checked':''}></label></fieldset>
+    <fieldset><legend>Ending</legend><label class="setting-line"><span>Pin her stage badge in the meadow</span><input type="checkbox" id="trial-rosette" ${trialRosette?'checked':''}></label></fieldset>
     <div class="actions">${action('Play this show','trial-play','play')}${action('Back to Grown-ups','parents','','secondary')}</div>`,'Try out the show');
   $('#trial-timeline').addEventListener('toggle',e=>{trialTimeline=e.target.open;});
 }
@@ -884,7 +959,19 @@ function startPreviews() {
   // Bring the choices into view as they arrive, in case they are below the bottom of the screen.
   if(fresh.length) setTimeout(()=>$('#show-add')?.scrollIntoView({block:'nearest',behavior:'smooth'}),550);
 }
-dialog.addEventListener('close',()=>{if(classChanged || view==='home'||view==='album'||(view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles))render();classChanged=false;lastFocus?.isConnected&&lastFocus.focus({preventScroll:true});});
+dialog.addEventListener('close',()=>{
+  if(classChanged || view==='home' || view==='album' || (view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles)) render();
+  classChanged=false;
+  if(lastFocus?.isConnected) {lastFocus.focus({preventScroll:true});return;}
+  if(lastFocus?.dataset.act==='inspect-badge') {
+    const {stage,rank}=lastFocus.dataset;
+    const owner=lastFocus.closest('.badge-menu')?$('.badge-menu'):main;
+    const button=$(`[data-act="inspect-badge"][data-stage="${stage}"][data-rank="${rank}"]`,owner);
+    const shelf=button?.closest('details');
+    if(shelf) shelf.open=true;
+    button?.focus({preventScroll:true});
+  }
+});
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden) wake();});

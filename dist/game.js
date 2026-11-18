@@ -107,11 +107,16 @@ function normalise(raw) {
   p.show.tasks=show?tally(show.tasks):Object.keys(p.cards).length;
   return p;
 }
+export const BADGES_PER_STAGE=5;
 function stageProgress(p) {
   let open=true;
   return STAGES.map(stage=>{
     const found=stage.core.filter(e=>p.cards[e.word]).length;
-    const result={stage,open,found};
+    // Opening the stage awards its first badge. The last one lands on its graduation word.
+    const steps=BADGES_PER_STAGE-1;
+    const badgeRank=open?1+Math.floor(Math.min(found,stage.goal)*steps/stage.goal):0;
+    const nextBadgeAt=open && badgeRank<BADGES_PER_STAGE?Math.ceil(badgeRank*stage.goal/steps):null;
+    const result={stage,open,found,badgeRank,nextBadgeAt};
     open=open && found>=stage.goal;
     return result;
   });
@@ -139,7 +144,7 @@ function collect(p, now=Date.now()) {
   const l=p.lesson;
   if(!l || l.i!==l.word.length || !isWord(l.word)) return null;
   if(!p.cards[l.word] && !availableWords(p).includes(l.word)) return null;
-  const before=stageProgress(p).filter(s=>s.open).length;
+  const before=stageProgress(p);
   const existing=p.cards[l.word];
   if(existing) {
     l.ink.forEach((lines,i)=>{if(lines.length) existing.ink[i]=lines;});
@@ -150,9 +155,10 @@ function collect(p, now=Date.now()) {
     finishTask(p);
   }
   p.lesson=null;
-  const opened=stageProgress(p).filter(s=>s.open);
+  const after=stageProgress(p), i=after.findIndex(s=>s.stage.number===ENTRIES.get(l.word).stage);
+  const unlocked=after.findLast((s,index)=>s.open && !before[index].open);
   return {word:l.word, fresh:!existing, levelUp:!existing && Object.keys(p.cards).length%3===0,
-    unlocked:opened.length>before?opened.at(-1).stage.number:null};
+    badgeEarned:after[i].badgeRank>before[i].badgeRank?after[i].badgeRank:0, unlocked:unlocked?.stage.number ?? null};
 }
 // Memory matches a word to its picture, so it needs two finds. A new or missed word gets its own
 // quick check. Each sound that is due then brings back the word with that sound that has rested longest,

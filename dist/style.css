@@ -251,6 +251,7 @@ main.wrap{padding-block:29px 40px;outline:none}
 .round-done .reveal-art .stamp:nth-child(even){transform:rotate(3deg)}
 .show-add{max-width:540px;margin:22px auto 0;padding:16px 4px 8px;border-top:1px solid var(--line);overflow:hidden}
 .show-add h2{font-size:24px}
+#sticker-receipt{width:fit-content;max-width:100%;margin:18px auto 0;padding:8px 16px;border:1px solid #c4ceb6;border-radius:12px;background:var(--sage);color:var(--deep);font-weight:850}
 .show-picks{display:flex;gap:14px;justify-content:center;margin-top:12px}
 .show-pick{flex:1 1 0;max-width:250px;display:grid;gap:8px;padding:10px 10px 12px;border:2px solid #59644c;border-radius:17px;background:var(--card);box-shadow:0 4px 0 #dcd4b8;font-weight:800;font-size:18px}
 .show-pick:hover{background:#f6f1df}.show-pick:active{transform:translateY(3px);box-shadow:0 1px 0 #dcd4b8}
@@ -285,6 +286,10 @@ main.wrap{padding-block:29px 40px;outline:none}
 .gsi-material-button:active .gsi-material-button-state{opacity:.12}
 #account .gsi-material-button{margin-top:12px}
 .album-head{margin:9px 0 24px}.album-head p{max-width:650px}.album-head .btn{flex-shrink:0}
+.sticker-empty{padding:28px 18px 34px;text-align:center;background:var(--card);border:1px dashed #b5bda6;border-radius:16px}
+.sticker-empty img{width:112px;height:112px;object-fit:contain;mix-blend-mode:multiply}
+.sticker-empty h2{margin:8px 0 6px;font-size:25px}
+.sticker-empty p{color:var(--sub)}
 .album-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}
 .album-card{border:1px solid var(--line);border-radius:13px;background:#fffdf4;padding:15px 12px 11px;display:flex;align-items:center;flex-direction:column;justify-content:center;gap:10px;text-align:center;min-width:0}
 .album-card .stamp{width:min(100%,118px);padding:5px}

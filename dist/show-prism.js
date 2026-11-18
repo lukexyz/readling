@@ -69,11 +69,11 @@ export async function loadPrism(shot,word='cat') {
   }};
 }
 
-export function decoratePicturePoster(img,shot) {
+export function decoratePicturePoster(img,shot,word='cat') {
   if (shot.family!=='picture') return;
   async function decorate() {
     try {
-      const portrait=await loadPortrait('cat');
+      const portrait=await loadPortrait(word);
       if (!portrait) return;
       const canvas=document.createElement('canvas');
       canvas.width=384;canvas.height=288;

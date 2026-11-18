@@ -1,5 +1,6 @@
 import {icon, forms, letterForm} from './drawings.js';
 import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
+import {mountCelebrationCards} from './celebration-cards.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
 import {SOUNDS,displaySound} from './phonics.js';
@@ -39,6 +40,7 @@ let playing=null;
 let starsHeld=0;
 let encores=0;
 let previewTimer=0;
+let stickerCards=null;
 let showPicks=null;
 let trial=null;
 let trialRosette=false;
@@ -72,7 +74,7 @@ async function sync() {
     if(JSON.stringify(profile)!==was) {
       store();
       // A page she may be in the middle of is left alone and shows the new finds on her next move.
-      if(!dialog.open && ['home','album','review'].includes(view)) render(); else drawHeader();
+      if(!dialog.open && ['home','album','review','stickers'].includes(view)) render(); else drawHeader();
     }
     const ours=packAlbum(profile);
     if(ours!==theirs) await cloud.save(ours);
@@ -152,6 +154,9 @@ function playClip(type, name, options={}) {
   trySource(0);
 }
 function count() {return Object.keys(profile.cards).length;}
+function latestFind() {
+  return Object.keys(profile.cards).sort((a,b)=>profile.cards[b].found-profile.cards[a].found)[0] || '';
+}
 function eligibleLesson() {
   const l=profile.lesson;
   return l && (profile.cards[l.word] || availableWords(profile).includes(l.word));
@@ -181,6 +186,7 @@ function go(route) {
   render(); afterNavigate();
 }
 function render() {
+  stickerCards?.destroy();stickerCards=null;
   cancelFinale();clearTimeout(previewTimer);playing=null;
   const raw=location.hash.slice(1);
   const [route,arg]=raw.split('/');
@@ -190,11 +196,11 @@ function render() {
   if (view==='found' && (!WORDS.includes(arg) || !profile.cards[arg])) view='album';
   if ((view==='scene' && count()<3) || (view==='swap' && !swapPairs(profile).length)) view='album';
   if (view==='round' && !round) view='review';
-  if(!['home','learn','found','album','review','round','scene','swap'].includes(view)) view='home';
+  if(!['home','learn','found','album','stickers','review','round','scene','swap'].includes(view)) view='home';
   if (view==='learn' && lastRoute!=='learn') shelfOpen=true;
   lastRoute=view;
   drawHeader(); drawShelf();
-  const pages={home:homePage,learn:lessonPage,found:()=>foundPage(arg),album:albumPage,
+  const pages={home:homePage,learn:lessonPage,found:()=>foundPage(arg),album:albumPage,stickers:stickersPage,
     review:reviewPage,round:roundPage,scene:scenePage,swap:swapPage};
   main.innerHTML=pages[view]();
   if(view==='found' && raw!==lastRevealRoute) {
@@ -205,14 +211,20 @@ function render() {
   lastRevealRoute=view==='found'?raw:'';
   if(view==='learn') bindLesson();
   if(view==='scene') bindScene();
+  if(view==='stickers' && profile.show.picks.length) {
+    const picks=profile.show.picks, earned=SHOW.filter(s=>picks.includes(s.id));
+    stickerCards=mountCelebrationCards($('#sticker-cards'),earned,{
+      picks, finds:Object.keys(profile.cards), word:latestFind() || 'cat', musicEnabled:()=>profile.settings.fanfare
+    });
+  }
   // Fetch the Google libraries while the button is on screen, so its window opens the moment it is tapped.
   if($('#save-invite')) watchAccount();
-  document.title=({learn:'Sound & write',found:'Word found',album:'My word album',review:'Memory game',
+  document.title=({learn:'Sound & write',found:'Word found',album:'My word album',stickers:'My Stickers',review:'Memory game',
     round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view] || 'The Word Woods')+' · Readling';
 }
 function drawHeader() {
   const tabs=[['home','compass','Play'],['album','album','Album'],['review','memory','Memory']];
-  const active=['round','review','swap'].includes(view)?'review':['album','scene'].includes(view)?'album':'home';
+  const active=['round','review','swap'].includes(view)?'review':['album','scene','stickers'].includes(view)?'album':'home';
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
     <nav class="tabs" aria-label="Game pages">${tabs.map(([route,sym,text])=>`<button class="tab ${active===route?'selected':''}" ${active===route?'aria-current="page"':''} data-act="${route}">${icon(sym,18)}<span>${text}</span></button>`).join('')}</nav>
@@ -407,7 +419,7 @@ function albumPage() {
   const stages=stageProgress(profile), latest=stages.filter(s=>s.open).at(-1).stage;
   return `<div class="page-top">${back()}<span class="level">${icon('album',17)} ${n} / ${WORDS.length} collected</span></div>
     <div class="album-head"><div><h1>My word album</h1><p>${n?'Tap a find to hear its word and see your writing.':'Each word you discover earns a place on these pages.'}</p></div>
-    ${next==='start-round'?action('Play memory first',next,'play'):next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div>
+    <div class="actions">${action('My Stickers','stickers','spark','secondary')}${next==='start-round'?action('Play memory first',next,'play'):next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div></div>
     ${stages.map((progress,i)=>{
       const {stage,open,found}=progress;
       const got=stage.entries.filter(e=>profile.cards[e.word]).length, previous=STAGES[i-1];
@@ -428,6 +440,14 @@ function albumPage() {
     }).join('')}
     <div class="album-extra"><div>${icon('sprout',28)}<span><strong>Story clearing</strong><small>${n>=3?'Make a scene with your collected words.':'Opens when you collect 3 words.'}</small></span></div>
     ${n>=3?action('Make a scene','scene','arrow','secondary'):icon('lock',21)}</div>`;
+}
+function stickersPage() {
+  const n=profile.show.picks.length;
+  const emptyHint=profile.settings.sparkles?'Pick a sticker after you find a word or finish a memory round.':'Turn on the celebration show in Grown-ups to start picking stickers.';
+  return `<div class="page-top">${back('album','Back to my word album')}${n?`<span class="level">${icon('spark',16)} ${n} ${n===1?'sticker':'stickers'}</span>`:''}</div>
+    <div class="album-head"><div><h1>My Stickers</h1>${n?'<p>Tap a sticker to watch it move.</p>':''}</div></div>
+    ${n?'<ul id="sticker-cards" class="gallery-grid" aria-label="Earned stickers"></ul>':
+      `<section class="sticker-empty"><img src="./assets/album.webp" width="128" height="128" alt=""><h2>Your first sticker goes here</h2><p>${emptyHint}</p></section>`}`;
 }
 function reviewPage() {
   const n=count(), due=dueWords(profile).length, deal=Math.min(4,due||n), next=primaryAction();
@@ -593,6 +613,7 @@ function useSound(c) {
   playClip('letters',c);
 }
 function openDialog(html, label) {
+  stickerCards?.stop();
   if(!dialog.open) lastFocus=document.activeElement;
   $('#dialog-content').innerHTML=`<div class="dialog-top"><h2 id="dialog-title">${label}</h2><button class="round-button" data-act="dismiss" aria-label="Close">${icon('close',19)}</button></div>${html}`;
   dialog.setAttribute('aria-labelledby','dialog-title');
@@ -702,7 +723,7 @@ function bindScene() {
 }
 function dispatch(act,el) {
   switch(act) {
-    case 'home':case 'album':case 'review':case 'scene':go(act);break;
+    case 'home':case 'album':case 'review':case 'scene':case 'stickers':go(act);break;
     case 'shelf':shelfOpen=!shelfOpen;drawShelf();$('.shelf-toggle').focus({preventScroll:true});break;
     case 'parents':parents();break;
     case 'inspect-badge':inspectBadge(Number(el.dataset.stage),Number(el.dataset.rank));break;
@@ -737,8 +758,10 @@ function dispatch(act,el) {
       save();encores++;
       const theatre=$('.meadow-scenery'), panel=$('#show-add');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
-      if(panel) panel.outerHTML=showPanel();
-      announce(SHOW.find(s=>s.id===id).name+' added to your show.');
+      if(panel) {
+        panel.outerHTML=showPanel(SHOW.find(s=>s.id===id).name);
+        $('#sticker-receipt').focus({preventScroll:true});
+      }
       celebrate({word:pageWord(),alone:id});
       if(id==='music') playFanfare();
       break;
@@ -889,7 +912,7 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
 // A grown-up's preview plays on the page of her latest find, so her letter sounds and her picture are all in it.
 // `then` runs when the show has played to its end.
 function previewShow(options,then) {
-  const latest=Object.keys(profile.cards).sort((a,b)=>profile.cards[b].found-profile.cards[a].found)[0] || '';
+  const latest=latestFind();
   dialog.close();
   // The dialog redraws the page as it closes, so the show starts just after.
   setTimeout(()=>{
@@ -947,10 +970,13 @@ function trialDialog() {
     <div class="actions">${action('Play this show','trial-play','play')}${action('Back to Grown-ups','parents','','secondary')}</div>`,'Try out the show');
   $('#trial-timeline').addEventListener('toggle',e=>{trialTimeline=e.target.open;});
 }
-function showPanel() {
-  if(!profile.settings.sparkles || !showDue(profile)) return '';
-  return `<div class="show-add" id="show-add"><h2>Add to your show</h2><div class="show-picks">${showChoices(profile).map(id=>
-    `<button type="button" class="show-pick" data-act="add-to-show" data-pick="${id}"><canvas data-preview="${id}" aria-hidden="true"></canvas><span>${SHOW.find(s=>s.id===id).name}</span></button>`).join('')}</div></div>`;
+function showPanel(picked='') {
+  if(!profile.settings.sparkles) return '';
+  const choices=showDue(profile)?showChoices(profile):[];
+  if(!picked && !choices.length) return '';
+  return `<div id="show-add">${picked?`<p id="sticker-receipt" tabindex="-1">You picked ${escapeText(picked)}!</p>`:''}
+    ${choices.length?`<section class="show-add"><h2>Pick a sticker</h2><div class="show-picks">${choices.map(id=>
+      `<button type="button" class="show-pick" data-act="add-to-show" data-pick="${id}"><canvas data-preview="${id}" aria-hidden="true"></canvas><span>${SHOW.find(s=>s.id===id).name}</span></button>`).join('')}</div></section>`:''}</div>`;
 }
 function startPreviews() {
   const finds=WORDS.filter(w=>profile.cards[w]), word=pageWord();
@@ -960,7 +986,7 @@ function startPreviews() {
   if(fresh.length) setTimeout(()=>$('#show-add')?.scrollIntoView({block:'nearest',behavior:'smooth'}),550);
 }
 dialog.addEventListener('close',()=>{
-  if(classChanged || view==='home' || view==='album' || (view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles)) render();
+  if(classChanged || ['home','album','stickers'].includes(view) || (view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles)) render();
   classChanged=false;
   if(lastFocus?.isConnected) {lastFocus.focus({preventScroll:true});return;}
   if(lastFocus?.dataset.act==='inspect-badge') {

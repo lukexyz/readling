@@ -154,13 +154,37 @@ async function checkCelebrationSize() {
 }
 try {
   await checkCelebrationSize();
-  const fresh=await openGame();await act(fresh,'discover');await traceAndBlend(fresh,'cat');
+  const fresh=await openGame();
+  await act(fresh,'album');await act(fresh,'stickers');
+  await fresh.getByRole('heading',{name:'Your first sticker goes here'}).waitFor();
+  assert.equal(await fresh.locator('.gallery-card').count(),0);
+  await fresh.getByRole('button',{name:'Back to my word album'}).click();
+  await act(fresh,'discover');await traceAndBlend(fresh,'cat');
   const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
   assert((await starter.locator('img').getAttribute('src')).endsWith('/oak-1.webp'));
   await fresh.locator('.badge-award img').evaluate(im=>im.decode());
   await fresh.locator('summary.stars').click();
   const firstMeter=fresh.getByRole('progressbar',{name:'Progress to badge 2'});
   assert.deepEqual(await firstMeter.evaluate(meter=>[meter.value,meter.max]),[1,3]);
+  await fresh.keyboard.press('Escape');
+  await fresh.getByRole('heading',{name:'Pick a sticker'}).waitFor();
+  await fresh.locator('.show-pick[data-pick="rainbow"]').click();
+  await fresh.getByText('You picked Rainbow · Level 1!',{exact:true}).waitFor();
+  const earned=await saved(fresh);
+  await act(fresh,'album');await act(fresh,'stickers');await fresh.reload();
+  await fresh.getByRole('heading',{name:'My Stickers',exact:true}).waitFor();
+  assert.equal(await fresh.locator('#shelf').isVisible(),false);
+  assert.deepEqual(await fresh.locator('.gallery-card').evaluateAll(cards=>cards.map(c=>c.dataset.id)),['rainbow']);
+  const rainbow=fresh.getByRole('button',{name:/^Play Rainbow/});
+  await rainbow.click();
+  await fresh.waitForFunction(()=>{
+    const canvas=document.querySelector('.gallery-card.is-playing canvas');
+    return canvas && canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data.some((v,i)=>i%4===3 && v);
+  });
+  await rainbow.waitFor();
+  await rainbow.press('Enter');
+  await fresh.getByRole('button',{name:/^Stop Rainbow/}).click();
+  assert.deepEqual(await saved(fresh),earned,'sticker replays never earn or spend anything');
   await fresh.context().close();
   const original=STAGES[0].entries.map(e=>e.word), ink=[[[20,25],[60,65]]];
   const seed={version:1,stars:55,settings:{sounds:[...new Set(original.join(''))].sort().join(''),voice:false,memoryFirst:false},
@@ -188,8 +212,7 @@ try {
   await oldBadge.click();
   await p.locator('.badge-inspect img').evaluate(im=>im.decode());
   await act(p,'dismiss');
-  await oldBadge.waitFor();
-  assert(await oldBadge.evaluate(el=>el===document.activeElement));
+  await oldBadge.and(p.locator(':focus')).waitFor();
   await p.locator('[data-act=stage-discover][data-stage="2"]').click();
   await p.locator('.copy-word[aria-label=chip]').waitFor();
   await act(p,'parents');await p.locator('[data-class-sound=sh]').check();await act(p,'dismiss');
@@ -222,6 +245,10 @@ try {
   }
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
+  await p.locator('.show-pick[data-pick="music"]').click();
+  await p.getByText('You picked Music!',{exact:true}).waitFor();
+  await act(p,'album');await act(p,'stickers');
+  await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();
   await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-bonus]').click();
   await traceAndBlend(p,'shop');await p.getByText('Bonus find',{exact:true}).waitFor();
   await p.context().close();
@@ -232,5 +259,5 @@ try {
     await picture(later,w,'.card-dialog');await later.context().close();
   }
   assert.deepEqual(errors,[]);
-  console.log('Chromium: fresh cat; v1 ink + resumed pig; class filtering; ship unlock, sound shelf, finale and memory; bonus shop; cake and strawberry through tracing, blending, reveal and album.');
+  console.log('Chromium passed word and memory sticker awards, album replay, reading and writing, stage and badge progression, sound shelf and bonus words.');
 } finally {await browser.close();}

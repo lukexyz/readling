@@ -43,7 +43,7 @@ Keep the key outside the repository. The publisher can also read the local `ELEV
 
 ## Her celebration show
 
-Each new find and each finished memory round ends with a show that she builds herself. `MUSINGS.md` explains why it works the way it does.
+Each new find and each finished memory round ends with a show that she builds herself. When she earns a choice, she can pick a sticker. In **My word album → My Stickers**, she can tap any sticker she has picked to replay it, including earlier levels. `MUSINGS.md` explains why the show works the way it does.
 
 - `dist/game.js` holds the list of things she can add, in the order they are offered, as `SHOW`. It also decides when a choice is due and which two things are offered. Her show is saved in her album as `show`, and two tablets keep everything added on either.
 - `dist/finale.js` plays her letters, the celebration acts and her stars. When she earns a stage badge, it pins the badge in the meadow. It also draws the small previews on the choices.

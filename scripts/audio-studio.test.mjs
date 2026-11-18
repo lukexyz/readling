@@ -69,7 +69,7 @@ test('the library contains every original MP3 once, across seven groups', async 
   const expected = (await readdir(base, { recursive: true })).map(p => p.replaceAll('\\', '/'))
     .filter(p => p.endsWith('.mp3') && !p.startsWith('studio/')).map(p => '/assets/audio/' + p).sort();
   assert.deepEqual(CLIPS.map(c => c.path).sort(), expected);
-  assert.equal(new Set(CLIPS.map(c => c.id)).size, 79);
+  assert.equal(new Set(CLIPS.map(c => c.id)).size, expected.length);
   assert.equal(new Set(CLIPS.map(c => c.group)).size, 7);
 });
 test('listening is public while generation, drafts and publication require the owner', async () => {
@@ -149,7 +149,7 @@ test('story narration keeps voice directions and its own duration limits', async
   });
   assert.equal((await mutate('tale-cat','generate',{direction:'warm and curious'})).status,200);
 });
-test('an upload cannot change another clip and a slow blend must carry its own letter timings', async () => {
+test('an upload cannot change another clip and a slow blend must carry its own sound timings', async () => {
   const { mutate, request } = fixture();
   assert.equal((await mutate('letter-b', 'upload', Buffer.from('broken'))).status, 400);
   const { take } = await (await mutate('blend-bug', 'upload', wave)).json();
@@ -161,4 +161,14 @@ test('an upload cannot change another clip and a slow blend must carry its own l
   assert.deepEqual((await (await request(cuePath)).json()).bug, [.04, .12]);
   await mutate('blend-bug', 'publish', { base: saved.live.version, take: 'original' });
   assert.deepEqual((await (await request(cuePath)).json()).bug, [.32, .77]);
+});
+
+test('replacement blend timings use the sound count, including digraphs and longer words',async()=>{
+  const {mutate,request}=fixture();
+  for(const [word,cues] of [['ship',[.04,.12]],['stamp',[.03,.07,.12,.18]]]) {
+    const id='blend-'+word,{take}=await (await mutate(id,'upload',wave)).json();
+    assert.equal((await mutate(id,'publish',{base:'original',take,cues:cues.slice(1)})).status,400);
+    assert.equal((await mutate(id,'publish',{base:'original',take,cues})).status,200);
+    assert.deepEqual((await (await request('/assets/audio/blends/cues.json')).json())[word],cues);
+  }
 });

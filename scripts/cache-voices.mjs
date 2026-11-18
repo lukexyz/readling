@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {WORDS,TALES} from '../dist/game.js';
+import {STAGES,TALES} from '../dist/catalogue.js';
 import {PROMPTS,VOICE_ID} from '../dist/voice-lines.js';
 // Only this local publishing script talks to ElevenLabs. The public Site serves files.
 const root=fileURLToPath(new URL('../',import.meta.url));
@@ -15,7 +15,9 @@ const args=process.argv.slice(2);
 const verify=args.length===1 && args[0]==='--check';
 if(args.length && !verify && !(args.length===2 && args[0]==='--key-file')) throw Error('Use --check or --key-file <local file>.');
 const lines={...PROMPTS};
-for(const word of WORDS){lines['word-'+word]=word;lines['tale-'+word]=TALES[word];}
+// The starter collection uses the original narrator. Later words already have
+// human recordings; publishing that library must never buy hundreds of new takes.
+for(const {word} of STAGES[0].entries){lines['word-'+word]=word;if(TALES[word])lines['tale-'+word]=TALES[word];}
 const settings={model_id:'eleven_multilingual_v2',language_code:'en',voice_settings:{stability:.6,similarity_boost:.8,speed:.9}};
 const format='mp3_44100_128';
 const files={};

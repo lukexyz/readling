@@ -38,8 +38,10 @@ test('each original rainbow and firework can advance twice, without replaying it
   }
   for (const [,at,len] of play) assert(at+len<=integrated.total);
   const backdrop=finaleScenery(picks);
-  assert(backdrop.includes('rainbow-3-poster.webp') && backdrop.includes('rainbow2-3-poster.webp'));
-  assert(!backdrop.includes('rainbow-1-poster.webp'));
+  assert.deepEqual([...backdrop.matchAll(/data-meadow-rainbow="([^"]+)"/g)].map(m=>m[1]),['rainbow-3','rainbow2-3']);
+  assert(!finaleScenery([]).includes('data-meadow-rainbow'));
+  assert.match(finaleScenery(['rainbow']),/data-meadow-rainbow="rainbow"/);
+  assert.match(finaleScenery(picks,'rainbow-2'),/data-meadow-rainbow="rainbow-2"/);
 });
 
 test('all 15 rainbow and firework takes have complete sheets, distinct motion and gallery posters', async () => {

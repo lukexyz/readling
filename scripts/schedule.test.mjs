@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WORDS,DAY,newProfile,normalise,startLesson,collect,dueWords,reviewQueue,pictureChoices,recordRead} from '../dist/game.js';
+import {STAGES,DAY,newProfile,normalise,startLesson,collect,dueWords,reviewQueue,pictureChoices,recordRead} from '../dist/game.js';
+const WORDS=STAGES[0].entries.map(e=>e.word);
 // Checks for the memory schedule in dist/game.js. They use words from the first collection,
 // so they need updating if those words change.
 const MIN=60000, START=1e12;

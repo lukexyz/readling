@@ -92,7 +92,16 @@ main.wrap{padding-block:29px 40px;outline:none}
 .task-label{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
 .task-label .btn{font-size:13px;padding:8px 13px;min-height:41px}
 .task-label .ink-tools{flex-wrap:wrap;gap:0}
-.copy-word,.pad-row{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px!important}
+.copy-word,.pad-row{display:grid!important;grid-template-columns:repeat(var(--letters,3),minmax(0,1fr));gap:clamp(2px,1vw,10px)!important}
+.long-word .pad-row{grid-template-columns:minmax(0,280px);justify-content:center}
+.long-word .pad-row #inkpad{height:auto}
+.rack-wrap{flex:1;min-width:0}
+.word-teams{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:5px 12px 0}
+.word-teams .key{min-width:42px;padding:3px 7px}
+.album-stage,.locked-stage{padding:12px 0;border-top:1px solid var(--line)}
+.album-stage summary{cursor:pointer;font-weight:800;padding:6px 0}.album-stage summary small{font-weight:normal;color:var(--sub)}
+.album-stage .btn{margin:4px 0 12px}.album-stage>p{margin:4px 0 8px}
+.locked-stage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:var(--sub)}.locked-stage small{margin-left:auto}
 .copy-word .grapheme{width:100%!important;height:105px!important;border:1px solid var(--line);background:#f4f4e9}
 .copy-word .grapheme.current{border-color:#a99864;background:#f5eac4}
 .copy-word .letter-form{max-width:80px}
@@ -158,10 +167,12 @@ main.wrap{padding-block:29px 40px;outline:none}
 .victory .stamp{box-shadow:1px 3px 0 #49624c30,0 6px 12px #40543e1c;transform:rotate(-3deg)}
 .victory .found-word{margin-top:11px}
 .fireworks-screen{position:fixed;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;user-select:none}
-.prism-stage{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-.prism-playing .prism-stills{visibility:hidden}
-.meadow-arch{display:none}
-.missing-poster .meadow-arch{display:block;visibility:visible}
+@media (prefers-reduced-motion:no-preference){
+  .tracing .meadow-bands path{stroke-dasharray:1 1;animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s)) both}
+  .tracing .meadow-gilding{animation:meadow-glint .55s ease-out calc(var(--arch-start) + .9s) both}
+}
+@keyframes meadow-trace{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes meadow-glint{from{opacity:0}to{opacity:1}}
 .show-playing .reveal-art .stamp{animation:shown .18s ease-out var(--hit,0s) both}
 .show-playing .reward{animation:star-prize .5s ease-in-out calc(var(--hit,0s) + .2s)}
 .show-playing .show-add{animation:add-arrive .5s cubic-bezier(.2,.7,.3,1) var(--after,0s) both}

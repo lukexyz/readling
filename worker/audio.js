@@ -314,9 +314,9 @@ export function createAudioSite({ assets, artwork = {}, upload, clips, voice, cu
         const meta = { version: crypto.randomUUID(), take: id, source };
         if (clip.group === 'blend' && id !== 'original') {
           const points = body.cues;
-          if (!Array.isArray(points) || points.length !== 2 || !points.every(Number.isFinite) ||
-              !(points[0] > 0 && points[0] < points[1] && points[1] < duration)) {
-            throw new StudioError(400, 'Set both letter changes inside the new take.');
+          if (!Array.isArray(points) || points.length !== clip.units.length-1 ||
+              !points.every((n,i)=>Number.isFinite(n) && n>(points[i-1] || 0) && n<duration)) {
+            throw new StudioError(400, 'Set each sound change in order inside the new take.');
           }
           meta.cues = JSON.stringify(points);
         }
@@ -330,12 +330,16 @@ export function createAudioSite({ assets, artwork = {}, upload, clips, voice, cu
     if (!read) throw new StudioError(405, 'Unsupported method.');
     if (path === '/assets/audio/blends/cues.json' && env.BUCKET) {
       const adjusted = { ...cues };
-      const list = await env.BUCKET.list({ prefix: 'live/blend-', include: ['customMetadata'], limit: 100 })
-        .catch(() => ({ objects: [] }));
-      for (const item of list.objects) {
-        const m = metadata(item);
-        if (m.cues) adjusted[item.key.slice('live/blend-'.length)] = JSON.parse(m.cues);
-      }
+      let cursor;
+      do {
+        const list = await env.BUCKET.list({ prefix: 'live/blend-', include: ['customMetadata'], limit: 1000, cursor })
+          .catch(() => ({ objects: [] }));
+        for (const item of list.objects) {
+          const m = metadata(item);
+          if (m.cues) adjusted[item.key.slice('live/blend-'.length)] = JSON.parse(m.cues);
+        }
+        cursor=list.truncated?list.cursor:null;
+      } while(cursor);
       return Response.json(adjusted, { headers: { 'Cache-Control': 'no-cache' } });
     }
     const clip = byPath.get(path);

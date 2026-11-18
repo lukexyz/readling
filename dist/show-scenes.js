@@ -75,7 +75,8 @@ const SCENES={
     make(e) {
       const word=e.word || e.finds[0] || 'cat', pts=letterPoints(word), wide=word.length*88+8;
       const k=Math.min(e.h*.3/138,e.w*.84/wide), left=e.w/2-wide*k/2, top=Math.max(8,Math.min(e.th.y-138*k-6,e.h*.2));
-      return {flies:pts.map(p=>({tx:left+p.x*k,ty:top+p.y*k,sx:left+p.x*k+(e.rand()-.5)*220*e.u,go:p.letter*.3+e.rand()*.25,phase:e.rand()*tau}))};
+      const stagger=Math.min(.3,.9/Math.max(1,word.length-1));
+      return {flies:pts.map(p=>({tx:left+p.x*k,ty:top+p.y*k,sx:left+p.x*k+(e.rand()-.5)*220*e.u,go:p.letter*stagger+e.rand()*.25,phase:e.rand()*tau}))};
     },
     draw(e,s,t) {
       const ctx=e.ctx, u=e.u, leave=clamp01((t-2)/.6);

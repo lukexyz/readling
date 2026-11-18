@@ -50,12 +50,6 @@ Stars tell us she participated. Sound progress in Grown-ups shows, for each soun
 
 Each idea keeps its RL number. Give new ideas the next unused number and record when they were added in London time.
 
-### RL-1 · A celebration she can make her own
-
-*Added 16 November 2026 at 18:34 GMT*
-
-The moment I want is “Wow!” followed by “There’s my dolphin!” When she earns a reward, she chooses one of two animations and keeps it. If she picks the dolphin, it gets a whole beat to leap on its own. Then one older favourite joins in, and a big rainbow closes the show. The older pick rotates each time. Even when she’s collected thirty, the show still lasts just a few seconds and she can spot what she added.
-
 ### RL-2 · My Stickers
 
 *Added 16 November 2026 at 18:47 GMT*
@@ -76,7 +70,7 @@ After choosing a sticker, she could tap the spot on a canvas where she wants it 
 
 *Added 16 November 2026 at 18:55 GMT*
 
-Keep the twelve three-letter words as her first collection and grow the vocabulary in one TOML catalogue. Unlock later stages as she progresses. One stage might introduce the spelling **sh** in *ship* and *shop*. Another could offer longer words made from sounds she already knows. Adding a word to an unlocked stage should make it available to the game without editing a second word list in code.
+Keep the twelve three-letter words as her first collection and grow the vocabulary to at least **360 distinct playable words** (at least 348 new finds) in one TOML catalogue. Unlock later stages as she progresses. One stage might introduce the spelling **sh** in *ship* and *shop*. Another could offer longer words made from sounds she already knows. Adding a word to an unlocked stage should make it available to the game without editing a second word list in code.
 
 Group the words by stage. Each stage needs a number and each entry needs the word itself. The word inherits its stage number from the group. A small excerpt could look like this.
 
@@ -97,3 +91,15 @@ words = [
 ```
 
 All other fields are optional. Difficulty defaults to normal, tags default to an empty list, and a word counts as core unless its `bonus` flag is true. Theme and word type can stay unset. Leave absent keys out of the TOML and let the game supply those defaults when it reads the file. The loader can ignore unfamiliar keys so new metadata can be added without breaking older versions.
+
+## Dropped ideas
+
+### RL-1 · A celebration she can make her own
+
+*Added 16 November 2026 at 18:34 GMT · Dropped 16 November 2026 at 19:07 GMT*
+
+Her new pick already plays on its own, and visitors and big finishes take turns in her regular shows.
+
+**Original proposal**
+
+The moment I want is “Wow!” followed by “There’s my dolphin!” When she earns a reward, she chooses one of two animations and keeps it. If she picks the dolphin, it gets a whole beat to leap on its own. Then one older favourite joins in, and a big rainbow closes the show. The older pick rotates each time. Even when she’s collected thirty, the show still lasts just a few seconds and she can spot what she added.

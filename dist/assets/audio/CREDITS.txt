@@ -1,9 +1,50 @@
 Word Woods audio credits
 
-The story sentences, whole-word narration and four guide prompts were
+The starter story sentences, starter whole-word narration and four guide prompts were
 generated with ElevenLabs, then levelled for tablet speakers. The game
 plays bundled MP3s. The victory fanfare is original music for Readling.
 https://elevenlabs.io
+
+Later word collections
+----------------------
+The original twelve keep all their previous recordings. For later words, the
+whole word and slow blend are two edits of the same human pronunciation.
+The class shelf also uses short extracts from those recordings. Edits include
+trimming silence, levelling, fading, pitch-preserving time stretch and MP3
+encoding. PocketSphinx supplies alignment, not a synthetic voice.
+
+The source of each recording is marked in /words.toml: a later word with no
+voice field uses en_GB; en_US and commons select the sources described below.
+Derived recordings retain the licence of their source.
+
+GCompris / Art4Apps, British English pack: Art4Apps (Smart4Kids.com).
+CC BY-SA 3.0: https://creativecommons.org/licenses/by-sa/3.0/
+https://github.com/KDE/gcompris-data/tree/5cfd4e4a4236701ec5e9d04a1796b6837d945403/voices/en_GB/words
+
+GCompris, US English pack: Joshua Shreve, 2019. GPL version 3 or later.
+See GPL-3.0.txt alongside this file. The complete original recordings used
+for these edits are available under their word names at this pinned source:
+https://github.com/KDE/gcompris-data/tree/5cfd4e4a4236701ec5e9d04a1796b6837d945403/voices/en_US/words
+https://github.com/KDE/gcompris-data/blob/5cfd4e4a4236701ec5e9d04a1796b6837d945403/voices/LICENSE
+
+Chip, plug, belt and trunk: Dvortygirl, US English, CC BY-SA 3.0.
+https://commons.wikimedia.org/wiki/File:En-us-chip.ogg
+https://commons.wikimedia.org/wiki/File:En-us-plug.ogg
+https://commons.wikimedia.org/wiki/File:En-us-belt.ogg
+https://commons.wikimedia.org/wiki/File:En-us-trunk.ogg
+
+Extra story lines are rendered locally with the CMU Flite SLT voice.
+https://www.festvox.org/flite/
+
+Pictures: later words marked art = "woodcut" use illustrations made for
+Readling. All other later cards use the GCompris words-webp collection,
+copyright 2012 art4apps.org and 2022 Timothée Giet. CC BY-SA 4.0.
+Readling fits each image to a square of cream paper and encodes it as WebP.
+https://creativecommons.org/licenses/by-sa/4.0/
+https://github.com/KDE/gcompris-data/tree/5cfd4e4a4236701ec5e9d04a1796b6837d945403/words/words-webp
+
+Original collection
+-------------------
 
 The letter sounds, slow blending models and fallback word recordings use
 the sources below.

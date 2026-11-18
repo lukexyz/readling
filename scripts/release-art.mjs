@@ -3,6 +3,7 @@
 import {createHash} from 'node:crypto';
 import {readdir,readFile} from 'node:fs/promises';
 import {createInterface} from 'node:readline/promises';
+import {laterPictures} from './word-media.mjs';
 
 const origin='https://readling-word-woods.skuxnet.chatgpt.site';
 const base=new URL('../dist/assets/',import.meta.url);
@@ -13,7 +14,7 @@ const grant=(await input.question('')).trim();
 input.close();
 if (process.stdin.isTTY) process.stdin.setRawMode(false);
 if (!/^[a-f0-9]{64}$/.test(grant)) throw Error('Invalid release grant');
-const images=[];
+const images=[...laterPictures].map(path=>path.slice('assets/'.length));
 for (const folder of ['dolphins','ember-orca','flower-studies','woodland','prism']) {
   let names;
   try {names=await readdir(new URL(folder+'/',base));}

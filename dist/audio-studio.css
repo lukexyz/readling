@@ -58,6 +58,7 @@
 .cue-box p { width:100%; font-size:.9rem; }
 .cue-box label,.editor label[for=direction] { display:block; font-size:.85rem; font-weight:800; }
 .cue-box input { display:block; width:7em; }
+#cue-fields { display:flex; flex-wrap:wrap; gap:.75em; }
 .editor { margin-top:19px; padding-top:16px; border-top:1px solid var(--rule); }
 #access { margin:5px 0 10px; } #sign-in { margin-bottom:12px; }
 .editor textarea { display:block; width:100%; margin:5px 0 10px; resize:vertical; }

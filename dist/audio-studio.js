@@ -13,7 +13,7 @@ const visible = (id, yes) => { $(id).hidden = !yes; };
 const urlFor = (c, action = '') => '/api/studio/clip/' + c.id + (action ? '/' + action : '');
 const currentURL = () => state.clip.path + '?v=' + encodeURIComponent(state.live.version || 'original');
 const sourceName = () => state.live.take && state.live.take !== 'original' ? state.live.source :
-  isFile(state.clip) ? 'Human recording' : state.clip.group === 'music' ? 'Original music' : 'ElevenLabs narration';
+  state.clip.source || (isFile(state.clip) ? 'Human recording' : state.clip.group === 'music' ? 'Original music' : 'ElevenLabs narration');
 const defaults = {
   blend: 'Slow and connected, with the sounds flowing into one another.',
   word: 'Warm and clear, like reading to one child.',
@@ -160,8 +160,14 @@ function renderControls() {
 function choosePreview(take) {
   state.preview = take;
   if (state.clip.group === 'blend' && take && take.id !== 'original') {
-    const cue = state.live.cues && state.live.take === take.id ? state.live.cues : [take.duration / 3, take.duration * 2 / 3];
-    $('cue-two').value = cue[0].toFixed(3); $('cue-three').value = cue[1].toFixed(3);
+    const units=state.clip.units, live=state.live.take===take.id && state.live.cues;
+    $('cue-fields').replaceChildren(...units.slice(1).map((spelling,i)=>{
+      const label=document.createElement('label'), field=document.createElement('input');
+      label.textContent='Sound '+(i+2)+' · '+spelling.replace('_','…')+' (seconds)';
+      field.type='number';field.step='0.001';field.min='0.001';field.max=take.duration;
+      field.value=(live?.[i] ?? take.duration*(i+1)/units.length).toFixed(3);
+      label.append(field);return label;
+    }));
   }
   renderControls();
 }
@@ -234,7 +240,7 @@ async function edit(action) {
   try {
     if (action === 'publish') {
       if (!preview) return;
-      const cues = c.group === 'blend' && preview.id !== 'original' ? [Number($('cue-two').value), Number($('cue-three').value)] : null;
+      const cues = c.group === 'blend' && preview.id !== 'original' ? [...$('cue-fields').querySelectorAll('input')].map(el=>el.valueAsNumber) : null;
       message('Updating the game…');
       const result = await api(urlFor(c, 'publish'), jsonPost({ take: preview.id, base, cues }));
       if (ticket !== selected) return;

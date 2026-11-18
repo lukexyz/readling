@@ -1,4 +1,5 @@
-import { ALPHABET, TALES, WORDS } from './game.js';
+import { TALES, WORDS, unitsOf } from './catalogue.js';
+import { AUDIO_SOUNDS, SOUNDS, displaySound } from './phonics.js';
 import { PROMPTS } from './voice-lines.js';
 import { voiceFiles } from './assets/audio/narrator/catalogue.js';
 
@@ -7,13 +8,6 @@ export const GROUPS = {
   tale: 'Story lines', prompt: 'Game prompts', backup: 'Backup words', music: 'Music'
 };
 
-const sounds = [
-  ['æ','cat'], ['b','bug'], ['k','cat'], ['d','dog'], ['ɛ','hen'], ['f','fan'],
-  ['ɡ','log'], ['h','hat'], ['ɪ','pig'], ['dʒ','jam'], ['k','kit'], ['l','log'],
-  ['m','mat'], ['n','hen'], ['ɒ','pot'], ['p','pen'], ['kw','quit'], ['ɹ','red'],
-  ['s','sun'], ['t','cat'], ['ʌ','cup'], ['v','van'], ['w','wet'], ['ks','box'],
-  ['j','yes'], ['z','zip']
-];
 const promptNames = {
   'sound-write':'Say the sound', 'blend-word':'Slide under the letters',
   'memory-start':'Turn the card', 'round-done':'Round complete'
@@ -29,15 +23,17 @@ function clip(group, key, label, text, path, extra = {}) {
 }
 
 export const CLIPS = [
-  ...[...ALPHABET].map((letter, i) => {
-    const [ipa, example] = sounds[i];
-    return clip('letter', letter, letter === 'q' ? 'qu' : letter, '/' + ipa + '/',
+  ...AUDIO_SOUNDS.map(letter => {
+    const {ipa,example} = SOUNDS[letter];
+    return clip('letter', letter, letter === 'q' ? 'qu' : displaySound(letter), '/' + ipa + '/',
       '/assets/audio/letters/' + letter + '.mp3', { example, fullTake: fullHuman[letter] });
   }),
-  ...WORDS.map(w => clip('blend', w, w, w, '/assets/audio/blends/' + w + '.mp3')),
-  ...WORDS.map(w => clip('word', w, w, w, voiceFiles['word-' + w])),
-  ...WORDS.map(w => clip('tale', w, w, TALES[w], voiceFiles['tale-' + w])),
+  ...WORDS.map(w => clip('blend', w, w, w, '/assets/audio/blends/' + w + '.mp3', {units:unitsOf(w).map(u=>u.letters)})),
+  ...WORDS.map(w => clip('word', w, w, w, voiceFiles['word-' + w] || '/assets/audio/words/'+w+'.mp3',
+    {source:voiceFiles['word-'+w]?'ElevenLabs narration':'Human recording'})),
+  ...Object.entries(TALES).map(([w,line]) => clip('tale', w, w, line, voiceFiles['tale-' + w] || '/assets/audio/tales/'+w+'.mp3',
+    {source:voiceFiles['tale-'+w]?'ElevenLabs narration':'CMU SLT narration'})),
   ...Object.entries(PROMPTS).map(([id, line]) => clip('prompt', id, promptNames[id], line, voiceFiles[id])),
-  ...WORDS.map(w => clip('backup', w, w, w, '/assets/audio/words/' + w + '.mp3')),
+  ...WORDS.filter(w=>voiceFiles['word-'+w]).map(w => clip('backup', w, w, w, '/assets/audio/words/' + w + '.mp3')),
   clip('music', 'fanfare', 'Victory fanfare', '', '/assets/audio/music/fanfare.mp3')
 ];

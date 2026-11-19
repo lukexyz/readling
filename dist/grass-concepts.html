@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#214438">
+  <title>Meadow grasses · Readling</title>
+  <link rel="icon" href="./assets/readling.svg">
+  <link rel="stylesheet" href="./meadow-studies.css">
+  <script defer src="./meadow-studies.js"></script>
+</head>
+<body data-study="grass">
+  <a class="skip" href="#designs">Skip to designs</a>
+  <header class="mast"><div class="wrap mast-inner">
+    <a class="brand" href="./"><img alt="" src="./assets/readling.svg" width="37" height="37">Readling</a>
+    <nav aria-label="Concept galleries"><a href="./rainbow-concepts.html">Rainbows</a>
+        <a href="./grass-concepts.html" aria-current="page">Flower grass</a></nav>
+  </div></header>
+  <main class="wrap">
+    <div class="intro"><h1>Meadow grasses</h1><p>Four patches of grass, grown in Blender for the foot of a flower.</p></div>
+    <div class="tools" aria-label="Comparison controls">
+      <button type="button" id="together" class="primary"><i class="symbol" aria-hidden="true"></i><span>Play together</span></button>
+      <label class="flower-choice">Flower <select id="flower"><option value="poppy">Scarlet poppy</option><option value="moonflower">Moonflower</option><option value="sunflower">Sunflower</option><option value="none">Grass only</option></select></label><label class="check"><input type="checkbox" id="in-meadow"> In the word meadow</label>
+    </div>
+    <div class="designs" id="designs" aria-label="Flower grass concepts"></div>
+    <noscript>Turn on JavaScript to play these studies.</noscript>
+  </main>
+  <dialog id="details" aria-labelledby="detail-name">
+    <div class="detail-heading"><h2 id="detail-name"></h2><button type="button" id="close" aria-label="Close enlarged preview">Close</button></div>
+    <div class="detail-body"></div>
+  </dialog>
+</body>
+</html>

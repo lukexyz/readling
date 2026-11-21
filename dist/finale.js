@@ -494,7 +494,6 @@ function launchFinale(stage,options={}) {
         arch.classList.add('tracing');
       }
       stage.style.setProperty('--hit',e.hit+'s');
-      stage.style.setProperty('--after',Math.max(0,e.total-.5)+'s');
       stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
     }
     const poster=PARTS[alone]?.poster;

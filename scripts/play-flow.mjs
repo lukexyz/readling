@@ -48,15 +48,18 @@ async function picture(p,word,owner) {
   await img.scrollIntoViewIfNeeded();
   await img.evaluate(async im=>{await im.decode();if(!im.naturalWidth)throw Error('Picture did not decode');});
 }
+async function writeStroke(p) {
+  const pad=p.locator('#inkpad');await pad.scrollIntoViewIfNeeded();
+  const box=await pad.boundingBox();assert(box.width>70,'writing pad remains usable on a phone');
+  await p.mouse.move(box.x+box.width*.4,box.y+box.height*.3);await p.mouse.down();
+  await p.mouse.move(box.x+box.width*.6,box.y+box.height*.65,{steps:4});await p.mouse.up();
+}
 async function traceAndBlend(p,word,first=0) {
   await p.locator('.copy-word[aria-label="'+word+'"]').waitFor();
   for(let i=first;i<word.length;i++){
     const pos=unitsOf(word).findIndex(u=>u.positions.includes(i));
     assert.equal(await p.locator('.copy-word .current').count(),unitsOf(word)[pos].positions.length);
-    const pad=p.locator('#inkpad');await pad.scrollIntoViewIfNeeded();
-    const b=await pad.boundingBox();assert(b.width>70,'writing pad remains usable on a phone');
-    await p.mouse.move(b.x+b.width*.4,b.y+b.height*.3);await p.mouse.down();
-    await p.mouse.move(b.x+b.width*.6,b.y+b.height*.65,{steps:4});await p.mouse.up();
+    await writeStroke(p);
     await act(p,'next-sound');
   }
   assert.equal(await p.locator('#blend-track').getAttribute('aria-valuemax'),String(unitsOf(word).length));
@@ -220,15 +223,117 @@ async function checkMixedMeadow() {
   for(const poster of await posters.all()) assert(await poster.isVisible());
   await page.context().close();
 }
+async function checkWritingBack() {
+  const p=await openGame(before('mat'));
+  await act(p,'discover');
+  const back=p.locator('[data-act="previous-sound"]');
+  assert.equal(await back.count(),0);
+  await writeStroke(p);await act(p,'next-sound');await writeStroke(p);
+  const ink=(await saved(p)).lesson.ink;
+  assert(ink[0].length && ink[1].length);
+  for(const [width,height] of [[1440,900],[1024,640],[844,390],[390,740],[320,568]]) {
+    await p.setViewportSize({width,height});
+    const [prev,next]=await p.locator('.rest-pad>button').evaluateAll(buttons=>buttons.map(button=>{
+      const cell=button.parentElement.getBoundingClientRect(),box=button.getBoundingClientRect();
+      return {act:button.dataset.act,inner:button.dataset.act==='previous-sound'?cell.right-box.right:box.left-cell.left,
+        bottom:cell.bottom-box.bottom,width:box.width,height:box.height};
+    }));
+    assert.equal(prev.act,'previous-sound');assert.equal(next.act,'next-sound');
+    assert(prev.inner>0 && Math.abs(prev.inner-next.inner)<1 && Math.abs(prev.bottom-next.bottom)<1);
+    assert(Math.min(prev.height,next.height,prev.width,next.width)>=44 && Math.abs(next.width-prev.width)<1 && Math.abs(next.height-prev.height)<1,
+      `Writing buttons at ${width}×${height}: ${JSON.stringify({prev,next})}`);
+  }
+  await back.click();await p.locator('#inkpad:focus').waitFor();
+  assert.deepEqual((await saved(p)).lesson.ink,ink);
+  await act(p,'clear-ink');await act(p,'next-sound');await p.reload();
+  assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
+  assert.equal(await p.locator('#inkpad .ink-lines path').count(),ink[1].length);
+  await act(p,'next-sound');await p.getByRole('button',{name:'Say my word!'}).click();
+  await p.getByRole('button',{name:'Back to letter t'}).click();
+  assert.equal((await saved(p)).lesson.i,2);
+  await p.context().close();
+}
+async function checkLandscapeRewards() {
+  const album=before('ship');
+  album.settings.sparkles=true;
+  album.show={tasks:8,picks:['rainbow','music','stars','flowers']};
+  const p=await openGame(album,'no-preference',{viewport:{width:1024,height:640},hasTouch:true});
+  await act(p,'discover');
+  await p.evaluate(()=>document.fonts.ready);
+  async function fits(locator) {
+    const controls=await locator.all();
+    assert(controls.length,'expected a visible control');
+    for(const el of controls) {
+      const box=await el.evaluate(node=>{
+        const b=node.getBoundingClientRect(), v=visualViewport;
+        return {left:b.left-v.offsetLeft,top:b.top-v.offsetTop,right:b.right-v.offsetLeft,bottom:b.bottom-v.offsetTop,
+          width:b.width,height:b.height,screenWidth:v.width,screenHeight:v.height};
+      });
+      const label=await el.getAttribute('aria-label') || await el.textContent();
+      assert(box.width>0 && box.height>0 && box.left>=0 && box.top>=0 && box.right<=box.screenWidth+1 && box.bottom<=box.screenHeight+1,
+        label+' '+JSON.stringify(box));
+    }
+  }
+  async function resize(width,height) {
+    await p.setViewportSize({width,height});
+    await p.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+  }
+  await act(p,'next-sound');
+  for(const [width,height] of [[1024,600],[1133,650],[1180,700],[1280,720],[844,390]]) {
+    await resize(width,height);
+    await fits(p.locator('#inkpad, [data-act="previous-sound"], [data-act="next-sound"]'));
+  }
+  await act(p,'previous-sound');
+  await resize(1024,640);
+  for(let i=0;i<3;i++) await act(p,'next-sound');
+  await p.getByRole('button',{name:'Say my word!',exact:true}).click();
+  await fits(p.locator('[data-act="reveal"]'));
+  // Hold the artwork beyond the nominal show duration. The choice must wait for the actual end.
+  let releaseArt;
+  const gate=new Promise(resolve=>{releaseArt=resolve;});
+  await p.route('**/assets/flower-studies/poppy-1.json',async route=>{await gate;await route.fallback();});
+  const requested=p.waitForRequest('**/assets/flower-studies/poppy-1.json');
+  await p.clock.install();
+  await act(p,'reveal');await requested;
+  const picker=p.getByRole('dialog',{name:'Pick a sticker'});
+  await p.clock.fastForward(25000);
+  assert.equal(await picker.isVisible(),false);
+  assert.equal(await p.evaluate(()=>scrollY),0);
+  releaseArt();
+  await p.locator('.found.show-playing').waitFor();
+  assert.equal(await picker.isVisible(),false);
+  await picker.waitFor({timeout:20000});
+  assert.equal(await p.locator('.fireworks-screen').count(),0);
+  assert.equal(await p.evaluate(()=>scrollY),0);
+  await fits(picker.locator('button'));
+  await resize(768,1024);await fits(picker.locator('button'));
+  await resize(1024,640);await fits(picker.locator('button'));
+  const earned=await saved(p);
+  await p.keyboard.press('Escape');
+  const reopen=p.getByRole('button',{name:'Pick a sticker',exact:true});
+  await reopen.and(p.locator(':focus')).waitFor();
+  await fits(reopen);
+  await fits(p.getByRole('button',{name:'Next word!',exact:true}));
+  assert.deepEqual(await saved(p),earned);
+  await act(p,'encore');await act(p,'album');
+  await p.clock.fastForward(25000);
+  assert.equal(await picker.isVisible(),false,'leaving a celebration cancels its pending choice');
+  await p.context().close();
+}
 try {
+  await checkWritingBack();
   await checkCelebrationSize();
   await checkMixedMeadow();
+  await checkLandscapeRewards();
   const fresh=await openGame();
   await act(fresh,'album');await act(fresh,'stickers');
   await fresh.getByRole('heading',{name:'Your first sticker goes here'}).waitFor();
   assert.equal(await fresh.locator('.gallery-card').count(),0);
   await fresh.getByRole('button',{name:'Back to my word album'}).click();
   await act(fresh,'discover');await traceAndBlend(fresh,'cat');
+  const picker=fresh.getByRole('dialog',{name:'Pick a sticker'});
+  await picker.getByRole('button',{name:'Later'}).click();
+  assert.deepEqual((await saved(fresh)).show.picks,[]);
   const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
   assert((await starter.locator('img').getAttribute('src')).endsWith('/oak-1.webp'));
   await fresh.locator('.badge-award img').evaluate(im=>im.decode());
@@ -236,8 +341,8 @@ try {
   const firstMeter=fresh.getByRole('progressbar',{name:'Progress to badge 2'});
   assert.deepEqual(await firstMeter.evaluate(meter=>[meter.value,meter.max]),[1,3]);
   await fresh.keyboard.press('Escape');
-  await fresh.getByRole('heading',{name:'Pick a sticker'}).waitFor();
-  await fresh.locator('.show-pick[data-pick="rainbow"]').click();
+  await act(fresh,'pick-sticker');
+  await picker.locator('.show-pick[data-pick="rainbow"]').click();
   await fresh.getByText('You picked Rainbow · Level 1!',{exact:true}).waitFor();
   const earned=await saved(fresh);
   await act(fresh,'album');await act(fresh,'stickers');await fresh.reload();
@@ -314,7 +419,7 @@ try {
   }
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
-  await p.locator('.show-pick[data-pick="music"]').click();
+  await p.getByRole('dialog',{name:'Pick a sticker'}).locator('[data-pick="music"]').click({timeout:20000});
   await p.getByText('You picked Music!',{exact:true}).waitFor();
   await act(p,'album');await act(p,'stickers');
   await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();

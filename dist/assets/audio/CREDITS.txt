@@ -49,11 +49,12 @@ Original collection
 The letter sounds, slow blending models and fallback word recordings use
 the sources below.
 
-The letter shelf uses short sounds from Curious Learning's Feed the Monster
-Australian English recordings. That pack also supplies cat, mat, bug and pig.
-Hen comes from the project's US English recordings. The published English
-adaptation credits Curious Learning, building on the original Feed the Monster
-project by Apps Factory, CET and the International Rescue Committee.
+Most alphabet sounds come from Curious Learning's Feed the Monster Australian
+English recordings. That pack also supplies cat, mat, bug and pig. The h sound
+is the opening breath from the US English recording of hen. That recording
+also supplies the whole word. The published English adaptation credits Curious
+Learning, building on the original Feed the Monster project by Apps Factory,
+CET and the International Rescue Committee.
 
 Audio sources and attribution notice
 https://github.com/curiouslearning/ftm-languagepacks/tree/7be4c9c922a6266b11f3f7821bb8ca6574f2cacd/AUSTRAILIANENGLISH/sounds

@@ -9,12 +9,14 @@ import {cloud} from './cloud.js';
 const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
 const dialog=$('#dialog');
+const stickerPicker=$('#sticker-picker');
+const compactShelf=matchMedia('(max-width:590px), (orientation:landscape) and (max-height:520px)');
 const sound = new Audio();
 sound.preload='auto';
 let blendCues={};
 fetch('./assets/audio/blends/cues.json').then(r=>r.json()).then(cues=>{blendCues=cues;}).catch(()=>{});
 let profile=readSaved();
-let shelfOpen=matchMedia('(min-width: 720px)').matches;
+let shelfOpen=!compactShelf.matches;
 let view='';
 let lastFound=null;
 let round=null;
@@ -39,7 +41,6 @@ let syncTrouble=false;
 let playing=null;
 let starsHeld=0;
 let encores=0;
-let previewTimer=0;
 let stickerCards=null;
 let showPicks=null;
 let trial=null;
@@ -187,7 +188,8 @@ function go(route) {
 }
 function render() {
   stickerCards?.destroy();stickerCards=null;
-  cancelFinale();clearTimeout(previewTimer);playing=null;
+  if(stickerPicker.open) stickerPicker.close();
+  cancelFinale();playing=null;
   const raw=location.hash.slice(1);
   const [route,arg]=raw.split('/');
   view=route || 'home';
@@ -197,7 +199,7 @@ function render() {
   if ((view==='scene' && count()<3) || (view==='swap' && !swapPairs(profile).length)) view='album';
   if (view==='round' && !round) view='review';
   if(!['home','learn','found','album','stickers','review','round','scene','swap'].includes(view)) view='home';
-  if (view==='learn' && lastRoute!=='learn') shelfOpen=true;
+  if (view==='learn' && lastRoute!=='learn') shelfOpen=!compactShelf.matches;
   lastRoute=view;
   drawHeader(); drawShelf();
   const pages={home:homePage,learn:lessonPage,found:()=>foundPage(arg),album:albumPage,stickers:stickersPage,
@@ -206,7 +208,7 @@ function render() {
   if(view==='found' && raw!==lastRevealRoute) {
     const fresh=lastFound?.word===arg && lastFound.fresh;
     const rank=fresh?revealBadge(lastFound):0;
-    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:rank,badgeSrc:rank?badgeArt(stageOf(arg),rank):''});
+    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:rank,badgeSrc:rank?badgeArt(stageOf(arg),rank):'',offerSticker:fresh});
   }
   lastRevealRoute=view==='found'?raw:'';
   if(view==='learn') bindLesson();
@@ -219,8 +221,9 @@ function render() {
   }
   // Fetch the Google libraries while the button is on screen, so its window opens the moment it is tapped.
   if($('#save-invite')) watchAccount();
-  document.title=({learn:'Sound & write',found:'Word found',album:'My word album',stickers:'My Stickers',review:'Memory game',
-    round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view] || 'The Word Woods')+' · Readling';
+  const pageTitle={learn:'Sound & write',found:'Word found',album:'My word album',stickers:'My Stickers',review:'Memory game',
+    round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view];
+  document.title=pageTitle ? pageTitle+' · Readling' : 'Readling · The Word Woods';
 }
 function drawHeader() {
   const tabs=[['home','compass','Play'],['album','album','Album'],['review','memory','Memory']];
@@ -271,7 +274,7 @@ function stamp(inside, kind='') {return `<span class="stamp ${kind}"><span class
 function homePage() {
   const n=count(), next=primaryAction(), shown=eligibleLesson()?profile.lesson.word:findNext(profile);
   const ready=dueWords(profile).length;
-  const cta=next==='start-round'?'Play memory first':eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Find another word':'Start exploring';
+  const cta=next==='start-round'?'Play memory first':eligibleLesson()?'Continue my word':next==='parents'?'Choose sounds':next==='review'?'Play memory':n?'Next word!':'Start exploring';
   const heroMeta=next==='start-round'?ready+(ready===1?' card':' cards')+' ready to revisit':shown?stageLabel(shown):n===WORDS.length?'Every word discovered':'Woodland word collection';
   return `<section class="hero">
     <img class="hero-art" src="./assets/hero.webp" alt="A rabbit reading under an oak tree in the moonlit woods" fetchpriority="high">
@@ -360,13 +363,14 @@ function lessonPage() {
   const l=profile.lesson, total=l.word.length;
   const units=unitsOf(l.word), current=unitAt(l.word,l.i), u=units[current];
   const isBlend=l.i===total;
+  const previousLetter=l.i>0?`<button type="button" class="back" data-act="previous-sound" aria-label="Back to letter ${l.word[l.i-1]}">${icon('back',19)} Back</button>`:'';
   const top=`<div class="page-top">${back()}<span class="level">${icon('compass',16)} ${stageLabel(l.word)}</span></div>`;
   if(isBlend) return top+`<section class="activity blend-activity">
     <div class="activity-heading"><div class="kicker">${icon('book',16)} Blend the sounds</div><h1>Say the whole word</h1>
     <p>Slide under the letters and read them together.</p></div>
     <div class="blend-work">${wordPrint(l.word,-1,{cls:'blend-print'})}
     <div class="blend-track" id="blend-track" role="slider" tabindex="0" aria-label="Blend from left to right" aria-valuemin="0" aria-valuemax="${units.length}" aria-valuenow="0"><span class="track-dots"></span><span class="track-thumb">${icon('arrow',21)}</span></div></div>
-    <div class="actions centre">${action('Blend with me','blend-help','sound','secondary')}${action('Reveal my word','reveal','spark')}</div>
+    <div class="actions centre">${previousLetter}${action('Blend with me','blend-help','sound','secondary')}${action('Reveal my word','reveal','spark')}</div>
     </section>`;
   const c=l.word[l.i];
   const paths=forms[c];
@@ -380,7 +384,7 @@ function lessonPage() {
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
     <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?total>3?'':`<div class="rest-pad">
         <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg>
-        ${j===l.i+1?action('Next','next-sound'):''}</div>`:
+        ${j===l.i-1?previousLetter:j===l.i+1?action('Next','next-sound'):''}</div>`:
       `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">
         <path class="midline" d="M0 48H180"/><path class="baseline" d="M0 95H180"/>
         <g transform="translate(42 0)" class="guide-lines">${paths.map(d=>`<path d="${d}"/>`).join('')}</g>
@@ -390,7 +394,7 @@ function lessonPage() {
       </svg></div>`).join('')}
     </div></div>
     <div class="activity-bottom"><span class="progress-dots" aria-label="Letter ${l.i+1} of ${total}">${[...l.word].map((_,i)=>`<i class="${i<=l.i?'filled':''}"></i>`).join('')}</span>
-    ${l.i===total-1?action('Blend my word','next-sound'):total>3?action('Next','next-sound'):''}</div></section>`;
+    ${total>3 || l.i===total-1?`<div class="letter-nav">${total>3?previousLetter:''}${action(l.i===total-1?'Say my word!':'Next','next-sound')}</div>`:''}</div></section>`;
 }
 function foundPage(word) {
   const fresh=lastFound?.word===word && lastFound.fresh;
@@ -400,13 +404,13 @@ function foundPage(word) {
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?(ENTRIES.get(word).bonus?'Bonus find':'New discovery'):'In your album'}</div>
       <h1>${fresh?'Look what you found!':'A woodland find'}</h1>
       <div class="show-stage">${profile.settings.sparkles?finaleScenery(profile.show.picks):''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
-      <div class="found-word"><strong>${word}</strong><button class="round-button" data-act="read-word" data-word="${word}" aria-label="Hear ${word}">${icon('sound',20)}</button></div>
+      <div class="found-details"><div class="found-word"><strong>${word}</strong><button class="round-button" data-act="read-word" data-word="${word}" aria-label="Hear ${word}">${icon('sound',20)}</button></div>
       <p>${TALES[word]?escapeText(TALES[word]):'What do you notice in your picture?'}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
-      ${fresh?badgeAward(word,lastFound):''}
-      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Find another word',next):action('Play memory','review')}</div>
-      ${showPanel()}${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
+      ${fresh?badgeAward(word,lastFound):''}</div>
+      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${stickerReward()}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Next word!',next):action('Play memory','review')}</div>
+      ${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
 }
 function inkLabel(word) {
   const ink=profile.cards[word]?.ink;
@@ -419,7 +423,7 @@ function albumPage() {
   const stages=stageProgress(profile), latest=stages.filter(s=>s.open).at(-1).stage;
   return `<div class="page-top">${back()}<span class="level">${icon('album',17)} ${n} / ${WORDS.length} collected</span></div>
     <div class="album-head"><div><h1>My word album</h1><p>${n?'Tap a find to hear its word and see your writing.':'Each word you discover earns a place on these pages.'}</p></div>
-    <div class="actions">${action('My Stickers','stickers','spark','secondary')}${next==='start-round'?action('Play memory first',next,'play'):next==='discover'?action(n?'Find a word':'Find my first word','discover','play'):''}</div></div>
+    <div class="actions">${action('My Stickers','stickers','spark','secondary')}${next==='start-round'?action('Play memory first',next,'play'):next==='discover'?action(n?'Next word!':'Find my first word','discover','play'):''}</div></div>
     ${stages.map((progress,i)=>{
       const {stage,open,found}=progress;
       const got=stage.entries.filter(e=>profile.cards[e.word]).length, previous=STAGES[i-1];
@@ -456,7 +460,7 @@ function reviewPage() {
     <section class="review-intro activity"><img class="mode-art" src="./assets/memory.webp" alt="">
       <h1>Memory game</h1><p>${n>1?'Say the word on a card, turn it over, then tap its picture.':n?'Memory needs two words. Find one more to play.':'Find a word in the woods to make your first memory card.'}</p>
       ${n>1?`<div class="round-meta">${icon('repeat',16)} ${due?due+' ready to revisit':'A practice round'} · Up to ${deal} ${deal===1?'card':'cards'}</div>`:''}
-      ${n>1?action('Play a round','start-round','play'):action(next==='parents'?'Choose class sounds':n?'Find another word':'Find my first word',next,'play')}
+      ${n>1?action('Play a round','start-round','play'):action(next==='parents'?'Choose class sounds':n?'Next word!':'Find my first word',next,'play')}
     </section>
     ${pairs.length?`<button class="mode-row" data-act="start-swap">${icon('pen',26)}<span><strong>Sound swap</strong><small>Change one sound to make a new word.</small></span>${icon('arrow',21)}</button>`:''}`;
 }
@@ -475,7 +479,7 @@ function roundPage() {
     ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map(w=>stamp(wordImage(w))).join('')}</div></div>`:
       `<div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>`}
     <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
-    ${onward?action(eligibleLesson()?'Continue my word':'Find another word','discover'):''}</div>${showPanel()}</section>`;
+    ${stickerReward()}${onward?action(eligibleLesson()?'Continue my word':'Next word!','discover'):''}</div></section>`;
   }
   const w=round.words[round.i];
   const top=`<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
@@ -485,12 +489,12 @@ function roundPage() {
     <div class="actions centre">${action(round.i+1<round.words.length?'Next card':'Finish round','next-card')}</div></section>`;
   // The pictures stay hidden until she has tried the print, so they cannot do the reading for her.
   if(round.turned) return top+`<h1>Which one is it?</h1>
-    <div class="read-card">${wordPrint(w)}</div>
-    <div class="swap-prompt"><p>Tap the picture for your word.</p></div>
+    <div class="memory-match"><div><div class="read-card">${wordPrint(w)}</div>
+    <div class="swap-prompt"><p>Tap the picture for your word.</p></div></div>
     <div class="picture-picks">${round.options.map(o=>{
       const tried=round.tried.includes(o);
       return `<button class="picture-pick ${tried?'try-again':''}" data-act="pick" data-word="${o}" ${tried?'disabled':''}>${stamp(wordImage(o))}</button>`;
-    }).join('')}</div>
+    }).join('')}</div></div>
     <div class="actions centre">${action('Read with me','review-help','sound','secondary')}</div></section>`;
   return top+`<h1>Can you read it?</h1>
     <button class="face-down" data-act="flip" aria-label="Read ${w} and turn the card">${wordPrint(w)}<span>${icon('flip',18)} Tap to turn</span></button>
@@ -733,10 +737,12 @@ function dispatch(act,el) {
     case 'letter-help':{const {word,i}=profile.lesson;useSound(soundsOf(word)[unitAt(word,i)]);break;}
     case 'show-stroke':traceDemo();break;
     case 'clear-ink':profile.lesson.ink[profile.lesson.i]=[];$('.ink-lines',$('#inkpad')).replaceChildren();save();break;
-    case 'next-sound': {
-      stopSound();const l=profile.lesson;
-      if(!l || l.i>=l.word.length) break;
-      l.i++;save();render();
+    case 'previous-sound':case 'next-sound': {
+      const l=profile.lesson;
+      if(!l) break;
+      const target=l.i+(act==='previous-sound'?-1:1);
+      if(target<0 || target>l.word.length) break;
+      stopSound();l.i=target;save();render();
       if(l.i===l.word.length) {afterNavigate();narrate('blend-word');}
       else {$('#inkpad').focus({preventScroll:true});announce(`Write ${l.word[l.i]}. Sound ${unitAt(l.word,l.i)+1}.`);}
       break;
@@ -752,17 +758,18 @@ function dispatch(act,el) {
     }
     case 'encore':encores++;if(!celebrate({word:location.hash.split('/')[1]})) playFanfare();break;
     case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);if(!playing)playFanfare();}break;
+    case 'pick-sticker':openStickerPicker();break;
     case 'add-to-show':{
       const id=el.dataset.pick;
-      if(!addToShow(profile,id)) break;
+      if(!stickerPicker.open || !addToShow(profile,id)) break;
       save();encores++;
-      const theatre=$('.meadow-scenery'), panel=$('#show-add');
+      stickerPicker.close();
+      const theatre=$('.meadow-scenery'), receipt=$('#sticker-receipt');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
-      if(panel) {
-        panel.outerHTML=showPanel(SHOW.find(s=>s.id===id).name);
-        $('#sticker-receipt').focus({preventScroll:true});
-      }
-      celebrate({word:pageWord(),alone:id});
+      $('[data-act="pick-sticker"]').hidden=!showDue(profile);
+      receipt.textContent='You picked '+SHOW.find(s=>s.id===id).name+'!';
+      receipt.hidden=false;receipt.focus({preventScroll:true});
+      celebrate({word:pageWord(),alone:id,offerSticker:true});
       if(id==='music') playFanfare();
       break;
     }
@@ -815,7 +822,7 @@ function dispatch(act,el) {
       if(round.i<round.words.length) dealCard(); else {warm=true;finishTask(profile);save();}
       render();main.focus({preventScroll:true});
       if(round.i===round.words.length) {
-        celebrate({word:round.words.at(-1),spell:false,stars:round.words.length,narrated:profile.settings.voice});
+        celebrate({word:round.words.at(-1),spell:false,stars:round.words.length,narrated:profile.settings.voice,offerSticker:true});
         narrate('round-done',{end:playFanfare});
       }
       break;
@@ -852,7 +859,7 @@ document.addEventListener('pointerdown',e=>{
 });
 document.addEventListener('keydown',e=>{
   const menu=$('.badge-menu[open]');
-  if(e.key==='Escape' && menu && !dialog.open) {
+  if(e.key==='Escape' && menu && !dialog.open && !stickerPicker.open) {
     menu.open=false;menu.querySelector('summary').focus();e.preventDefault();
   }
 });
@@ -891,22 +898,31 @@ function drawStars() {
 }
 // Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
 // The stars she has just earned wait out of her total until the show counts them in.
-function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null}={}) {
+function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null,offerSticker=false}={}) {
   const stage=$('.victory');
   if(!stage) return null;
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   const sounds=soundsOf(word);
+  const trigger=$('[data-act="pick-sticker"]:not([hidden])',stage);
+  function offer() {
+    if(offerSticker && trigger?.isConnected) openStickerPicker();
+  }
   const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',sounds[i]),
     onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
     onStar:()=>{if(starsHeld){starsHeld--;drawStars();}},
-    onEnd:finished=>{if(starsHeld){starsHeld=0;drawStars();}ended?.(finished);}});
+    onEnd:finished=>{
+      if(starsHeld){starsHeld=0;drawStars();}
+      if(trigger) trigger.disabled=false;
+      ended?.(finished);
+      if(finished) offer();
+    }});
+  if(trigger) trigger.disabled=!!show;
+  // Reduced motion skips the show. Let navigation finish focusing the page first.
+  if(!show && offerSticker) queueMicrotask(offer);
   if(!alone) playing=show;
   if(show && held){starsHeld=stars;drawStars();}
-  // The choices wake up as the show ends, so their small previews do not run underneath it.
-  clearTimeout(previewTimer);
-  previewTimer=setTimeout(startPreviews,show?Math.max(0,show.total*1000-500):0);
   return show;
 }
 // A grown-up's preview plays on the page of her latest find, so her letter sounds and her picture are all in it.
@@ -975,21 +991,25 @@ function trialDialog() {
     <div class="actions">${action('Play this show','trial-play','play')}${action('Back to Grown-ups','parents','','secondary')}</div>`,'Try out the show');
   $('#trial-timeline').addEventListener('toggle',e=>{trialTimeline=e.target.open;});
 }
-function showPanel(picked='') {
-  if(!profile.settings.sparkles) return '';
-  const choices=showDue(profile)?showChoices(profile):[];
-  if(!picked && !choices.length) return '';
-  return `<div id="show-add">${picked?`<p id="sticker-receipt" tabindex="-1">You picked ${escapeText(picked)}!</p>`:''}
-    ${choices.length?`<section class="show-add"><h2>Pick a sticker</h2><div class="show-picks">${choices.map(id=>
-      `<button type="button" class="show-pick" data-act="add-to-show" data-pick="${id}"><canvas data-preview="${id}" aria-hidden="true"></canvas><span>${SHOW.find(s=>s.id===id).name}</span></button>`).join('')}</div></section>`:''}</div>`;
+function stickerReward() {
+  if(!profile.settings.sparkles || !showDue(profile)) return '';
+  return `<span id="sticker-receipt" tabindex="-1" hidden></span>${action('Pick a sticker','pick-sticker','spark','secondary')}`;
 }
-function startPreviews() {
+function openStickerPicker() {
+  const trigger=$('[data-act="pick-sticker"]');
+  if(!trigger || trigger.disabled || trigger.hidden || stickerPicker.open || dialog.open || document.hidden || !showDue(profile)) return;
+  const options=$('.show-picks',stickerPicker);
+  options.innerHTML=showChoices(profile).map(id=>
+    `<button type="button" class="show-pick" data-act="add-to-show" data-pick="${id}"><canvas data-preview="${id}" aria-hidden="true"></canvas><span>${SHOW.find(s=>s.id===id).name}</span></button>`).join('');
+  trigger.focus({preventScroll:true});
+  stickerPicker.showModal();
   const finds=WORDS.filter(w=>profile.cards[w]), word=pageWord();
-  const fresh=[...document.querySelectorAll('canvas[data-preview]:not([data-on])')];
-  for(const c of fresh){c.dataset.on='1';launchFinale(null,{into:c,alone:c.dataset.preview,picks:profile.show.picks,finds,word});}
-  // Bring the choices into view as they arrive, in case they are below the bottom of the screen.
-  if(fresh.length) setTimeout(()=>$('#show-add')?.scrollIntoView({block:'nearest',behavior:'smooth'}),550);
+  for(const canvas of options.querySelectorAll('canvas')) {
+    launchFinale(null,{into:canvas,alone:canvas.dataset.preview,picks:profile.show.picks,finds,word});
+  }
 }
+stickerPicker.addEventListener('close',()=>{if(!stickerPicker.open) $('.show-picks',stickerPicker).replaceChildren();});
+compactShelf.addEventListener('change',()=>{shelfOpen=!compactShelf.matches;drawShelf();});
 dialog.addEventListener('close',()=>{
   if(classChanged || ['home','album','stickers'].includes(view) || (view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles)) render();
   classChanged=false;

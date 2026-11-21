@@ -116,7 +116,8 @@ main.wrap{padding-block:29px 40px;outline:none}
 .pad-row:has(.rest-pad.has-ink .btn){padding-bottom:44px}
 .letter-redo{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;padding:0;background:transparent;color:var(--sub);border:0;border-radius:50%}
 .letter-redo:is(:hover,:focus-visible){color:var(--deep);background:var(--sage)}
-.rest-pad .letter-redo{position:absolute;bottom:var(--nav-inset);inset-inline-end:var(--nav-inset)}
+.rest-pad .letter-redo{position:absolute;bottom:clamp(0px,calc(15.5% - 22px),5px);inset-inline-end:var(--nav-inset)}
+.rest-pad .letter-redo .icon{transform:translateY(2px)}
 .rest-pad .btn{position:absolute;bottom:var(--nav-inset);inset-inline:0;margin-inline:auto;width:fit-content;max-width:calc(100% - 2 * var(--nav-inset));min-width:44px;min-height:44px;padding:6px 12px}
 .rest-pad.has-ink .btn{top:100%;bottom:auto}
 .letter-nav{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
@@ -187,7 +188,7 @@ main.wrap{padding-block:29px 40px;outline:none}
 .show-visitors{position:absolute;bottom:0;width:min(26%,286px);height:clamp(104px,20vw,180px);max-height:100%;pointer-events:none;user-select:none}
 .show-visitors[data-side="left"]{left:2.5%}
 .show-visitors[data-side="right"]{right:2.5%}
-.victory :is(.actions,.save-invite){position:relative;z-index:1}
+.victory .actions{position:relative;z-index:1}
 @media(min-width:721px) and (max-width:980px){
   .victory:not(.review-scene):has(> .show-visitors){padding-bottom:136px}
   .victory:not(.review-scene)>.show-visitors{height:128px}
@@ -276,7 +277,13 @@ main.wrap{padding-block:29px 40px;outline:none}
 .round-done .show-stage + .actions{margin-top:18px}
 .round-done .reveal-art .stamp-face{width:clamp(58px,9.5vw,112px)}
 .round-done .reveal-art .stamp:nth-child(even){transform:rotate(3deg)}
-#sticker-receipt{max-width:100%;padding:8px 12px;border:1px solid #c4ceb6;border-radius:12px;background:var(--sage);color:var(--deep);font-weight:850}
+.reward-heading{position:relative}
+.sticker-confirmation{position:absolute;inset:0;display:grid;place-items:center;container-type:inline-size}
+.sticker-confirmation>span{width:100%;font-size:clamp(16px,calc(175cqi / var(--characters)),1em);line-height:1.04;text-wrap:balance}
+@media(prefers-reduced-motion:no-preference){
+  .sticker-confirmation>span{animation:sticker-picked .48s ease-out both}
+  @keyframes sticker-picked{0%{opacity:0;transform:translateY(5px) scale(.94)}65%{opacity:1;transform:translateY(-1px) scale(1.025)}100%{opacity:1;transform:none}}
+}
 #sticker-picker{width:min(540px,calc(100% - 28px),125dvh);max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)));padding:clamp(14px,3vmin,24px);overscroll-behavior:contain}
 #sticker-picker::backdrop{background:rgb(237 239 222 / .55)}
 html:has(#sticker-picker[open]){overflow:hidden}
@@ -304,8 +311,10 @@ html:has(#sticker-picker[open]){overflow:hidden}
 .trial-line input:disabled+span{color:#8b9488}
 .trial-line small{color:var(--sub);font-weight:500;font-size:12px}
 .trial-line .round-button{width:36px;height:36px}
-.save-invite{max-width:430px;margin:22px auto 0;padding-top:16px;border-top:1px solid var(--line)}
-.save-invite p{font-size:14px;margin-bottom:10px}
+#game-page{min-height:100vh;min-height:100dvh}
+#save-footer{text-align:center;padding:6px 16px max(14px,env(safe-area-inset-bottom))}
+#save-footer button{min-height:44px;border:0;background:none;color:var(--sub);font-size:14px}
+#save-footer button span{text-decoration:underline;text-underline-offset:3px}
 /* Google's Sign in with Google button, from its branding guidelines, scaled up evenly for small fingers. */
 .gsi-material-button{position:relative;height:46px;padding:0 14px;overflow:hidden;background:#fff;border:1px solid #747775;border-radius:23px;color:#1f1f1f;font:500 16px Roboto,arial,sans-serif;letter-spacing:.25px;white-space:nowrap;transition:box-shadow .218s}
 .gsi-material-button-content-wrapper{position:relative;display:flex;align-items:center;height:100%}
@@ -448,13 +457,13 @@ dialog .actions{margin-top:12px}
   .found:has(>.found-details) .reveal-art .stamp-face{width:clamp(88px,14dvh,118px)}
   .found:has(>.found-details)>.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px}
   .found:has(>.found-details)>.actions .btn{padding-inline:6px}
-  .found:has(>.found-details)>.actions #sticker-receipt{grid-column:1/-1;justify-self:center}
+  .found:has(>.found-details)>.actions>.btn:last-child:nth-child(odd){grid-column:1/-1;justify-self:center}
 }
 /* Short touch screens keep the controls in reach; laptops center the meadow above the word. */
 @media(min-width:520px) and (orientation:landscape) and (max-height:940px) and (pointer:coarse),
       (min-width:520px) and (orientation:landscape) and (max-height:520px){
   .found:has(>.found-details){display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:center;column-gap:clamp(14px,3vw,40px)}
-  .found:has(>.found-details)>:is(.kicker,h1,.actions,.save-invite){grid-column:1/-1}
+  .found:has(>.found-details)>:is(.kicker,h1,.actions){grid-column:1/-1}
   .found:has(>.found-details)>.show-stage{margin:12px 0 0}
   .found-details{min-width:0}
   .found-details .badge-award{margin-top:8px}
@@ -523,6 +532,7 @@ dialog .actions{margin-top:12px}
   .found:has(>.found-details)>.actions,.round-done .show-stage+.actions{margin-top:8px}
 }
 @media(min-width:520px) and (orientation:landscape) and (max-height:390px){
+  .lesson-grid{row-gap:4px;margin-top:2px}
   .blend-activity{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:6px 16px}
   .blend-activity .activity-heading{display:block}
   .blend-work{width:min(100%,410px)}
@@ -531,7 +541,6 @@ dialog .actions{margin-top:12px}
   .found:has(>.found-details)>h1{grid-row:1}
 }
 @media(min-width:520px) and (orientation:landscape) and (max-height:360px){
-  .lesson-grid{row-gap:4px;margin-top:2px}
   .task-label{gap:4px}
   .task-label .ink-tools button{padding-inline:3px}
   .pad-row #inkpad,.rest-pad>svg{max-height:80px}

@@ -11,6 +11,7 @@ const $ = (selector, root=document)=>root.querySelector(selector);
 const main=$('#main');
 const dialog=$('#dialog');
 const stickerPicker=$('#sticker-picker');
+const saveFooter=$('#save-footer');
 const compactShelf=matchMedia('(max-width:590px), (orientation:landscape) and (max-height:520px)');
 const sound = new Audio();
 sound.preload='auto';
@@ -90,7 +91,7 @@ function watchAccount() {
   watching=true;
   cloud.watch(user=>{
     account=user;syncTrouble=false;drawAccount();
-    if(user) {$('#save-invite')?.remove();sync();}
+    if(user) sync();
   }).catch(()=>{watching=false;syncTrouble=cloud.remembered();drawAccount();});
 }
 // When the tablet wakes or comes back online, fetch what her other tablet saved and send what this one could not.
@@ -221,8 +222,6 @@ function render() {
       picks, finds:Object.keys(profile.cards), word:latestFind() || 'cat', musicEnabled:()=>profile.settings.fanfare
     });
   }
-  // Fetch the Google libraries while the button is on screen, so its window opens the moment it is tapped.
-  if($('#save-invite')) watchAccount();
   const pageTitle={learn:'Sound & write',found:'Word found',album:'My word album',stickers:'My Stickers',review:'Memory game',
     round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view];
   document.title=pageTitle ? pageTitle+' · Readling' : 'Readling · The Word Woods';
@@ -406,15 +405,15 @@ function foundPage(word) {
   const next=primaryAction();
   return `<div class="page-top">${back()}${currentBadgeButton()}</div>
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?(ENTRIES.get(word).bonus?'Bonus find':'New discovery'):'In your album'}</div>
-      <h1>${fresh?'Look what you found!':'A woodland find'}</h1>
+      ${rewardHeading(fresh?'Look what you found!':'A woodland find')}
       <div class="show-stage">${profile.settings.sparkles?finaleScenery(profile.show.picks):''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
       <div class="found-details"><div class="found-word"><strong>${word}</strong><button class="round-button" data-act="read-word" data-word="${word}" aria-label="Hear ${word}">${icon('sound',20)}</button></div>
       <p>${TALES[word]?escapeText(TALES[word]):'What do you notice in your picture?'}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
       ${fresh?badgeAward(word,lastFound):''}</div>
-      <div class="actions centre">${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${stickerReward()}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Next word!',next):action('Play memory','review')}</div>
-      ${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
+      <div class="actions centre">${profile.settings.sparkles?stickerButton()+action('Encore!','encore','spark','gold'):''}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Next word!',next):action('Play memory','review')}</div>
+      </section>`;
 }
 function inkLabel(word) {
   const ink=profile.cards[word]?.ink;
@@ -478,12 +477,12 @@ function roundPage() {
   if(round.i>=round.words.length) {
     const onward=primaryAction()==='discover';
     const show=profile.settings.sparkles;
-    return `<div class="page-top">${back('review','Back to memory')}</div><section class="activity round-done ${show?'victory':''}">
-    ${show?'':icon('star',56)}<h1>Round complete!</h1><p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
+    return `<div class="page-top">${back('review','Back to memory')}${show && showDue(profile)?stickerButton():''}</div><section class="activity round-done ${show?'victory':''}">
+    ${show?'':icon('star',56)}${rewardHeading('Round complete!')}<p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
     ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map(w=>stamp(wordImage(w))).join('')}</div></div>`:
       `<div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>`}
     <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
-    ${stickerReward()}${onward?action(eligibleLesson()?'Continue my word':'Next word!','discover'):''}</div></section>`;
+    ${onward?action(eligibleLesson()?'Continue my word':'Next word!','discover'):''}</div></section>`;
   }
   const w=round.words[round.i];
   const top=`<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
@@ -638,13 +637,14 @@ function soundProgress() {
 }
 function accountRow() {
   if(!cloud.on) return '<p class="dialog-intro">Progress is saved in this browser. You can take a copy to her other tablet below.</p>';
-  if(!cloud.remembered()) return `<p class="dialog-intro">Progress is saved in this browser. Sign in to keep a copy in your Google account and open the same album on her other tablet.</p>${googleButton()}`;
+  if(!account && !cloud.remembered()) return `<p class="dialog-intro">Progress is saved in this browser. Sign in to keep a copy in your Google account and open the same album on her other tablet.</p>${googleButton()}`;
   const email=account?.email.replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';');
   return `<p class="dialog-intro">${syncTrouble?'Your Google account could not be reached just now. Progress is still saved in this browser and will be sent when the connection is back.':
     `Progress is saved to your Google account${email?', '+email:''}. Sign in on her other tablet to open the same album there.`}</p>
     <div class="actions">${action('Sign out','sign-out','','secondary')}</div>`;
 }
 function drawAccount() {
+  saveFooter.hidden=!cloud.on || !!account || cloud.remembered();
   const el=$('#account');if(el) el.innerHTML=accountRow();
 }
 function parents() {
@@ -763,17 +763,15 @@ function dispatch(act,el) {
     }
     case 'encore':encores++;if(!celebrate({word:location.hash.split('/')[1]})) playFanfare();break;
     case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);if(!playing)playFanfare();}break;
-    case 'pick-sticker':openStickerPicker();break;
+    case 'reward-stickers':if(showDue(profile)) openStickerPicker();else go('stickers');break;
     case 'add-to-show':{
       const id=el.dataset.pick;
       if(!stickerPicker.open || !addToShow(profile,id)) break;
       save();encores++;
       stickerPicker.close();
-      const theatre=$('.meadow-scenery'), receipt=$('#sticker-receipt');
+      const theatre=$('.meadow-scenery');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
-      $('[data-act="pick-sticker"]').hidden=!showDue(profile);
-      receipt.textContent='You picked '+SHOW.find(s=>s.id===id).name+'!';
-      receipt.hidden=false;receipt.focus({preventScroll:true});
+      showStickerHeading(SHOW.find(s=>s.id===id).name);
       celebrate({word:pageWord(),alone:id,offerSticker:true});
       if(id==='music') playFanfare();
       break;
@@ -911,7 +909,7 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   const sounds=soundsOf(word);
-  const trigger=$('[data-act="pick-sticker"]:not([hidden])',stage);
+  const trigger=showDue(profile)?$('[data-act="reward-stickers"]'):null;
   function offer() {
     if(offerSticker && trigger?.isConnected) openStickerPicker();
   }
@@ -1005,12 +1003,28 @@ function trialDialog() {
     <div class="actions">${action('Play this show','trial-play','play')}${action('Back to Grown-ups','parents','','secondary')}</div>`,'Try out the show');
   $('#trial-timeline').addEventListener('toggle',e=>{trialTimeline=e.target.open;});
 }
-function stickerReward() {
-  if(!profile.settings.sparkles || !showDue(profile)) return '';
-  return `<span id="sticker-receipt" tabindex="-1" hidden></span>${action('Pick a sticker','pick-sticker','spark','secondary')}`;
+function stickerButton() {
+  return action('My Stickers','reward-stickers','spark','secondary');
+}
+function rewardHeading(title) {
+  return `<h1 class="reward-heading" tabindex="-1"><span class="reward-title">${title}</span></h1>`;
+}
+function showStickerHeading(name) {
+  const heading=$('.victory .reward-heading');
+  if(!heading) return;
+  const message='You picked '+name+'!';
+  const pop=document.createElement('span'), text=document.createElement('span');
+  pop.className='sticker-confirmation';
+  pop.style.setProperty('--characters',message.length);
+  text.textContent=message;
+  pop.append(text);
+  $('.reward-title',heading).style.visibility='hidden';
+  $('.sticker-confirmation',heading)?.remove();
+  heading.append(pop);
+  heading.focus({preventScroll:true});
 }
 function openStickerPicker() {
-  const trigger=$('[data-act="pick-sticker"]');
+  const trigger=$('[data-act="reward-stickers"]');
   if(!trigger || trigger.disabled || trigger.hidden || stickerPicker.open || dialog.open || document.hidden || !showDue(profile)) return;
   const options=$('.show-picks',stickerPicker);
   options.innerHTML=showChoices(profile).map(id=>
@@ -1041,5 +1055,13 @@ window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close(
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden) stopStarPiano();else wake();});
 window.addEventListener('online',wake);
+drawAccount();
+if(cloud.on && 'IntersectionObserver' in window) {
+  const observer=new IntersectionObserver(entries=>{
+    if(entries.some(entry=>entry.intersectionRatio>0)) watchAccount();
+  },{threshold:.01});
+  observer.observe(saveFooter);
+}
+saveFooter.addEventListener('focusin',watchAccount);
 render();
 wake();

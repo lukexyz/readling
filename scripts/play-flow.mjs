@@ -233,6 +233,7 @@ async function checkWritingBack() {
   assert(ink[0].length && ink[1].length);
   for(const [width,height] of [[1440,900],[1024,768],[1024,640],[844,390],[568,320],[390,740],[320,568]]) {
     await p.setViewportSize({width,height});
+    await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const [prev,next]=await p.locator('.rest-pad>button').evaluateAll(buttons=>buttons.map(button=>{
       const cell=button.parentElement,box=button.getBoundingClientRect(),tile=cell.getBoundingClientRect();
       const ink=cell.querySelector('.rest-writing')?.getBoundingClientRect();
@@ -315,6 +316,33 @@ async function checkLaptopReward() {
     await p.context().close();
   }
 }
+async function checkSaveFooter() {
+  const p=await openGame(before('dog'),'reduce',{viewport:{width:1343,height:760}});
+  const signIn=p.getByRole('contentinfo').getByRole('button',{name:'Sign in with Google to save your progress.'});
+  await p.evaluate(async()=>{
+    const {cloud}=await import('/cloud.js');
+    let changed, signedIn=false;
+    cloud.remembered=()=>signedIn;
+    cloud.watch=async callback=>{changed=callback;changed(null);};
+    cloud.signIn=async()=>{signedIn=true;changed({email:'reader@example.test'});};
+    cloud.signOut=async()=>{signedIn=false;changed(null);};
+    cloud.load=async()=>null;
+    cloud.save=async()=>{};
+  });
+  await act(p,'discover');
+  for(let i=0;i<3;i++) await act(p,'next-sound');
+  await act(p,'reveal');
+  for(const [width,height] of [[1343,760],[1024,768],[390,740]]) {
+    await p.setViewportSize({width,height});
+    assert(await signIn.evaluate(b=>b.getBoundingClientRect().top>=innerHeight-1),'Sign-in starts below the viewport');
+    assert.equal(await p.locator('.found [data-act="sign-in"]').count(),0);
+  }
+  await signIn.click();await signIn.waitFor({state:'hidden'});
+  await act(p,'parents');await act(p,'sign-out');await act(p,'dismiss');
+  await signIn.waitFor({state:'visible'});
+  assert((await saved(p)).cards.dog,'Signing out keeps the local album');
+  await p.context().close();
+}
 async function checkLandscapeRewards() {
   const album=before('ship');
   album.settings.sparkles=true;
@@ -376,7 +404,7 @@ async function checkLandscapeRewards() {
   await resize(1024,640);await fits(picker.locator('button'));
   const earned=await saved(p);
   await p.keyboard.press('Escape');
-  const reopen=p.getByRole('button',{name:'Pick a sticker',exact:true});
+  const reopen=p.getByRole('button',{name:'My Stickers',exact:true});
   await reopen.and(p.locator(':focus')).waitFor();
   await fits(reopen);
   await fits(p.getByRole('button',{name:'Next word!',exact:true}));
@@ -389,6 +417,7 @@ async function checkLandscapeRewards() {
 try {
   await checkWritingBack();
   await checkLaptopReward();
+  await checkSaveFooter();
   await checkCelebrationSize();
   await checkMixedMeadow();
   await checkLandscapeRewards();
@@ -408,11 +437,20 @@ try {
   const firstMeter=fresh.getByRole('progressbar',{name:'Progress to badge 2'});
   assert.deepEqual(await firstMeter.evaluate(meter=>[meter.value,meter.max]),[1,3]);
   await fresh.keyboard.press('Escape');
-  await act(fresh,'pick-sticker');
+  const actions=fresh.locator('.found>.actions>button');
+  const actionPositions=()=>actions.evaluateAll(buttons=>buttons.map(el=>{
+    const {x,y,width,height}=el.getBoundingClientRect();return [el.textContent.trim(),x,y,width,height];
+  }));
+  const originalActions=await actionPositions();
+  assert.equal(originalActions.length,3);
+  await act(fresh,'reward-stickers');
   await picker.locator('.show-pick[data-pick="rainbow"]').click();
-  await fresh.getByText('You picked Rainbow · Level 1!',{exact:true}).waitFor();
+  const chosen=fresh.getByRole('heading',{name:'You picked Rainbow · Level 1!',exact:true,level:1});
+  await chosen.and(fresh.locator(':focus')).waitFor();
+  assert.equal(await chosen.locator('.sticker-confirmation>span').evaluate(el=>getComputedStyle(el).animationName),'none');
+  assert.deepEqual(await actionPositions(),originalActions,'choosing a sticker keeps every reward button in place');
   const earned=await saved(fresh);
-  await act(fresh,'album');await act(fresh,'stickers');await fresh.reload();
+  await act(fresh,'reward-stickers');await fresh.reload();
   await fresh.getByRole('heading',{name:'My Stickers',exact:true}).waitFor();
   assert.equal(await fresh.locator('#shelf').isVisible(),false);
   assert.deepEqual(await fresh.locator('.gallery-card').evaluateAll(cards=>cards.map(c=>c.dataset.id)),['rainbow']);
@@ -487,7 +525,9 @@ try {
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
   await p.getByRole('dialog',{name:'You earned a sticker!'}).locator('[data-pick="music"]').click({timeout:20000});
-  await p.getByText('You picked Music!',{exact:true}).waitFor();
+  const pickedMusic=p.getByRole('heading',{name:'You picked Music!',exact:true,level:1});
+  await pickedMusic.waitFor();
+  assert.equal(await pickedMusic.locator('.sticker-confirmation>span').evaluate(el=>getComputedStyle(el).animationName),'sticker-picked');
   await act(p,'album');await act(p,'stickers');
   await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();
   await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-bonus]').click();

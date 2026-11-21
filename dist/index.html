@@ -18,9 +18,12 @@
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to the game</a>
-  <header id="masthead"></header>
-  <div id="shelf"></div>
-  <main id="main" class="wrap" tabindex="-1"></main>
+  <div id="game-page">
+    <header id="masthead"></header>
+    <div id="shelf"></div>
+    <main id="main" class="wrap" tabindex="-1"></main>
+  </div>
+  <footer id="save-footer" hidden><button type="button" data-act="sign-in"><span>Sign in with Google</span> to save your progress.</button></footer>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <dialog id="sticker-picker" aria-labelledby="sticker-title">
     <div class="dialog-top"><h2 id="sticker-title" tabindex="-1" autofocus>You earned a sticker!</h2>

@@ -234,17 +234,18 @@ async function checkWritingBack() {
   for(const [width,height] of [[1440,900],[1024,640],[844,390],[390,740],[320,568]]) {
     await p.setViewportSize({width,height});
     const [prev,next]=await p.locator('.rest-pad>button').evaluateAll(buttons=>buttons.map(button=>{
-      const cell=button.parentElement.getBoundingClientRect(),box=button.getBoundingClientRect();
-      return {act:button.dataset.act,inner:button.dataset.act==='previous-sound'?cell.right-box.right:box.left-cell.left,
-        bottom:cell.bottom-box.bottom,width:box.width,height:box.height};
+      const cell=button.parentElement,box=button.getBoundingClientRect(),tile=cell.getBoundingClientRect();
+      return {act:button.dataset.act,centerOffset:box.left+box.width/2-tile.left-tile.width/2,
+        inkClearance:box.top-cell.querySelector('svg').getBoundingClientRect().bottom,
+        width:box.width,height:box.height,icon:button.querySelector('svg').getBoundingClientRect().width};
     }));
     assert.equal(prev.act,'previous-sound');assert.equal(next.act,'next-sound');
-    assert(prev.inner>0 && Math.abs(prev.inner-next.inner)<1 && Math.abs(prev.bottom-next.bottom)<1);
-    assert(Math.min(prev.height,next.height,prev.width,next.width)>=44 && Math.abs(next.width-prev.width)<1 && Math.abs(next.height-prev.height)<1,
-      `Writing buttons at ${width}×${height}: ${JSON.stringify({prev,next})}`);
+    assert(prev.inkClearance>=-1 && prev.icon>0 && prev.icon<=20 && Math.abs(next.centerOffset)<1);
+    assert(Math.min(prev.height,next.height,prev.width,next.width)>=44,'Both buttons must be easy to tap');
   }
   await back.click();await p.locator('#inkpad:focus').waitFor();
   assert.deepEqual((await saved(p)).lesson.ink,ink);
+  assert(await p.locator('.rest-pad.has-ink .btn').evaluate(button=>button.getBoundingClientRect().top>=button.parentElement.querySelector('svg').getBoundingClientRect().bottom-1));
   await act(p,'clear-ink');await act(p,'next-sound');await p.reload();
   assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
   assert.equal(await p.locator('#inkpad .ink-lines path').count(),ink[1].length);
@@ -295,7 +296,7 @@ async function checkLandscapeRewards() {
   const requested=p.waitForRequest('**/assets/flower-studies/poppy-1.json');
   await p.clock.install();
   await act(p,'reveal');await requested;
-  const picker=p.getByRole('dialog',{name:'Pick a sticker'});
+  const picker=p.getByRole('dialog',{name:'You earned a sticker!'});
   await p.clock.fastForward(25000);
   assert.equal(await picker.isVisible(),false);
   assert.equal(await p.evaluate(()=>scrollY),0);
@@ -331,7 +332,7 @@ try {
   assert.equal(await fresh.locator('.gallery-card').count(),0);
   await fresh.getByRole('button',{name:'Back to my word album'}).click();
   await act(fresh,'discover');await traceAndBlend(fresh,'cat');
-  const picker=fresh.getByRole('dialog',{name:'Pick a sticker'});
+  const picker=fresh.getByRole('dialog',{name:'You earned a sticker!'});
   await picker.getByRole('button',{name:'Later'}).click();
   assert.deepEqual((await saved(fresh)).show.picks,[]);
   const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
@@ -419,7 +420,7 @@ try {
   }
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
-  await p.getByRole('dialog',{name:'Pick a sticker'}).locator('[data-pick="music"]').click({timeout:20000});
+  await p.getByRole('dialog',{name:'You earned a sticker!'}).locator('[data-pick="music"]').click({timeout:20000});
   await p.getByText('You picked Music!',{exact:true}).waitFor();
   await act(p,'album');await act(p,'stickers');
   await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();

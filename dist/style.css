@@ -108,14 +108,15 @@ main.wrap{padding-block:29px 40px;outline:none}
 .copy-word .grapheme.current .letter-rule{width:42px;left:calc(50% - 21px);height:4px;bottom:8px}
 .pad-row .ink-box,.rest-pad{width:100%;margin:0;border-radius:10px;overflow:hidden}
 .pad-row .ink-box{border:2px solid #65765a;box-shadow:0 2px 0 #c3cbb8}
-.rest-pad{--nav-inset:clamp(4px,.8vw,10px);position:relative;border:1px dashed #c6c9b8;background:#f7f6ed}
+.rest-pad{--nav-inset:clamp(4px,.8vw,10px);position:relative;overflow:visible;border:1px dashed #c6c9b8;background:#f7f6ed}
 .rest-pad>svg{display:block;width:100%;max-height:200px}.rest-line{fill:none;stroke:#d8dbce}
-.rest-pad>button{position:absolute;bottom:var(--nav-inset);width:5.75rem;max-width:calc(100% - 2 * var(--nav-inset));min-height:44px;padding:6px 8px;border-radius:10px}
-.rest-pad .back{inset-inline-end:var(--nav-inset);border:1px solid var(--line);background:var(--card)}
-.rest-pad .back:hover{background:#e8eadf}
-.rest-pad .btn{inset-inline-start:var(--nav-inset)}
+.lesson-grid:not(.long-word) .pad-row{padding-bottom:44px}
+.letter-redo{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;padding:0;background:transparent;color:var(--sub);border:0;border-radius:50%}
+.letter-redo:is(:hover,:focus-visible){color:var(--deep);background:var(--sage)}
+.rest-pad .letter-redo{position:absolute;top:100%;inset-inline-end:0}
+.rest-pad .btn{position:absolute;bottom:var(--nav-inset);inset-inline:0;margin-inline:auto;width:fit-content;max-width:calc(100% - 2 * var(--nav-inset));min-width:44px;min-height:44px;padding:6px 12px}
+.rest-pad.has-ink .btn{top:100%;bottom:auto}
 .letter-nav{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
-.letter-nav .back,.blend-activity .actions .back{min-height:44px;padding-inline:10px}
 .instruction-title{display:flex;align-items:center;justify-content:center;gap:10px}
 .instruction-title h2{font:850 18px/1.2 var(--sans);letter-spacing:0}
 .step-token{display:inline-grid;place-items:center;background:#dfe6d5;font-weight:850;font-size:12px;border:1px solid #c9d1bd;border-radius:50%;width:24px;height:24px}
@@ -424,8 +425,8 @@ dialog .actions{margin-top:12px}
   .task-label .btn{min-height:38px;padding:6px 9px;font-size:12px}.task-label .ink-tools button{font-size:12px;padding-inline:4px}
   .pad-row #inkpad,.rest-pad>svg{height:128px}
   .rest-pad{--nav-inset:3px}
-  .rest-pad>button{padding:4px 6px;font-size:13px}
-  .rest-pad>button svg{display:none}
+  .rest-pad .btn{padding:4px 6px;font-size:13px}
+  .rest-pad .btn svg{display:none}
   .ink-tools button{min-height:34px}.activity-bottom{padding-top:12px}.btn{font-size:14px;min-height:44px;padding:11px 14px}
   .blend-print .grapheme{width:74px;height:110px}.blend-work{margin:14px auto 20px}
   .album-head{align-items:flex-start;flex-direction:column;gap:13px;margin-bottom:16px}.album-head p{font-size:14px}
@@ -497,7 +498,7 @@ dialog .actions{margin-top:12px}
   .activity-heading p{font-size:14px;margin:0}
   .lesson-activity{position:relative}
   .lesson-activity .activity-heading{padding-right:155px}
-  .lesson-activity:has(.letter-nav .back) .activity-heading{padding-inline-end:225px}
+  .lesson-activity:has(.letter-nav .letter-redo) .activity-heading{padding-inline-end:205px}
   .lesson-activity .activity-bottom{position:absolute;top:6px;right:18px;padding:0;border:0}
   .lesson-activity .activity-bottom:has(.btn) .progress-dots{display:none}
   .lesson-grid{margin-bottom:0}

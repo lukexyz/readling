@@ -363,7 +363,8 @@ function lessonPage() {
   const l=profile.lesson, total=l.word.length;
   const units=unitsOf(l.word), current=unitAt(l.word,l.i), u=units[current];
   const isBlend=l.i===total;
-  const previousLetter=l.i>0?`<button type="button" class="back" data-act="previous-sound" aria-label="Back to letter ${l.word[l.i-1]}">${icon('back',19)} Back</button>`:'';
+  const previousLabel=l.i>0?`Back to letter ${l.word[l.i-1]}`:'';
+  const previousLetter=previousLabel?`<button type="button" class="letter-redo" data-act="previous-sound" aria-label="${previousLabel}" title="${previousLabel}">${icon('repeat',19)}</button>`:'';
   const top=`<div class="page-top">${back()}<span class="level">${icon('compass',16)} ${stageLabel(l.word)}</span></div>`;
   if(isBlend) return top+`<section class="activity blend-activity">
     <div class="activity-heading"><div class="kicker">${icon('book',16)} Blend the sounds</div><h1>Say the whole word</h1>
@@ -382,7 +383,7 @@ function lessonPage() {
       ${wordPrint(l.word,current,{cls:'copy-word'})}
     <div class="task-label"><div class="instruction-title"><span class="step-token">2</span><h2>Write <span class="inline-letter">${c}</span></h2></div>
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
-    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?total>3?'':`<div class="rest-pad">
+    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?total>3?'':`<div class="rest-pad${l.ink[j].length?' has-ink':''}">
         <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg>
         ${j===l.i-1?previousLetter:j===l.i+1?action('Next','next-sound'):''}</div>`:
       `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">

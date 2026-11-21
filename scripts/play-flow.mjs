@@ -318,7 +318,9 @@ async function checkLaptopReward() {
 }
 async function checkSaveFooter() {
   const p=await openGame(before('dog'),'reduce',{viewport:{width:1343,height:760}});
-  const signIn=p.getByRole('contentinfo').getByRole('button',{name:'Sign in with Google to save your progress.'});
+  const footer=p.getByRole('contentinfo');
+  const quietSignIn=footer.getByRole('button',{name:'Sign in with Google to save your progress.'});
+  const signIn=footer.getByRole('button',{name:'Sign in with Google',exact:true});
   await p.evaluate(async()=>{
     const {cloud}=await import('/cloud.js');
     let changed, signedIn=false;
@@ -330,17 +332,22 @@ async function checkSaveFooter() {
     cloud.save=async()=>{};
   });
   await act(p,'discover');
+  assert(await quietSignIn.evaluate(b=>b.getBoundingClientRect().top>=innerHeight-1),'The quiet footer stays below the reading screen');
   for(let i=0;i<3;i++) await act(p,'next-sound');
   await act(p,'reveal');
+  await footer.getByText('Save your album and open it on any tablet.',{exact:true}).waitFor();
+  assert.equal(await footer.getByRole('button').count(),1);
   for(const [width,height] of [[1343,760],[1024,768],[390,740]]) {
     await p.setViewportSize({width,height});
-    assert(await signIn.evaluate(b=>b.getBoundingClientRect().top>=innerHeight-1),'Sign-in starts below the viewport');
+    const gap=await footer.locator('p').evaluate(caption=>caption.getBoundingClientRect().top-document.querySelector('.found').getBoundingClientRect().bottom);
+    assert(gap>=12 && gap<=24,'The save prompt sits directly below the rounded card at '+width+'px: '+gap);
     assert.equal(await p.locator('.found [data-act="sign-in"]').count(),0);
   }
   await signIn.click();await signIn.waitFor({state:'hidden'});
   await act(p,'parents');await act(p,'sign-out');await act(p,'dismiss');
   await signIn.waitFor({state:'visible'});
   assert((await saved(p)).cards.dog,'Signing out keeps the local album');
+  await act(p,'album');await quietSignIn.waitFor({state:'visible'});
   await p.context().close();
 }
 async function checkLandscapeRewards() {
@@ -479,9 +486,15 @@ try {
     await Promise.all(images.map(im=>im.decode()));
     return images.map(im=>new URL(im.src).pathname.split('/').at(-1));
   }),['oak-5.webp','poppy-1.webp']);
-  await p.locator('summary.stars').click();
-  await p.locator('.badge-pocket').getByRole('heading',{name:'Poppy ribbons'}).waitFor();
+  const handoff=p.getByRole('button',{name:'Stage 2 is open! View Poppy ribbons progress'});
+  const stars=p.locator('summary.stars');
+  await handoff.locator('strong').click();
+  await p.locator('.badge-menu[open] .badge-pocket').getByRole('heading',{name:'Poppy ribbons'}).waitFor();
+  await stars.and(p.locator(':focus')).waitFor();
   assert.deepEqual(await p.getByRole('progressbar',{name:'Progress to badge 2'}).evaluate(meter=>[meter.value,meter.max]),[0,2]);
+  await p.keyboard.press('Escape');
+  await handoff.focus();await p.keyboard.press('Enter');
+  assert(await p.locator('.badge-menu').evaluate(menu=>menu.open && menu.querySelector('summary').getBoundingClientRect().top>=-1));
   await p.keyboard.press('Escape');
   await act(p,'parents');await p.locator('[data-class-sound=sh]').uncheck();await act(p,'dismiss');
   await act(p,'album');

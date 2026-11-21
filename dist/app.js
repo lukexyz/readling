@@ -208,6 +208,7 @@ function render() {
   const pages={home:homePage,learn:lessonPage,found:()=>foundPage(arg),album:albumPage,stickers:stickersPage,
     review:reviewPage,round:roundPage,scene:scenePage,swap:swapPage};
   main.innerHTML=pages[view]();
+  drawSaveFooter();
   if(view==='found' && raw!==lastRevealRoute) {
     const fresh=lastFound?.word===arg && lastFound.fresh;
     const rank=fresh?revealBadge(lastFound):0;
@@ -232,7 +233,7 @@ function drawHeader() {
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
     <nav class="tabs" aria-label="Game pages">${tabs.map(([route,sym,text])=>`<button class="tab ${active===route?'selected':''}" ${active===route?'aria-current="page"':''} data-act="${route}">${icon(sym,18)}<span>${text}</span></button>`).join('')}</nav>
-    <div class="mast-end"><details class="badge-menu"><summary class="stars" aria-label="${profile.stars} stars, my badges">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span><span class="badge-caret" aria-hidden="true"></span></summary>
+    <div class="mast-end"><details class="badge-menu" id="stage-progress"><summary class="stars" aria-label="${profile.stars} stars, my badges">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span><span class="badge-caret" aria-hidden="true"></span></summary>
     ${badgePocket()}</details>
     <span class="mast-rule"></span><button class="parents-link" data-act="parents" aria-label="Grown-ups and settings">${icon('gear',20)}<span>Grown-ups</span></button></div>
   </div>`;
@@ -348,7 +349,10 @@ function badgeAward(word,found) {
   const complete=badgeEarned===BADGES_PER_STAGE;
   return `<div class="badge-award badge-theme-${stage.badges.family}">${badgeButton(stage,badgeEarned)}
     <div><strong>${stage.badges.name}</strong><p>${complete?'You collected all five!':`You earned badge ${badgeEarned} of ${BADGES_PER_STAGE}!`}</p></div>
-    ${next?`<div class="badge-handoff">${icon('arrow',20)}${badgeButton(next,1)}<div><strong>Stage ${next.number} is open!</strong><p>Your next set is ${next.badges.name}.</p></div></div>`:''}</div>`;
+    ${next?`<button type="button" class="badge-handoff" data-act="open-stage-progress" aria-controls="stage-progress"
+      aria-label="Stage ${next.number} is open! View ${next.badges.name} progress">
+      ${icon('arrow',20)}<img src="${badgeArt(next,1)}" alt="" width="64" height="64">
+      <span><strong>Stage ${next.number} is open!</strong><span>Your next set is ${next.badges.name}.</span></span></button>`:''}</div>`;
 }
 const unitAt=(word,pos)=>unitsOf(word).findIndex(u=>u.positions.includes(pos));
 function wordPrint(word,active=-1,options={}) {
@@ -644,8 +648,17 @@ function accountRow() {
     <div class="actions">${action('Sign out','sign-out','','secondary')}</div>`;
 }
 function drawAccount() {
-  saveFooter.hidden=!cloud.on || !!account || cloud.remembered();
+  drawSaveFooter();
   const el=$('#account');if(el) el.innerHTML=accountRow();
+}
+function drawSaveFooter() {
+  saveFooter.hidden=!cloud.on || !!account || cloud.remembered();
+  const reward=!saveFooter.hidden && !!main.querySelector(':scope > .found, :scope > .round-done');
+  if(saveFooter.firstElementChild && document.body.classList.contains('has-reward-footer')===reward) return;
+  document.body.classList.toggle('has-reward-footer',reward);
+  saveFooter.innerHTML=reward
+    ? `<p>Save your album and open it on any tablet.</p>${googleButton()}`
+    : '<button type="button" class="save-link" data-act="sign-in"><span>Sign in with Google</span> to save your progress.</button>';
 }
 function parents() {
   stopSound();cancelFinale();
@@ -735,6 +748,14 @@ function dispatch(act,el) {
     case 'shelf':shelfOpen=!shelfOpen;drawShelf();$('.shelf-toggle').focus({preventScroll:true});break;
     case 'parents':parents();break;
     case 'inspect-badge':inspectBadge(Number(el.dataset.stage),Number(el.dataset.rank));break;
+    case 'open-stage-progress':{
+      const menu=$('#stage-progress');
+      menu.open=true;
+      const summary=$('summary',menu);
+      summary.focus({preventScroll:true});
+      summary.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});
+      break;
+    }
     case 'dismiss':dialog.close();break;
     case 'discover':startOrResume();break;
     case 'stage-discover':case 'stage-bonus':{const w=findNext(profile,Number(el.dataset.stage),act==='stage-bonus'); if(w)startOrResume(w);break;}

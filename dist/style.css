@@ -259,15 +259,18 @@ main.wrap{padding-block:29px 40px;outline:none}
 .album-badges .badge-strip{width:min(235px,100%);margin:0}
 .badge-award,.badge-handoff{display:flex;align-items:center;justify-content:center;gap:9px;flex-wrap:wrap}
 .badge-award{width:fit-content;max-width:100%;margin:13px auto 0;padding:7px 14px;text-align:left}
-.badge-award .badge-pin{width:58px}
+.badge-award .badge-pin,.badge-handoff img{width:58px}
 .badge-award strong,.badge-inspect strong{display:block;font-family:var(--serif);font-weight:400;font-size:20px}
-.badge-handoff{border-left:1px solid var(--badge-edge);padding-left:9px}
+.badge-handoff{min-height:44px;border:0;border-left:1px solid var(--badge-edge);padding:0 0 0 9px;background:transparent;text-align:start}
+.badge-handoff:is(:hover,:focus-visible){background:#ffffff36}
+.badge-handoff img{display:block;height:auto}
+.badge-handoff strong+span{display:block;color:var(--badge-detail);font-size:14px;line-height:1.52}
 .badge-inspect{text-align:center;padding:14px 12px 22px}
 .badge-inspect img{display:block;width:min(100%,205px);height:auto;margin:0 auto 8px}
 @media(max-width:540px){
   .badge-menu{position:static}
   .badge-award{flex-wrap:nowrap;display:grid;grid-template-columns:52px 1fr;justify-items:start}
-  .badge-award .badge-pin{width:52px}
+  .badge-award .badge-pin,.badge-handoff img{width:52px}
   .badge-handoff{grid-column:1/-1;width:100%;display:grid;grid-template-columns:52px 1fr;justify-content:start;border-left:0;border-top:1px solid var(--badge-edge);padding:6px 0 0}
   .badge-handoff>.icon{display:none}
 }
@@ -312,9 +315,13 @@ html:has(#sticker-picker[open]){overflow:hidden}
 .trial-line small{color:var(--sub);font-weight:500;font-size:12px}
 .trial-line .round-button{width:36px;height:36px}
 #game-page{min-height:100vh;min-height:100dvh}
+.has-reward-footer #game-page{min-height:0}
+.has-reward-footer #main{padding-bottom:0}
 #save-footer{text-align:center;padding:6px 16px max(14px,env(safe-area-inset-bottom))}
-#save-footer button{min-height:44px;border:0;background:none;color:var(--sub);font-size:14px}
-#save-footer button span{text-decoration:underline;text-underline-offset:3px}
+.has-reward-footer #save-footer{padding-top:16px}
+#save-footer p{margin:0 0 7px;color:var(--sub);font-size:14px}
+#save-footer .save-link{min-height:44px;border:0;background:none;color:var(--sub);font-size:14px}
+#save-footer .save-link span{text-decoration:underline;text-underline-offset:3px}
 /* Google's Sign in with Google button, from its branding guidelines, scaled up evenly for small fingers. */
 .gsi-material-button{position:relative;height:46px;padding:0 14px;overflow:hidden;background:#fff;border:1px solid #747775;border-radius:23px;color:#1f1f1f;font:500 16px Roboto,arial,sans-serif;letter-spacing:.25px;white-space:nowrap;transition:box-shadow .218s}
 .gsi-material-button-content-wrapper{position:relative;display:flex;align-items:center;height:100%}
@@ -528,7 +535,7 @@ dialog .actions{margin-top:12px}
   .found-details .handwritten,.found-details .reward{display:inline-flex;vertical-align:middle;margin:3px 4px}
   .found-details .handwritten svg{height:24px;width:30px}
   .found-details .badge-award{padding:2px 8px}
-  .found-details .badge-pin{width:44px}
+  .found-details .badge-pin,.found-details .badge-handoff img{width:44px}
   .found:has(>.found-details)>.actions,.round-done .show-stage+.actions{margin-top:8px}
 }
 @media(min-width:520px) and (orientation:landscape) and (max-height:390px){

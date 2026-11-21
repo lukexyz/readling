@@ -32,7 +32,7 @@ async function openGame(seed, motion='reduce', screen={}) {
     window.played=[];
     // Observe real playback, including the finale's detached Audio element.
     window.Audio=class extends Audio {
-      constructor(...args){super(...args);this.addEventListener('playing',()=>window.played.push(new URL(this.currentSrc).pathname));}
+      constructor(...args){super(...args);this.addEventListener('playing',()=>{if(!this.muted) window.played.push(new URL(this.currentSrc).pathname);});}
     };
   },{key:KEY,seed});
   const page=await context.newPage();page.setDefaultTimeout(8000);
@@ -231,34 +231,96 @@ async function checkWritingBack() {
   await writeStroke(p);await act(p,'next-sound');await writeStroke(p);
   const ink=(await saved(p)).lesson.ink;
   assert(ink[0].length && ink[1].length);
-  for(const [width,height] of [[1440,900],[1024,640],[844,390],[390,740],[320,568]]) {
+  for(const [width,height] of [[1440,900],[1024,768],[1024,640],[844,390],[568,320],[390,740],[320,568]]) {
     await p.setViewportSize({width,height});
     const [prev,next]=await p.locator('.rest-pad>button').evaluateAll(buttons=>buttons.map(button=>{
       const cell=button.parentElement,box=button.getBoundingClientRect(),tile=cell.getBoundingClientRect();
+      const ink=cell.querySelector('.rest-writing')?.getBoundingClientRect();
       return {act:button.dataset.act,centerOffset:box.left+box.width/2-tile.left-tile.width/2,
-        inkClearance:box.top-cell.querySelector('svg').getBoundingClientRect().bottom,
+        bottom:tile.bottom-box.bottom,right:tile.right-box.right,inView:box.bottom<=innerHeight+1,
+        inkClear:!ink || ink.right<=box.left+1 || ink.bottom<=box.top+1,
         width:box.width,height:box.height,icon:button.querySelector('svg').getBoundingClientRect().width};
     }));
     assert.equal(prev.act,'previous-sound');assert.equal(next.act,'next-sound');
-    assert(prev.inkClearance>=-1 && prev.icon>0 && prev.icon<=20 && Math.abs(next.centerOffset)<1);
+    assert(prev.bottom>=0 && prev.bottom<=12 && prev.right>=0 && prev.right<=12 && prev.icon===26 && prev.inkClear);
+    assert(Math.abs(next.centerOffset)<1 && prev.inView && next.inView,JSON.stringify({width,height,prev,next}));
     assert(Math.min(prev.height,next.height,prev.width,next.width)>=44,'Both buttons must be easy to tap');
   }
   await back.click();await p.locator('#inkpad:focus').waitFor();
-  assert.deepEqual((await saved(p)).lesson.ink,ink);
+  assert.equal(await p.locator('#inkpad .ink-lines path').count(),0);
+  assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
   assert(await p.locator('.rest-pad.has-ink .btn').evaluate(button=>button.getBoundingClientRect().top>=button.parentElement.querySelector('svg').getBoundingClientRect().bottom-1));
-  await act(p,'clear-ink');await act(p,'next-sound');await p.reload();
+  await act(p,'next-sound');await p.reload();
   assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
   assert.equal(await p.locator('#inkpad .ink-lines path').count(),ink[1].length);
-  await act(p,'next-sound');await p.getByRole('button',{name:'Say my word!'}).click();
-  await p.getByRole('button',{name:'Back to letter t'}).click();
+  await act(p,'next-sound');await writeStroke(p);await p.getByRole('button',{name:'Say my word!'}).click();
+  await p.getByRole('button',{name:'Retry letter t'}).click();
   assert.equal((await saved(p)).lesson.i,2);
+  assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
   await p.context().close();
+}
+async function observeScoreAudio(p) {
+  await p.evaluate(()=>{
+    window.scoreNotes=[];
+    const start=AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start=function(...args) {
+      const data=this.buffer.getChannelData(0), rate=this.buffer.sampleRate;
+      const from=Math.floor(rate*.12), to=Math.floor(rate*.32);
+      let crossings=0;
+      for(let i=from+1;i<to;i++) if(data[i-1]<=0 && data[i]>0) crossings++;
+      window.scoreNotes.push({hz:crossings*rate/(to-from),score:Number(document.querySelector('.stars b').textContent)});
+      return start.apply(this,args);
+    };
+  });
+}
+async function checkLaptopReward() {
+  const album=before('dog');album.settings.sparkles=true;
+  startLesson(album,'dog');album.lesson.i=3;
+  for(const [music,mediaOnly] of [[true,false],[false,false],[true,true]]) {
+    album.settings.fanfare=music;
+    const p=await openGame(album,'reduce',{viewport:{width:1343,height:760}});
+    if(mediaOnly) await p.evaluate(()=>{window.AudioContext=undefined;window.webkitAudioContext=undefined;});
+    await observeScoreAudio(p);
+    await act(p,'discover');await act(p,'reveal');
+    await p.getByRole('heading',{name:'Look what you found!'}).waitFor();
+    if(await p.locator('#sticker-picker').isVisible()) await p.getByRole('button',{name:'Later'}).click();
+    for(const [width,height] of [[1343,760],[1280,680],[1440,900]]) {
+      await p.setViewportSize({width,height});
+      const boxes=await p.evaluate(()=>['.found','.found>.show-stage','.found-details','.found>.actions'].map(s=>document.querySelector(s).getBoundingClientRect().toJSON()));
+      const [card,meadow,details,actions]=boxes;
+      assert(Math.abs(meadow.x+meadow.width/2-card.x-card.width/2)<1 && details.top>=meadow.bottom-1,'The MacBook meadow is centered above the word');
+      assert(actions.top>=details.bottom-1 && actions.bottom<=height+1,'Reward buttons fit a '+width+'×'+height+' laptop: '+JSON.stringify(boxes));
+    }
+    if(mediaOnly) {
+      await p.waitForFunction(()=>window.played.filter(s=>s.includes('/star-piano-')).length===5);
+      assert.deepEqual(await p.evaluate(()=>window.played.filter(s=>s.includes('/star-piano-'))),
+        [1,2,3,4,5].map(n=>'/assets/audio/music/star-piano-'+n+'.mp3'));
+    } else {
+      if(music) await p.waitForFunction(()=>window.scoreNotes.length===5);
+      assert.equal(await p.evaluate(()=>window.scoreNotes.length),music?5:0);
+    }
+    assert.equal(await p.locator('.found [data-act="album"]').count(),0);
+    const albumTab=p.getByRole('navigation',{name:'Game pages'}).getByRole('button',{name:'My Album',exact:true});
+    for(const width of [390,375,320]) {
+      await p.setViewportSize({width,height:568});
+      const fits=await albumTab.evaluate(el=>{
+        const label=el.querySelector('span'),r=document.createRange();r.selectNodeContents(label);
+        const end=document.querySelector('.mast-end').getBoundingClientRect();
+        return r.getClientRects().length===1 && el.closest('nav').getBoundingClientRect().right<=end.left+1 && end.right<=innerWidth+1;
+      });
+      assert(fits,'My Album and the score fit on a '+width+'px phone');
+    }
+    await albumTab.click();await p.getByRole('heading',{name:'My word album'}).waitFor();
+    assert.equal(await albumTab.getAttribute('aria-current'),'page');
+    await p.context().close();
+  }
 }
 async function checkLandscapeRewards() {
   const album=before('ship');
   album.settings.sparkles=true;
   album.show={tasks:8,picks:['rainbow','music','stars','flowers']};
   const p=await openGame(album,'no-preference',{viewport:{width:1024,height:640},hasTouch:true});
+  await observeScoreAudio(p);
   await act(p,'discover');
   await p.evaluate(()=>document.fonts.ready);
   async function fits(locator) {
@@ -304,6 +366,9 @@ async function checkLandscapeRewards() {
   await p.locator('.found.show-playing').waitFor();
   assert.equal(await picker.isVisible(),false);
   await picker.waitFor({timeout:20000});
+  const notes=await p.evaluate(()=>window.scoreNotes);
+  assert.deepEqual(notes.map(n=>n.score),[1,2,3,4,5].map(i=>album.stars+i));
+  assert(notes.every((n,i)=>n.hz>0 && (i===0 || n.hz>notes[i-1].hz)),JSON.stringify(notes));
   assert.equal(await p.locator('.fireworks-screen').count(),0);
   assert.equal(await p.evaluate(()=>scrollY),0);
   await fits(picker.locator('button'));
@@ -323,6 +388,7 @@ async function checkLandscapeRewards() {
 }
 try {
   await checkWritingBack();
+  await checkLaptopReward();
   await checkCelebrationSize();
   await checkMixedMeadow();
   await checkLandscapeRewards();

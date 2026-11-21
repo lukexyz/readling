@@ -110,10 +110,13 @@ main.wrap{padding-block:29px 40px;outline:none}
 .pad-row .ink-box{border:2px solid #65765a;box-shadow:0 2px 0 #c3cbb8}
 .rest-pad{--nav-inset:clamp(4px,.8vw,10px);position:relative;overflow:visible;border:1px dashed #c6c9b8;background:#f7f6ed}
 .rest-pad>svg{display:block;width:100%;max-height:200px}.rest-line{fill:none;stroke:#d8dbce}
-.lesson-grid:not(.long-word) .pad-row{padding-bottom:44px}
+.rest-writing{position:absolute;inset:0;pointer-events:none}
+.rest-writing svg{display:block;width:100%;height:100%}
+.rest-pad:has(.letter-redo) .rest-writing{inset-inline-end:calc(44px + var(--nav-inset))}
+.pad-row:has(.rest-pad.has-ink .btn){padding-bottom:44px}
 .letter-redo{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;padding:0;background:transparent;color:var(--sub);border:0;border-radius:50%}
 .letter-redo:is(:hover,:focus-visible){color:var(--deep);background:var(--sage)}
-.rest-pad .letter-redo{position:absolute;top:100%;inset-inline-end:0}
+.rest-pad .letter-redo{position:absolute;bottom:var(--nav-inset);inset-inline-end:var(--nav-inset)}
 .rest-pad .btn{position:absolute;bottom:var(--nav-inset);inset-inline:0;margin-inline:auto;width:fit-content;max-width:calc(100% - 2 * var(--nav-inset));min-width:44px;min-height:44px;padding:6px 12px}
 .rest-pad.has-ink .btn{top:100%;bottom:auto}
 .letter-nav{display:flex;align-items:center;gap:8px;margin-inline-start:auto}
@@ -425,6 +428,7 @@ dialog .actions{margin-top:12px}
   .task-label .btn{min-height:38px;padding:6px 9px;font-size:12px}.task-label .ink-tools button{font-size:12px;padding-inline:4px}
   .pad-row #inkpad,.rest-pad>svg{height:128px}
   .rest-pad{--nav-inset:3px}
+  .rest-pad:has(.letter-redo) .rest-writing{inset-inline-end:0;inset-block-end:calc(44px + var(--nav-inset))}
   .rest-pad .btn{padding:4px 6px;font-size:13px}
   .rest-pad .btn svg{display:none}
   .ink-tools button{min-height:34px}.activity-bottom{padding-top:12px}.btn{font-size:14px;min-height:44px;padding:11px 14px}
@@ -446,8 +450,9 @@ dialog .actions{margin-top:12px}
   .found:has(>.found-details)>.actions .btn{padding-inline:6px}
   .found:has(>.found-details)>.actions #sticker-receipt{grid-column:1/-1;justify-self:center}
 }
-/* A wide, shallow window has room for the word beside its meadow. */
-@media(min-width:520px) and (orientation:landscape) and (max-height:940px){
+/* Short touch screens keep the controls in reach; laptops center the meadow above the word. */
+@media(min-width:520px) and (orientation:landscape) and (max-height:940px) and (pointer:coarse),
+      (min-width:520px) and (orientation:landscape) and (max-height:520px){
   .found:has(>.found-details){display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);align-items:center;column-gap:clamp(14px,3vw,40px)}
   .found:has(>.found-details)>:is(.kicker,h1,.actions,.save-invite){grid-column:1/-1}
   .found:has(>.found-details)>.show-stage{margin:12px 0 0}
@@ -542,6 +547,17 @@ dialog .actions{margin-top:12px}
   .tabs{order:0;width:auto;gap:2px;margin:0}
   .tab{min-height:44px;padding:4px 6px;gap:4px}
   .mast-end{gap:2px}
+}
+@media(max-width:440px) and (max-height:740px){
+  .mast-row{width:calc(100% - 12px);gap:3px}
+  .tab{padding-inline:5px;white-space:nowrap}
+  .tab .icon{display:none}
+}
+@media(max-width:350px) and (max-height:740px){
+  .brand img{width:26px;height:26px}
+  .tab{padding-inline:3px}
+  .badge-menu>summary{gap:2px;padding-inline:2px}
+  .badge-caret{display:none}
 }
 @media(min-width:520px) and (max-width:590px) and (orientation:landscape){
   .task-label{flex-direction:column;align-items:flex-start}

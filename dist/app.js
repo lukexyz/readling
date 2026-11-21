@@ -1,5 +1,6 @@
 import {icon, forms, letterForm} from './drawings.js';
 import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
+import {prepareStarPiano, playStarNote, stopStarPiano} from './star-piano.js';
 import {mountCelebrationCards} from './celebration-cards.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
@@ -181,6 +182,7 @@ function afterNavigate() {
 function go(route) {
   if(dialog.open) dialog.close();
   stopSound();
+  if((route==='learn' || route==='round') && profile.settings.sparkles && profile.settings.fanfare) prepareStarPiano();
   if(location.hash.slice(1)!==route) {
     history.pushState(null,'','#'+route);
   }
@@ -189,7 +191,7 @@ function go(route) {
 function render() {
   stickerCards?.destroy();stickerCards=null;
   if(stickerPicker.open) stickerPicker.close();
-  cancelFinale();playing=null;
+  cancelFinale();stopStarPiano();playing=null;
   const raw=location.hash.slice(1);
   const [route,arg]=raw.split('/');
   view=route || 'home';
@@ -226,7 +228,7 @@ function render() {
   document.title=pageTitle ? pageTitle+' · Readling' : 'Readling · The Word Woods';
 }
 function drawHeader() {
-  const tabs=[['home','compass','Play'],['album','album','Album'],['review','memory','Memory']];
+  const tabs=[['home','compass','Play'],['album','album','My Album'],['review','memory','Memory']];
   const active=['round','review','swap'].includes(view)?'review':['album','scene','stickers'].includes(view)?'album':'home';
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
@@ -363,8 +365,8 @@ function lessonPage() {
   const l=profile.lesson, total=l.word.length;
   const units=unitsOf(l.word), current=unitAt(l.word,l.i), u=units[current];
   const isBlend=l.i===total;
-  const previousLabel=l.i>0?`Back to letter ${l.word[l.i-1]}`:'';
-  const previousLetter=previousLabel?`<button type="button" class="letter-redo" data-act="previous-sound" aria-label="${previousLabel}" title="${previousLabel}">${icon('repeat',19)}</button>`:'';
+  const previousLabel=l.i>0?`Retry letter ${l.word[l.i-1]}`:'';
+  const previousLetter=previousLabel?`<button type="button" class="letter-redo" data-act="previous-sound" aria-label="${previousLabel}" title="${previousLabel}">${icon('repeat',26)}</button>`:'';
   const top=`<div class="page-top">${back()}<span class="level">${icon('compass',16)} ${stageLabel(l.word)}</span></div>`;
   if(isBlend) return top+`<section class="activity blend-activity">
     <div class="activity-heading"><div class="kicker">${icon('book',16)} Blend the sounds</div><h1>Say the whole word</h1>
@@ -384,7 +386,8 @@ function lessonPage() {
     <div class="task-label"><div class="instruction-title"><span class="step-token">2</span><h2>Write <span class="inline-letter">${c}</span></h2></div>
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
     <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?total>3?'':`<div class="rest-pad${l.ink[j].length?' has-ink':''}">
-        <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg>
+        <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/></svg>
+        ${l.ink[j].length?`<div class="rest-writing"><svg viewBox="0 0 180 138" aria-hidden="true"><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg></div>`:''}
         ${j===l.i-1?previousLetter:j===l.i+1?action('Next','next-sound'):''}</div>`:
       `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">
         <path class="midline" d="M0 48H180"/><path class="baseline" d="M0 95H180"/>
@@ -410,7 +413,7 @@ function foundPage(word) {
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
       ${lvl&&count()===3?'<p class="unlock-note">Your story clearing is open. Play with your finds in the album.</p>':''}
       ${fresh?badgeAward(word,lastFound):''}</div>
-      <div class="actions centre">${action('My album','album','album','secondary')}${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${stickerReward()}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Next word!',next):action('Play memory','review')}</div>
+      <div class="actions centre">${profile.settings.sparkles?action('Encore!','encore','spark','gold'):''}${stickerReward()}${next==='start-round'?action('Play memory first',next):next==='discover'?action('Next word!',next):action('Play memory','review')}</div>
       ${lvl && cloud.on && !cloud.remembered()?`<div class="save-invite" id="save-invite"><p>Save your album and open it on any tablet.</p>${googleButton()}</div>`:''}</section>`;
 }
 function inkLabel(word) {
@@ -743,6 +746,7 @@ function dispatch(act,el) {
       if(!l) break;
       const target=l.i+(act==='previous-sound'?-1:1);
       if(target<0 || target>l.word.length) break;
+      if(act==='previous-sound') l.ink[target]=[];
       stopSound();l.i=target;save();render();
       if(l.i===l.word.length) {afterNavigate();narrate('blend-word');}
       else {$('#inkpad').focus({preventScroll:true});announce(`Write ${l.word[l.i]}. Sound ${unitAt(l.word,l.i)+1}.`);}
@@ -867,6 +871,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('change',e=>{
   const el=e.target;
   if(el.dataset.setting){profile.settings[el.dataset.setting]=el.checked;save();if(!profile.settings.voice)stopSound();}
+  if(el.dataset.setting==='fanfare' && !el.checked) stopStarPiano();
   if(el.dataset.setting==='sparkles' && view==='found') render();
   if(el.dataset.classSound) {
     classChanged=true;
@@ -902,6 +907,7 @@ function drawStars() {
 function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null,offerSticker=false}={}) {
   const stage=$('.victory');
   if(!stage) return null;
+  if(stars && profile.settings.fanfare && !document.hidden) prepareStarPiano();
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
   const sounds=soundsOf(word);
@@ -912,14 +918,21 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
   const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',sounds[i]),
     onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
-    onStar:()=>{if(starsHeld){starsHeld--;drawStars();}},
+    onStar:i=>{
+      if(starsHeld){starsHeld--;drawStars();}
+      if(profile.settings.fanfare && !document.hidden && !dialog.open) playStarNote(i);
+    },
     onEnd:finished=>{
+      if(!finished) stopStarPiano();
       if(starsHeld){starsHeld=0;drawStars();}
       if(trigger) trigger.disabled=false;
       ended?.(finished);
       if(finished) offer();
     }});
   if(trigger) trigger.disabled=!!show;
+  if(!show && stars && profile.settings.fanfare && !document.hidden && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    for(let i=0;i<stars;i++) playStarNote(i,i*.22);
+  }
   // Reduced motion skips the show. Let navigation finish focusing the page first.
   if(!show && offerSticker) queueMicrotask(offer);
   if(!alone) playing=show;
@@ -1026,7 +1039,7 @@ dialog.addEventListener('close',()=>{
 });
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden) wake();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden) stopStarPiano();else wake();});
 window.addEventListener('online',wake);
 render();
 wake();

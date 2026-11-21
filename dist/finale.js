@@ -75,7 +75,7 @@ const BASE={
     make() {return {landed:0};},
     step(e,s,t) {
       const to=e.starHome || {x:e.w-44,y:34};
-      while(s.landed<e.stars && t>=s.landed*.22+.83){s.landed++;e.ring(to.x,to.y,34*e.u);e.on('onStar');}
+      while(s.landed<e.stars && t>=s.landed*.22+.83){s.landed++;e.ring(to.x,to.y,34*e.u);e.on('onStar',s.landed-1);}
     },
     draw(e,s,t) {
       const to=e.starHome || {x:e.w-44,y:34};

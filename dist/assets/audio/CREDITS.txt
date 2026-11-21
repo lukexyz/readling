@@ -2,7 +2,7 @@ Word Woods audio credits
 
 The starter story sentences, starter whole-word narration and four guide prompts were
 generated with ElevenLabs, then levelled for tablet speakers. The game
-plays bundled MP3s. The victory fanfare is original music for Readling.
+plays bundled MP3s. The victory fanfare and five felt-piano score notes are original music for Readling.
 https://elevenlabs.io
 
 Later word collections

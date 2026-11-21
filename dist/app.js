@@ -180,16 +180,16 @@ function startOrResume(word) {
 function afterNavigate() {
   window.scrollTo({top:0,behavior:'instant'}); main.focus({preventScroll:true});
 }
-function go(route) {
+function go(route,options) {
   if(dialog.open) dialog.close();
   stopSound();
   if((route==='learn' || route==='round') && profile.settings.sparkles && profile.settings.fanfare) prepareStarPiano();
   if(location.hash.slice(1)!==route) {
     history.pushState(null,'','#'+route);
   }
-  render(); afterNavigate();
+  render(options); afterNavigate();
 }
-function render() {
+function render({offerSticker=false}={}) {
   stickerCards?.destroy();stickerCards=null;
   if(stickerPicker.open) stickerPicker.close();
   cancelFinale();stopStarPiano();playing=null;
@@ -212,7 +212,7 @@ function render() {
   if(view==='found' && raw!==lastRevealRoute) {
     const fresh=lastFound?.word===arg && lastFound.fresh;
     const rank=fresh?revealBadge(lastFound):0;
-    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:rank,badgeSrc:rank?badgeArt(stageOf(arg),rank):'',offerSticker:fresh});
+    celebrate({word:arg,stars:fresh?5:0,held:fresh,tier:rank,badgeSrc:rank?badgeArt(stageOf(arg),rank):'',offerSticker});
   }
   lastRevealRoute=view==='found'?raw:'';
   if(view==='learn') bindLesson();
@@ -777,7 +777,7 @@ function dispatch(act,el) {
     case 'reveal':{
       const found=collect(profile); if(!found) break;
       if(found.fresh) warm=false;
-      lastFound=found;save();go('found/'+found.word);
+      lastFound=found;save();go('found/'+found.word,{offerSticker:found.fresh});
       // Her show says the word when the picture appears. Without the show she hears it straight away.
       if(!playing) playClip('words',found.word,{end:playFanfare});
       break;
@@ -793,7 +793,7 @@ function dispatch(act,el) {
       const theatre=$('.meadow-scenery');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
       showStickerHeading(SHOW.find(s=>s.id===id).name);
-      celebrate({word:pageWord(),alone:id,offerSticker:true});
+      celebrate({word:pageWord(),alone:id});
       if(id==='music') playFanfare();
       break;
     }

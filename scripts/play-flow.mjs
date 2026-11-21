@@ -78,6 +78,32 @@ function before(target) {
   while(findNext(p)!==target){const w=findNext(p);assert(w,'Target reachable: '+target);startLesson(p,w);p.lesson.i=w.length;collect(p);}
   return p;
 }
+async function checkDeferredStickers() {
+  const album=before('pen');
+  album.settings.sparkles=true;
+  album.show.picks=['music','stars','flowers'];
+  startLesson(album,'pen');album.lesson.i=3;
+  const p=await openGame(album);
+  const picker=p.getByRole('dialog',{name:'You earned a sticker!'});
+  await act(p,'discover');await act(p,'reveal');
+  await picker.getByRole('button',{name:'Bunnies · Level 1'}).click();
+  assert.equal(await picker.isVisible(),false,'picking Bunnies must not open another earned sticker');
+  await p.getByRole('heading',{name:'You picked Bunnies · Level 1!'}).waitFor();
+  const afterPick=await saved(p);
+  assert.deepEqual(afterPick.show.picks,[...album.show.picks,'bunnies']);
+  assert.equal(afterPick.show.tasks,album.show.tasks+1,'selecting a sticker preserves completed tasks');
+  await act(p,'encore');
+  assert.equal(await picker.isVisible(),false);
+  await act(p,'discover');await p.goBack();await p.locator('.found').waitFor();
+  assert.equal(await picker.isVisible(),false,'returning to the same word must not repeat its sticker offer');
+  await act(p,'discover');
+  const nextWord=findNext(afterPick);
+  for(let i=0;i<nextWord.length;i++) await act(p,'next-sound');
+  await act(p,'reveal');
+  await picker.getByRole('button',{name:'Star fountains'}).waitFor();
+  assert.deepEqual((await saved(p)).show.picks,afterPick.show.picks,'the next choice waits for her to pick it');
+  await p.context().close();
+}
 async function checkCelebrationSize() {
   const page=await openGame(null,'no-preference',{viewport:{width:1024,height:768},deviceScaleFactor:2,hasTouch:true});
   await page.locator('summary.stars').tap();
@@ -422,6 +448,7 @@ async function checkLandscapeRewards() {
   await p.context().close();
 }
 try {
+  await checkDeferredStickers();
   await checkWritingBack();
   await checkLaptopReward();
   await checkSaveFooter();
@@ -537,10 +564,14 @@ try {
   }
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
-  await p.getByRole('dialog',{name:'You earned a sticker!'}).locator('[data-pick="music"]').click({timeout:20000});
+  const roundPicker=p.getByRole('dialog',{name:'You earned a sticker!'});
+  await roundPicker.locator('[data-pick="music"]').click({timeout:20000});
   const pickedMusic=p.getByRole('heading',{name:'You picked Music!',exact:true,level:1});
   await pickedMusic.waitFor();
   assert.equal(await pickedMusic.locator('.sticker-confirmation>span').evaluate(el=>getComputedStyle(el).animationName),'sticker-picked');
+  const preview=p.locator('.round-done.show-playing');
+  await preview.waitFor();await preview.waitFor({state:'hidden',timeout:20000});
+  assert.equal(await roundPicker.isVisible(),false,'finishing the chosen animation must not offer another sticker');
   await act(p,'album');await act(p,'stickers');
   await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();
   await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-bonus]').click();

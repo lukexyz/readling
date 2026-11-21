@@ -280,9 +280,17 @@ main.wrap{padding-block:29px 40px;outline:none}
 .round-done .show-stage + .actions{margin-top:18px}
 .round-done .reveal-art .stamp-face{width:clamp(58px,9.5vw,112px)}
 .round-done .reveal-art .stamp:nth-child(even){transform:rotate(3deg)}
+@media(min-height:521px){
+  /* The memory meadow uses the space left by the header, reward controls and optional save prompt. */
+  body:has(main>.round-done.victory){display:flex;flex-direction:column;min-height:100dvh}
+  #game-page:has(.round-done.victory),main:has(>.round-done.victory),.round-done.victory{display:flex;flex-direction:column;flex:1 0 auto}
+  .round-done.victory>p{margin-bottom:clamp(10px,2.3dvh,19px)}
+  .round-done.victory>.show-stage{flex:1 0 auto;container-type:size;width:min(100%,max(820px,100dvh));max-height:min(52vw,480px);margin-block:auto}
+  .round-done.victory .stamp-face{width:clamp(58px,min(54cqh,22cqw),168px)}
+}
 .reward-heading{position:relative}
 .sticker-confirmation{position:absolute;inset:0;display:grid;place-items:center;container-type:inline-size}
-.sticker-confirmation>span{width:100%;font-size:clamp(16px,calc(175cqi / var(--characters)),1em);line-height:1.04;text-wrap:balance}
+.sticker-confirmation>span{width:100%;font-size:clamp(16px,calc(160cqi / var(--characters)),.8em);line-height:1.04;text-wrap:balance}
 @media(prefers-reduced-motion:no-preference){
   .sticker-confirmation>span{animation:sticker-picked .48s ease-out both}
   @keyframes sticker-picked{0%{opacity:0;transform:translateY(5px) scale(.94)}65%{opacity:1;transform:translateY(-1px) scale(1.025)}100%{opacity:1;transform:none}}
@@ -322,6 +330,9 @@ html:has(#sticker-picker[open]){overflow:hidden}
 #save-footer p{margin:0 0 7px;color:var(--sub);font-size:14px}
 #save-footer .save-link{min-height:44px;border:0;background:none;color:var(--sub);font-size:14px}
 #save-footer .save-link span{text-decoration:underline;text-underline-offset:3px}
+#save-footer .gsi-material-button{height:36px;padding-inline:12px;font-size:14px}
+#save-footer .gsi-material-button-icon{width:18px;height:18px;margin-right:10px}
+@media(pointer:coarse){#save-footer .gsi-material-button{height:44px}}
 /* Google's Sign in with Google button, from its branding guidelines, scaled up evenly for small fingers. */
 .gsi-material-button{position:relative;height:46px;padding:0 14px;overflow:hidden;background:#fff;border:1px solid #747775;border-radius:23px;color:#1f1f1f;font:500 16px Roboto,arial,sans-serif;letter-spacing:.25px;white-space:nowrap;transition:box-shadow .218s}
 .gsi-material-button-content-wrapper{position:relative;display:flex;align-items:center;height:100%}
@@ -459,7 +470,7 @@ dialog .actions{margin-top:12px}
   .letter-rack{grid-template-columns:repeat(13,minmax(0,1fr))}.key{min-height:42px}.shelf-toggle{min-height:46px}
 }
 @media(max-width:590px){
-  .found:has(>.found-details)>h1{font-size:clamp(27px,7.5vw,34px)}
+  .found:has(>.found-details)>h1,.round-done>h1{font-size:clamp(27px,7.5vw,34px)}
   .found:has(>.found-details)>.show-stage{height:clamp(130px,20dvh,178px);margin-top:10px}
   .found:has(>.found-details) .reveal-art .stamp-face{width:clamp(88px,14dvh,118px)}
   .found:has(>.found-details)>.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px}

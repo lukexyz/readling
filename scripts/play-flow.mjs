@@ -342,6 +342,24 @@ async function checkLaptopReward() {
     await p.context().close();
   }
 }
+async function checkMemoryRewardLayout(p) {
+  const original=p.viewportSize(), meadowHeights=[];
+  for(const height of [739,839]) {
+    await p.setViewportSize({width:1341,height});
+    const layout=await p.locator('.round-done').evaluate(card=>{
+      const box=selector=>document.querySelector(selector).getBoundingClientRect();
+      const title=card.querySelector('h1'), message=title.querySelector('.sticker-confirmation>span');
+      return {meadow:box('.round-done .show-stage').height, actions:box('.round-done .actions').bottom,
+        footerGap:innerHeight-box('#save-footer button').bottom,
+        textScale:parseFloat(getComputedStyle(message).fontSize)/parseFloat(getComputedStyle(title).fontSize)};
+    });
+    assert(layout.footerGap>=8 && layout.footerGap<=24 && layout.actions<height,'The controls and save prompt fit the memory screen');
+    assert(layout.textScale<=.82,'The confirmation is smaller than the round title');
+    meadowHeights.push(layout.meadow);
+  }
+  assert(meadowHeights[1]-meadowHeights[0]>70,'The meadow expands into spare viewport height');
+  await p.setViewportSize(original);
+}
 async function checkSaveFooter() {
   const p=await openGame(before('dog'),'reduce',{viewport:{width:1343,height:760}});
   const footer=p.getByRole('contentinfo');
@@ -363,6 +381,7 @@ async function checkSaveFooter() {
   await act(p,'reveal');
   await footer.getByText('Save your album and open it on any tablet.',{exact:true}).waitFor();
   assert.equal(await footer.getByRole('button').count(),1);
+  assert((await signIn.boundingBox()).height<=40,'Desktop reward footers use the compact Google button');
   for(const [width,height] of [[1343,760],[1024,768],[390,740]]) {
     await p.setViewportSize({width,height});
     const gap=await footer.locator('p').evaluate(caption=>caption.getBoundingClientRect().top-document.querySelector('.found').getBoundingClientRect().bottom);
@@ -572,6 +591,7 @@ try {
   const preview=p.locator('.round-done.show-playing');
   await preview.waitFor();await preview.waitFor({state:'hidden',timeout:20000});
   assert.equal(await roundPicker.isVisible(),false,'finishing the chosen animation must not offer another sticker');
+  await checkMemoryRewardLayout(p);
   await act(p,'album');await act(p,'stickers');
   await p.getByRole('button',{name:'Play Music',exact:true}).waitFor();
   await act(p,'album');await p.locator('.album-stage[open] [data-act=stage-bonus]').click();

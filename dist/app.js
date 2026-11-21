@@ -1033,11 +1033,13 @@ function rewardHeading(title) {
 function showStickerHeading(name) {
   const heading=$('.victory .reward-heading');
   if(!heading) return;
-  const message='You picked '+name+'!';
   const pop=document.createElement('span'), text=document.createElement('span');
+  const sticker=document.createElement('span');
   pop.className='sticker-confirmation';
-  pop.style.setProperty('--characters',message.length);
-  text.textContent=message;
+  sticker.className='sticker-name';
+  sticker.textContent=name;
+  text.append('You picked ',sticker,'!');
+  pop.style.setProperty('--characters',text.textContent.length);
   pop.append(text);
   $('.reward-title',heading).style.visibility='hidden';
   $('.sticker-confirmation',heading)?.remove();

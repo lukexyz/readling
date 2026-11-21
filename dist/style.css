@@ -290,10 +290,27 @@ main.wrap{padding-block:29px 40px;outline:none}
 }
 .reward-heading{position:relative}
 .sticker-confirmation{position:absolute;inset:0;display:grid;place-items:center;container-type:inline-size}
-.sticker-confirmation>span{width:100%;font-size:clamp(16px,calc(160cqi / var(--characters)),.8em);line-height:1.04;text-wrap:balance}
+.sticker-confirmation>span{position:relative;width:fit-content;max-width:calc(100% - 1.5em);font-size:clamp(16px,calc(160cqi / var(--characters)),.8em);line-height:1.04;text-wrap:balance}
+.sticker-name{
+  border-bottom:.09em solid #d6ac5d;border-radius:0 0 53% 36% / 0 0 .18em .1em;
+  padding-bottom:.02em;-webkit-box-decoration-break:clone;box-decoration-break:clone
+}
+/* Focus lands on the announcement when the picker closes. Mark the name itself. */
+.reward-heading:has(>.sticker-confirmation):focus{outline:none}
+.reward-heading:focus-visible .sticker-name{border-bottom-color:var(--ochre)}
+.sticker-confirmation>span::before,.sticker-confirmation>span::after{
+  content:"";position:absolute;width:var(--spark-size);height:var(--spark-size);background:var(--spark-color);
+  clip-path:polygon(50% 0,62% 36%,100% 50%,62% 63%,50% 100%,37% 63%,0 50%,37% 36%);pointer-events:none
+}
+.sticker-confirmation>span::before{--spark-size:.3em;--spark-color:#bc8a35;inset-inline-start:-.56em;top:.1em}
+.sticker-confirmation>span::after{--spark-size:.22em;--spark-color:#879b7c;inset-inline-end:-.45em;bottom:.1em}
+@media(forced-colors:active){.reward-heading:focus-visible .sticker-name{border-bottom-color:Highlight}}
 @media(prefers-reduced-motion:no-preference){
   .sticker-confirmation>span{animation:sticker-picked .48s ease-out both}
+  .sticker-confirmation>span::before,.sticker-confirmation>span::after{animation:sticker-twinkle .64s ease-out .08s both}
+  .sticker-confirmation>span::after{animation-delay:.2s}
   @keyframes sticker-picked{0%{opacity:0;transform:translateY(5px) scale(.94)}65%{opacity:1;transform:translateY(-1px) scale(1.025)}100%{opacity:1;transform:none}}
+  @keyframes sticker-twinkle{0%{opacity:0;transform:scale(.35) rotate(-25deg)}55%{opacity:1;transform:scale(1.25) rotate(8deg)}100%{opacity:1;transform:none}}
 }
 #sticker-picker{width:min(540px,calc(100% - 28px),125dvh);max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)));padding:clamp(14px,3vmin,24px);overscroll-behavior:contain}
 #sticker-picker::backdrop{background:rgb(237 239 222 / .55)}

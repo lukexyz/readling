@@ -488,16 +488,20 @@ async function checkTabletActivitySpace() {
   const p=await openGame(album,'reduce',devices['iPad (gen 7) landscape']);
   // Both footer states can be exercised without contacting an account.
   await p.evaluate(async()=>{(await import('/cloud.js')).cloud.remembered=()=>true;});
-  const sizes=[[1024,620],[1133,675],[1180,720],[1180,820],[1366,924],[1366,1024],[820,1080]];
+  const landscapeSizes=[[1024,620],[1133,675],[1180,720],[1180,820],[1366,924],[1366,1024]];
+  const portraitSizes=[[744,930],[768,915],[810,970],[820,1000],[820,1080],[834,1100],[1024,1260]];
+  const sizes=[...landscapeSizes,...portraitSizes];
   async function measure(selector,width,height,page=p) {
     await page.setViewportSize({width,height});
     await page.evaluate(async()=>{await document.fonts.ready;await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));});
     const layout=await page.locator('main>.activity').evaluate((card,selector)=>{
       const box=node=>node.getBoundingClientRect();
       const target=box(card.querySelector(selector)), panel=box(card), actions=box(card.querySelector('.actions'));
+      const details=card.querySelector('.found-details');
       const footer=document.body.classList.contains('has-reward-footer') && document.querySelector('#save-footer button');
       const screen=visualViewport, bottom=screen.offsetTop+screen.height;
       return {gap:bottom-(footer?box(footer).bottom:panel.bottom),width:target.width,height:target.height,
+        detailsBelow:details && box(details).top>=target.bottom-1,
         panelWidth:panel.width,inside:target.top>=panel.top && target.bottom<=actions.top+1 && target.left>=panel.left && target.right<=panel.right,
         controls:actions.bottom<=bottom && (!footer || box(footer).top>=panel.bottom),scrollX:document.documentElement.scrollWidth-innerWidth};
     },selector);
@@ -512,7 +516,7 @@ async function checkTabletActivitySpace() {
   for(const [w,h] of sizes) {
     const read=await measure('.face-down',w,h);
     assert(read.height>=h*.32,'The reading card gets the spare height at '+w+'×'+h);
-    if(w===1180 && h===820) assert(read.height>previous.height+65);
+    if((w===1180 && h===820) || (w===820 && h===1080)) assert(read.height>previous.height+65);
     previous=read;
   }
   const open=await measure('.face-down',1180,720);
@@ -526,16 +530,20 @@ async function checkTabletActivitySpace() {
   if(await picker.isVisible()) await picker.locator('[data-act=add-to-show]').first().click();
   for(const [w,h] of sizes) {
     const stage=await measure('.show-stage',w,h);
-    assert(stage.width>stage.panelWidth*.60 && stage.height>h*.34,'The discovery meadow uses the available space at '+w+'×'+h);
-    if(w===1180 && h===820) assert(stage.height>previous.height+65);
+    if(w<h) {
+      assert(stage.detailsBelow && stage.width>stage.panelWidth*.85 && stage.height>h/3,'The portrait meadow spans the panel above the word at '+w+'×'+h);
+    } else {
+      assert(stage.width>stage.panelWidth*.60 && stage.height>h*.34,'The landscape meadow uses the available space at '+w+'×'+h);
+    }
+    if((w===1180 && h===820) || (w===820 && h===1080)) assert(stage.height>previous.height+65);
     previous=stage;
   }
   await p.setViewportSize({width:1180,height:720});
   await p.emulateMedia({reducedMotion:'no-preference'});await act(p,'encore');
   const canvas=p.locator('.found .show-stage canvas.show-floor');
   await canvas.waitFor();
-  for(const height of [720,820]){
-    await p.setViewportSize({width:1180,height});
+  for(const [width,height] of [[1180,720],[1180,820],[820,1080],[820,1000],[744,930]]){
+    await p.setViewportSize({width,height});
     await p.waitForFunction(()=>{
       const stage=document.querySelector('.found>.show-stage'), layer=stage.querySelector('canvas.show-floor');
       return layer && Math.abs(layer.height-stage.clientHeight*devicePixelRatio)<=2 && Math.abs(layer.width-stage.clientWidth*devicePixelRatio)<=2;
@@ -552,7 +560,9 @@ async function checkTabletActivitySpace() {
     await act(p,'flip');await p.locator('[data-act=pick][data-word="'+word+'"]').click();await act(p,'next-card');
   }
   if(await picker.isVisible()) await picker.getByRole('button',{name:'Close sticker picker'}).click();
-  await p.locator('.round-done').waitFor();await measure('.show-stage',1024,620);await measure('.show-stage',1180,720);
+  await p.locator('.round-done').waitFor();
+  assert(await p.locator('#save-footer button').isVisible());
+  for(const [w,h] of [[1024,620],[1180,720],...portraitSizes]) await measure('.show-stage',w,h);
   await p.context().close();
 
   const firstStage=before('pig');
@@ -565,6 +575,23 @@ async function checkTabletActivitySpace() {
   if(await graduate.locator('#sticker-picker').isVisible()) await graduate.getByRole('button',{name:'Close sticker picker'}).click();
   await measure('.show-stage',1024,620,graduate);await measure('.show-stage',1180,720,graduate);
   await graduate.context().close();
+
+  const longAlbum=before('strawberry');
+  startLesson(longAlbum,'strawberry');longAlbum.lesson.i='strawberry'.length;collect(longAlbum);
+  longAlbum.cards.strawberry.due=1;
+  const longWord=await openGame(longAlbum,'reduce',devices['iPad (gen 7) landscape']);
+  await act(longWord,'review');await act(longWord,'start-round');
+  const print=longWord.locator('.face-down .word-print[aria-label="strawberry"]');
+  await print.waitFor();
+  for(const [w,h] of [[1024,620],[744,930],[820,1080]]) {
+    await measure('.face-down',w,h,longWord);
+    assert(await print.evaluate(el=>{
+      const card=el.closest('button').getBoundingClientRect();
+      return Array.from(el.querySelectorAll('.grapheme'),letter=>letter.getBoundingClientRect())
+        .every(r=>r.width>0 && r.left>=card.left && r.right<=card.right);
+    }),'Each letter of strawberry fits on the reading card at '+w+'×'+h);
+  }
+  await longWord.context().close();
 }
 async function checkPlayFlow() {
   await checkDeferredStickers();

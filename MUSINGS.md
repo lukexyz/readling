@@ -21,22 +21,49 @@ Readling is a game for a four-year-old who has started phonics at school. The ai
 
 **Make the discovery hers.** Her own handwriting goes into the album alongside the illustration. A new word earns five stars, and every third discovery brings a level. She can replay her show with Encore, and a grown-up can mute its music or turn the show off. The story line gives a grown-up an opening for conversation, such as “Where do you think that cat is going?” [What Works Clearinghouse guidance on letters, sounds and shared reading](https://ies.ed.gov/ncee/wwc/PracticeGuide/30)
 
+**Put the detail where she asks for it.** While she’s writing, the button beside the next letter can simply say “Next”. At the end of the word it says “Say my word!” because the task changes. Tapping her stars opens a small panel directly underneath with her badges, words, sounds, memory reads and progress to the next badge. She can look up what she earned even if she missed the badge appearing in the meadow.
+
 **Build the reveal from her own sounds.** When she taps “Reveal my word” the page dims and the stage is empty. Her own handwritten letters land on it one at a time, each with its sound. Then a star strikes the stage, her picture appears and the whole word is spoken. She sees and hears sounds become a word and the word become a thing. The idea comes from a close study of how the game Peggle celebrates a finished level: it announces the win a moment before it happens, and it makes the celebration out of what the player just did.
 
 **Let her build the celebration.** The show starts small: the hush, her letters, the star and one burst. Her first find or memory round earns a choice of two things to add, and every second one after that earns another. The first choice is the rainbow or the music. There are 57 things in all, from more stars and growing flowers to dolphins, marching elephants and three levels of Ember Orca. The dolphins take turns visiting. She can build up a porpoise skip or a skyward vault over three levels, or turn a single glide into a relay of three dolphins. The orca starts with a breath of mist, then learns a banking breach and finally a full flip with a tower of spray. Each choice is a moving picture with its name under it, and one tap adds it and plays it by itself. The one she leaves is offered again next time, and nothing she adds is ever taken away. Her finds join in too: the woodland band carries pictures from her album along the bottom, fireflies can spell her word, and the last firework can take the shape of what she found. A memory round now ends with her show as well, because coming back to practise is where a reason to return helps most.
 
-**Keep it short by taking turns.** Peggle fits twelve events into fifteen seconds because each begins as the last one settles. The show follows that. Things in the sky and on the ground play every time. The visitors and the big finishes take turns, two of each per show, so the line-up changes from one show to the next. Her stars are counted out one by one and fly up to her total, and finishing a collection of three pins a rosette to the stage.
+**Keep it short by taking turns.** Peggle fits twelve events into fifteen seconds because each begins as the last one settles. The show follows that. Things in the sky and on the ground play every time. The visitors and the big finishes take turns, two of each per show, so the line-up changes from one show to the next. Her stars are counted out one by one and fly up to her total. When she earns a stage badge, the show pins it in the meadow.
 
 ## What building and testing taught us
 
 - The first narrated words were about 20 dB quieter than the fanfare. Matching their volume mattered as much as choosing the voice. We kept human recordings for the isolated sounds and slow blends. The 12 spoken words, 12 story lines and four prompts are generated once and shipped as MP3s. Public replays use zero ElevenLabs credits.
-- Her album lives in the browser she plays in. A grown-up can export it from one tablet and import it on the other. A mistyped address on the tablet produced a secure-connection error, so a tappable link or QR code is an easier handoff. [Open the public game](https://readling-word-woods.skuxnet.chatgpt.site/)
+- She can start reading straight away and her album saves in that browser. After a discovery or a memory round, a grown-up can use “Sign in with Google” to carry it to another tablet. Grown-ups also has that button, and export and import still work. When both tablets have been played on, Firebase sync keeps finds and stickers from both and the most recent practice record for each word and sound. A mistyped address once produced a secure-connection error on the tablet, so we give her a tappable link. [Open Readling](https://readling.me/)
+- A Google window that flashed and disappeared on the live game turned out to be a missing authorised domain in Firebase. We added the address the family actually uses, `readling.me`. The end-to-end check was to open the same account on the second tablet and compare its album with the saved copy. Both showed **9 words and 46 stars**.
 - The picture check reuses the “Say the word, then turn the card” prompt, so it needed no new recordings. “Tap the picture for your word” appears on screen and is not spoken yet.
-- With nothing added the show runs about five and a half seconds, and about seven with four things. With all 24 it runs about 13 to 16 seconds, depending on the visitors, finishes and collection rosette. Playing them all in Grown-ups takes about 20 to 21 seconds.
+- In the early version with 24 things to collect, the starting show ran about five and a half seconds, and about seven with four things. Once all 24 were collected, a normal show ran about 13 to 16 seconds, depending on the visitors, finishes and collection rosette. Playing them all in Grown-ups took about 20 to 21 seconds. The try-out gives the timing for the current mix.
 - The choices for her show are not spoken yet either. Each is a moving picture with its name printed under it. Speaking them needs new recordings.
 - Peggle lets a drum roll enter alone before its music. We have no roll, so the hush is silent apart from her letter sounds. The fanfare is still the one recording and plays after her word once she has added music.
 - Grown-ups has a try-out mode for the show. Any mix of its parts can be ticked and played without changing her show, and it reports how long that show runs, when her picture appears and when each part plays. It is how we find out which parts are worth keeping.
 - The show keeps real time on a slow tablet by taking several small steps for each frame it manages to draw. An early version slowed down instead, and its sounds drifted away from its pictures.
+
+## What makes a celebration work in the meadow
+
+**Watch where it takes off and lands.** The outline from the whale footage made it hard to judge the turn of the body during the breach. The reference was still good for timing. In Blender we could watch the same leap from the game camera and a second angle side by side, then render the approved angle to transparent WebP sprite sheets. The orca’s splash can land beside the word and leave the rest of the meadow visible. Silver relay lost its middle take because it looked too much like the first. An extra visitor, a different arc or a full flip gives her a change she can recognise.
+
+**Give the visitors room.** The rabbit was cute on its own and enormous beside *hat*. Flowers need roots in the illustrated grass. The animals need their feet anchored to the bottom of their own scene so they stay on the ground when the page scrolls. Give the elephants and rabbits opposite sides, and check the space below a row of four memory pictures as well as beside a single find. We can enlarge the meadow while keeping a rabbit small and sharp at its native resolution. The placement viewer lets us step through one animation at a time and pause at the widest part of a hop or splash. [Animation viewer](https://readling.me/animation-viewer.html)
+
+**Compare the artwork in the game frame.** Scarlet poppies, moonflowers and sunflowers each have three levels of growth. For the grass at their feet, the four Blender studies are Dewdrop lawn, Honey foxtails, Clover confetti and Bluebell dance. They can play side by side beneath the same flower so we can see whether the grass frames or hides it. We dropped the snail and the rainbow ribbon and slide. The three JavaScript rainbow studies try raindrops, pieces of coloured glass and butterflies gathering into an arch. The grass and rainbow studies are still choices to try in the meadow, including in grey on the Daylight. [Grass studies](https://readling.me/grass-concepts.html) · [Rainbow studies](https://readling.me/rainbow-concepts.html)
+
+## What the iPad photos caught
+
+On 22 November 2026 the landscape iPad photos showed *belt* with the sound shelf open and *stump* after the Skyward vault sticker pick. Every button was visible in both photos. Our earlier checks would pass that screen even with a broad strip of unused space underneath. The memory card stopped at the height of its contents. At these landscape sizes the discovery meadow got 29% of the visible height, up to a ceiling of 215 CSS pixels.
+
+The reading card and meadow now take the height left by the header, shelf, actions and any Google save prompt. Closing the shelf gives the card more room. Landscape puts the word, handwriting and badge beside the meadow. Portrait stacks them underneath and gives the meadow the width of the panel. Here are measurements from a test album on the live game, in CSS pixels, with the save prompt hidden.
+
+| Viewport | *belt* reading card | *stump* celebration meadow | Gap below the activity |
+| --- | --- | --- | --- |
+| Landscape 1180 × 720, before | 335 × 173 | 543 × 209 | 157 in memory, 162 on discovery |
+| Landscape 1180 × 720, after | 507 × 317 | 713 × 404 | 12 on both |
+| Portrait 820 × 1080, after | 620 × 619 | 734 × 450 | 12 on both |
+
+The original report came from the family’s iPad. We verified the fix with emulated touch viewports in WebKit and Chromium. A follow-up on the live site covered seven portrait sizes, from 744 to 1024 CSS pixels wide. The controls stayed in view at every size. On the signed-out round-complete screen the Google button had 14 pixels beneath it. Rotating into portrait during an Encore and changing the visible height also resized the drawing surface to the meadow at the tablet’s pixel density.
+
+For future layout changes, measure the card, the meadow and the space below the last visible control. Try the open sound shelf, a long word such as *strawberry*, four memory pictures, and a stage unlock with its badge and save prompt together. That last combination pushed the controls below the screen on a smaller landscape iPad until we compacted the badge panel. The repeatable checks run after `npm run build` with `npm run test:play` for Chromium or `npm run test:play -- --tablet-webkit` for the WebKit tablet checks. [Tablet layout checks](scripts/play-flow.mjs)
 
 ## What to watch for in play
 
@@ -59,6 +86,8 @@ The game already saves each animation she picks and plays it on its own. I’d c
 - When a new word or a finished memory round earns her a choice, change **Add to your show** to **Pick a sticker** above the two previews.
 - When she chooses one, show its name as it plays. **You picked Fireflies!** appears as the fireflies light up.
 - Put a **My Stickers** button inside **My word album**. She can open it between words and tap any sticker she owns to watch it move again.
+
+The picker now says **You earned a sticker!** and shows two moving choices. Her pick plays under its name, and **My Stickers** in the album lets her replay an earlier favourite. If she dismisses the picker, she can still claim that choice from the reward screen. A replay leaves her stars and finds alone.
 
 ### RL-3 · Place a sticker on a canvas
 
@@ -91,6 +120,8 @@ words = [
 ```
 
 All other fields are optional. Difficulty defaults to normal, tags default to an empty list, and a word counts as core unless its `bonus` flag is true. Theme and word type can stay unset. Leave absent keys out of the TOML and let the game supply those defaults when it reads the file. The loader can ignore unfamiliar keys so new metadata can be added without breaking older versions.
+
+The catalogue now has 400 words across 12 stages. That made a distinction in the lesson important. She writes four letters in *ship*, then blends three sounds. In *cake*, the *a* and *e* light together. Keeping a handwriting trace for each letter and a review date for each sound lets the same word serve both jobs. [Word catalogue](dist/words.toml)
 
 ## Dropped ideas
 

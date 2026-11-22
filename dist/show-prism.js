@@ -1,6 +1,6 @@
 import {prismShots} from './prism.js';
-import {fitShot} from './sprite-shot.js';
-import {clamp01} from './show-kit.js';
+import {fitShot,poseTime} from './sprite-shot.js';
+import {clamp01,drawStar,four} from './show-kit.js';
 import {cutout,prepareShow} from './show-cutouts.js';
 
 let sparkImage;
@@ -86,6 +86,34 @@ export function decoratePicturePoster(img,shot,word='cat') {
   else img.addEventListener('load',decorate,{once:true});
 }
 
+// Follow the original illustration on its actual rotated stamp, including the
+// matching word in a row of memory cards. Its printed lines show through the lights.
+function traceStamp(e,portrait,phase,level) {
+  if(!portrait) return;
+  const {ctx,target}=e, {size}=target, progress=clamp01((phase-.08)/.68);
+  const fade=Math.min(1,phase*8,(1-phase)*6);
+  ctx.save();ctx.translate(target.x,target.y);ctx.rotate(target.angle);
+  ctx.globalAlpha=fade;
+  for(const [x,y] of portrait.points) {
+    const age=progress-(.5-y)*.78;
+    if(age<=0 || age>.27) continue;
+    const radius=size*(.004+.007*Math.sin(age/.27*Math.PI));
+    ctx.fillStyle='#fff2b2';ctx.strokeStyle='#9b723d';ctx.lineWidth=Math.max(.6,radius*.45);
+    ctx.beginPath();ctx.arc(x*size,y*size,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
+  }
+  const r=size*.54;
+  for(const side of level>1?[-1,1]:[-1]) {
+    const a=progress*Math.PI, x=side*r*Math.sin(a), y=r*Math.cos(a);
+    drawStar(ctx,x,y,size*.034,phase*2,four,'#ffe181');
+  }
+  if(level===3 && phase>.54) {
+    const lift=clamp01((phase-.54)/.18);
+    ctx.globalAlpha*=lift;
+    for(const side of [-1,0,1]) drawStar(ctx,side*r*.32,-r*(side?.99:1.12),size*(side?.028:.049),0,four,'#ebc166');
+  }
+  ctx.restore();
+}
+
 function prismPart(shot) {
   const {family,frames,fps}=shot;
   const arch=family==='rainbow' || family==='rainbow2';
@@ -97,6 +125,12 @@ function prismPart(shot) {
     async prepare(e) {
       if(arch && !e.virtual) return;
       const word=family==='picture' ? e.word || e.finds[0] || 'cat' : '';
+      if(family==='picture' && e.target) {
+        poster=frames/fps*.65;
+        try {playback.set(e,await loadPortrait(word));}
+        catch(error) {console.warn('Could not load '+shot.name,error);}
+        return;
+      }
       if (!loading.has(word)) loading.set(word,loadPrism(shot,word).finally(()=>loading.delete(word)));
       try {
         const asset=await loading.get(word);
@@ -107,6 +141,24 @@ function prismPart(shot) {
       const asset=playback.get(e);
       if (!asset) return;
       const ctx=e.ctx;
+      if(e.target && family==='picture') {
+        traceStamp(e,asset,clamp01(t*fps/(frames-1)),shot.level);return;
+      }
+      if(e.field && !arch) {
+        const left=family==='blooms', gap=left?e.field.left:e.w-e.field.right;
+        const width=Math.min(e.w*.45,Math.max(gap*.98,e.w*.22)), height=e.h*.81;
+        const x=left?width*.51:e.w-width*.51, foot=e.h*.79;
+        const rising=clamp01(t/.58);
+        if(rising<1) {
+          ctx.save();ctx.globalAlpha=Math.sin(rising*Math.PI);ctx.strokeStyle=left?'#ab6853':'#95704d';ctx.lineWidth=1.7*e.u;
+          ctx.beginPath();ctx.moveTo(x+(left?-1:1)*width*.08,foot+e.h*.08);ctx.quadraticCurveTo(x,foot-e.h*.08,x,foot-rising*height*.38);ctx.stroke();ctx.restore();
+        }
+        ctx.save();
+        if(family==='paint') {ctx.shadowColor='#926c49';ctx.shadowBlur=1.6*e.u;}
+        fitShot(ctx,[20,16,344,258],width,height,x,foot);
+        asset.paint(ctx,Math.min(frames-1,Math.floor(poseTime(t,poster)*fps)));
+        ctx.restore();return;
+      }
       const centre=e.soloPrism || arch ? .5 : family==='blooms'?.34:family==='paint'?.67:.5;
       const width=e.w*Math.min(centre,1-centre)*2;
       ctx.save();

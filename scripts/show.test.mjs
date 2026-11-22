@@ -106,7 +106,7 @@ test('ground and visitor slots use the highest selected level without duplicatin
   const seen=new Set();
   for (let turn=0;turn<3;turn++) {
     const shows=planShow({picks,turn}).acts.filter(([id])=>visitors.includes(id));
-    assert.equal(shows.length,2);
+    assert.equal(shows.length,1);
     shows.forEach(([id])=>seen.add(id));
   }
   assert.equal(seen.size,3);
@@ -115,20 +115,18 @@ test('ground and visitor slots use the highest selected level without duplicatin
     assert.deepEqual(alone.acts.map(([id,,len])=>[id,len]),[[shot.id,shot.frames/24]]);
   }
   const splash=planShow({picks:[...picks,'whale2'],alone:'splash'}).acts.map(([id])=>id);
-  assert(splash.includes('vines-3') && splash.includes('mushrooms-3'));
-  assert(!splash.includes('vines') && !splash.includes('mushrooms'));
+  assert.deepEqual(splash,['whale2','splash']);
 });
 
-test('elephants march on the left, bunnies hop on the right and visitors share free corners', async () => {
+test('visitors alternate the spotlight and the splash keeps both banks in view', async () => {
   const {planShow}=await import('../dist/finale.js');
   for(const {id,family} of woodlandShots.filter(s=>['elephants','bunnies'].includes(s.family))) {
     assert.equal(planShow({alone:id}).visitorSides[id],family==='elephants'?'left':'right',id);
   }
   for(const picks of [['bunnies','elephants'],['parade','elephants'],['bunnies','dolphins']]) {
-    const {visitorSides,acts}=planShow({picks});
-    assert.notEqual(visitorSides[picks[0]],visitorSides[picks[1]]);
-    const [first,second]=acts.filter(([id])=>picks.includes(id));
-    assert(second[1]<first[1]+first[2],'visitors in opposite corners can share a beat');
+    const turns=[0,1].map(turn=>planShow({picks,turn}).acts.filter(([id])=>picks.includes(id)).map(([id])=>id));
+    assert(turns.every(turn=>turn.length===1));
+    assert.deepEqual(new Set(turns.flat()),new Set(picks));
   }
   assert.equal(planShow({picks:['elephants'],alone:'hats'}).visitorSides.elephants,'left');
   const picks=SHOW.map(s=>s.id);
@@ -155,6 +153,25 @@ test('picture wagons lead with the current find and rotate through the collected
   assert.deepEqual(paradeWords(list,'pig',1),['sun','hat','dog','cat']);
   assert.deepEqual(paradeWords([],'cat'),[]);
   assert.deepEqual(list,['cat','sun','hat','dog']);
+});
+
+test('a full album rotates every featured family and keeps the felt-piano tally last', async () => {
+  const {planShow}=await import('../dist/finale.js');
+  const picks=SHOW.map(sticker=>sticker.id), seen=new Set();
+  for(let turn=0;turn<80;turn++) {
+    const {acts,total}=planShow({picks,turn,letters:3,staged:true,stars:5,tier:2});
+    const featured=acts.filter(([id])=>picks.includes(id) && id!=='splash');
+    assert.equal(featured.length,1);
+    seen.add(featured[0][0]);
+    const tally=acts.at(-1);
+    assert.equal(tally[0],'tally');
+    assert(acts.slice(0,-1).every(([,at,len])=>at+len<=tally[1]));
+    assert(total<15);
+  }
+  for(const id of ['whale3','parade-3','dolphins-skip-3','dolphins-vault-3','dolphins-relay-2','music','fireflies','picture-3','vines-3','blooms-3','paint-3']) {
+    if(id==='music') assert(planShow({picks}).acts.some(([id])=>id==='notes'));
+    else assert(seen.has(id),id);
+  }
 });
 
 test('woodland takes include their frames, posters and synchronized animal tracks', async () => {
@@ -204,19 +221,18 @@ test('each flower family unlocks one level at a time, including in an older Flow
   }
 });
 
-test('mixed gardens and splash previews play the highest earned flower in each family', async () => {
+test('earned flowers stay planted while one feature plays, and the rehearsal grows every family', async () => {
   const {planShow,finaleScenery}=await import('../dist/finale.js');
   const picks=['flowers','poppy-2','moonflower-1','sunflower-1','sunflower-2','sunflower-3','oak','splash'];
   const flowerActs=show=>show.acts.filter(([id])=>flowerShots.some(shot=>shot.id===id));
   const plants=(alone='')=>[...finaleScenery(picks,alone).matchAll(/data-meadow-flower="([^"]+)"/g)].map(match=>match[1]);
   assert.deepEqual(plants(),['poppy-2','moonflower-1','sunflower-3']);
   assert.deepEqual(plants('flowers'),['flowers','moonflower-1','sunflower-3']);
-  for (const alone of ['', 'splash']) {
-    const show=planShow({picks,alone});
-    const beds=flowerActs(show);
-    assert.deepEqual(beds.map(([id])=>id),['poppy-2','moonflower-1','sunflower-3']);
-    assert(beds.every(([,start,len,stays])=>stays && start+len<=show.total));
-  }
+  const show=planShow({picks,all:true}), beds=flowerActs(show);
+  assert.deepEqual(beds.map(([id])=>id),plants());
+  assert(beds.every(([,start,len,stays])=>stays && start+len<=show.total));
+  assert.deepEqual(flowerActs(planShow({picks,alone:'splash'})),[]);
+  assert.equal(flowerActs(planShow({picks})).length,1);
   for (const shot of flowerShots) {
     const show=planShow({picks,alone:shot.id});
     assert.deepEqual(flowerActs(show).map(([id])=>id),[shot.id]);
@@ -394,12 +410,12 @@ test('dolphins share a visitor slot and rotate fairly alongside other visitors',
   const played=options=>planShow({picks,...options}).acts.filter(([id])=>selected.has(id));
   assert.deepEqual(played({all:true}).map(([id])=>id),highest);
   const counts=new Map(highest.map(id=>[id,0]));
-  for(let turn=0;turn<12;turn++) {
+  for(let turn=0;turn<15;turn++) {
     const cast=played({turn});
     assert(cast.length<=1);
     if(cast.length) counts.set(cast[0][0],counts.get(cast[0][0])+1);
   }
-  assert.deepEqual([...counts.values()],[2,2,2]);
+  assert.deepEqual([...counts.values()],[1,1,1]);
   for(const shot of dolphinShots) {
     assert.deepEqual(played({alone:shot.id}).map(([id,,len])=>[id,len]),[[shot.id,shot.frames/30]]);
   }

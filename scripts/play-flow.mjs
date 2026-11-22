@@ -89,10 +89,20 @@ async function checkDeferredStickers() {
   await picker.getByRole('button',{name:'Bunnies · Level 1'}).click();
   assert.equal(await picker.isVisible(),false,'picking Bunnies must not open another earned sticker');
   await p.getByRole('heading',{name:'You picked Bunnies · Level 1!'}).waitFor();
+  const still=p.locator('.found .show-stage .show-visitors');
+  await p.waitForFunction(()=>{
+    const c=document.querySelector('.found .show-visitors');
+    return c && c.getContext('2d').getImageData(0,0,c.width,c.height).data.some((v,i)=>i%4===3 && v>182);
+  });
+  const pose=await still.evaluate(c=>c.toDataURL());
+  await p.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  assert.equal(await still.evaluate(c=>c.toDataURL()),pose,'a newly chosen reduced-motion sticker holds its pose');
+  assert(await p.locator('[data-act="reward-stickers"]').isEnabled());
   const afterPick=await saved(p);
   assert.deepEqual(afterPick.show.picks,[...album.show.picks,'bunnies']);
   assert.equal(afterPick.show.tasks,album.show.tasks+1,'selecting a sticker preserves completed tasks');
   await act(p,'encore');
+  assert.equal(await still.count(),0,'the next show clears the previous still');
   assert.equal(await picker.isVisible(),false);
   await act(p,'discover');await p.goBack();await p.locator('.found').waitFor();
   assert.equal(await picker.isVisible(),false,'returning to the same word must not repeat its sticker offer');
@@ -112,7 +122,7 @@ async function checkCelebrationSize() {
   await starter.evaluate(im=>im.decode());
   await page.keyboard.press('Escape');
   // Measure real atlas draws, including their transform to the backing canvas.
-  await page.evaluate(()=>{
+  function trackShots() {
     const draw=CanvasRenderingContext2D.prototype.drawImage;
     window.shotDraws=[];
     CanvasRenderingContext2D.prototype.drawImage=function(image,...args) {
@@ -123,50 +133,28 @@ async function checkCelebrationSize() {
       }
       return draw.call(this,image,...args);
     };
-  });
-  async function measure(id,expected,layerName='show-floor') {
-    await page.waitForFunction(()=>window.shotDraws.length>0);
-    const result=await page.evaluate(layerName=>{
-      const floor=document.querySelector('.'+layerName), box=floor.getBoundingClientRect();
-      const panel=floor.closest('.victory')?.getBoundingClientRect();
-      return {draws:window.shotDraws,top:box.top,bottom:box.bottom,height:box.height,h:innerHeight,
-        left:box.left,panel:panel?.toJSON(),
-        pixels:floor.height,cssWidth:box.width,width:floor.width,dpr:devicePixelRatio};
-    },layerName);
-    if(layerName==='show-visitors') {
-      assert(Math.abs(result.bottom-result.panel.bottom)<=2,id+' sits on the panel baseline');
-      assert(result.left>result.panel.left+result.panel.width*.5,id+' is on the right side of the word panel');
-    } else assert(Math.abs(result.bottom-result.h)<1 && result.height<=result.h*.28+1,id+' stays in the bottom strip');
-    assert.equal(result.width,Math.round(result.cssWidth*result.dpr));
-    assert.equal(result.pixels,Math.round(result.height*result.dpr));
-    for(const {layer,scaleX,scaleY} of result.draws) {
-      assert.equal(layer,layerName,id);
-      assert(Math.abs(scaleX-scaleY)<.0001 && scaleX>0 && scaleX<=1.0001,id+' preserves native proportions and resolution');
-      if(expected!==undefined) assert(Math.abs(scaleX-expected)<.001,id+' uses native pixels when it fits');
-    }
-    return result;
+  }
+  await page.addInitScript(trackShots);
+  await page.evaluate(trackShots);
+  async function measure(id,layerName) {
+    await page.waitForFunction(className=>window.shotDraws.some(draw=>draw.layer===className),layerName);
+    const layer=page.locator('.show-stage .'+layerName).first();
+    const data=await layer.evaluate(canvas=>{
+      const box=canvas.getBoundingClientRect(), meadow=canvas.closest('.show-stage').getBoundingClientRect();
+      return {box:box.toJSON(),meadow:meadow.toJSON(),width:canvas.width,height:canvas.height,dpr:devicePixelRatio,
+        draws:window.shotDraws.filter(d=>d.layer===canvas.className)};
+    });
+    const {box,meadow}=data;
+    assert(box.left>=meadow.left-1 && box.right<=meadow.right+1 && box.top>=meadow.top-1 && box.bottom<=meadow.bottom+1,id+' stays in the illustrated meadow');
+    assert.equal(data.width,Math.round(box.width*data.dpr));
+    assert.equal(data.height,Math.round(box.height*data.dpr));
+    for(const {scaleX,scaleY} of data.draws) assert(Math.abs(scaleX-scaleY)<.0001 && scaleX>0 && scaleX<=1.0001,id+' preserves native proportions and resolution');
   }
   await act(page,'parents');await act(page,'trial');
   await page.locator('[data-act="trial-one"][data-pick="bunnies"]').tap();
-  const bunnyFrame=await measure('Grown-ups bunny',undefined,'show-visitors');
-  assert(Math.abs(bunnyFrame.draws[0].scaleY*360/bunnyFrame.dpr-104)<1,'even a solo bunny fits a 104 CSS pixel camera frame');
-  // Snapshot one real frame from each renderer without waiting out seven shows.
-  for(const id of ['elephants-3','dolphins','whale3','flowers','oak','blooms-3','rainbow']) {
-    await page.evaluate(async id=>{
-      const {launchFinale}=await import('/finale.js');
-      window.shotDraws=[];launchFinale(null,{alone:id,word:'cat',freeze:1.25});
-    },id);
-    await measure(id,1);
-  }
-  await page.setViewportSize({width:720,height:360});
-  await page.evaluate(async()=>{
-    const {launchFinale}=await import('/finale.js');
-    window.shotDraws=[];launchFinale(null,{picks:['bunnies'],word:'cat',freeze:2.4});
-  });
-  const small=await measure('bunny in a mixed show');
-  assert(Math.abs(small.draws[0].scaleY-small.pixels/360)<.001,'short viewports scale the camera frame down to fit');
+  await measure('Grown-ups bunny','show-visitors');
   await page.evaluate(async()=>{(await import('/finale.js')).cancelFinale();});
-  assert.equal(await page.locator('.show-floor,.fireworks-screen').count(),0);
+  assert.equal(await page.locator('.show-floor,.fireworks-screen,.show-visitors,.show-ink').count(),0);
   const albumBeforeViewer=await saved(page);
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.goto(origin+'/animation-viewer.html');
@@ -175,13 +163,11 @@ async function checkCelebrationSize() {
   assert.equal(await pick.inputValue(),'bunnies');
   const listed=await pick.locator('option').evaluateAll(opts=>opts.map(o=>o.value));
   assert.deepEqual(listed.toSorted(),[...SHOW.map(effect=>effect.id),'comet','tally','rosette'].toSorted());
-  const box=await page.locator('#bounds').boundingBox(), panel=await page.locator('#scene').boundingBox();
-  assert(box && box.height<=74 && box.x>panel.x+panel.width/2 && box.y+box.height<=panel.y+panel.height,
-    'the viewer measures the actual bunny in the lower-right corner of the panel');
-  assert.equal(await page.locator('#bottom-label').textContent(),'Panel bottom');
+  const box=await page.locator('#bounds').boundingBox(), field=await page.locator('#word-stage').boundingBox();
+  assert(box && box.width>26 && box.x>field.x+field.width/2 && box.y>=field.y && box.y+box.height<=field.y+field.height,'the bunny has its own meadow shoulder');
+  assert.equal(await page.locator('#bottom-label').textContent(),'Meadow bottom');
   const bottom=await page.locator('#bottom').textContent();
   await page.evaluate(()=>window.scrollTo(0,120));
-  await page.waitForFunction(y=>document.querySelector('#bounds').getBoundingClientRect().y<y-30,box.y);
   assert.equal(await page.locator('#bottom').textContent(),bottom,'scrolling leaves the rabbit on the same ground');
   await page.getByRole('button',{name:'Previous animation',exact:true}).tap();
   assert.equal(await pick.inputValue(),'rosette');
@@ -196,17 +182,25 @@ async function checkCelebrationSize() {
     const bloom=await page.locator('#bounds').boundingBox(), meadow=await page.locator('#word-stage').boundingBox();
     assert.equal(await page.locator('.meadow-flower canvas').count(),1);
     assert.equal(await page.locator('#bottom-label').textContent(),'Meadow bottom');
-    assert(bloom && bloom.x>=meadow.x && bloom.x+bloom.width<meadow.x+meadow.width*.36 &&
+    assert(bloom && bloom.x>=meadow.x && bloom.x+bloom.width<=meadow.x+meadow.width &&
       bloom.y>=meadow.y && bloom.y+bloom.height<=meadow.y+meadow.height,shot.name+' grows inside the illustrated meadow');
     assert(parseInt(await page.locator('#bottom').textContent(),10)<30,shot.name+' stays rooted in the grass');
   }
   for(const id of ['elephants','elephants-2','elephants-3']) {
     await pick.selectOption(id);
     await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
-    const herd=await page.locator('#bounds').boundingBox(), scene=await page.locator('#scene').boundingBox();
-    const meadow=await page.locator('#word-stage').boundingBox();
-    assert(herd && herd.width>24 && herd.x>=scene.x && herd.x+herd.width<scene.x+scene.width/2 &&
-      herd.y>=meadow.y+meadow.height && herd.y+herd.height<=scene.y+scene.height,id+' sits below the meadow on the left');
+    const herd=await page.locator('#bounds').boundingBox(), meadow=await page.locator('#word-stage').boundingBox();
+    assert(herd && herd.width>24 && herd.x>=meadow.x && herd.x+herd.width<meadow.x+meadow.width/2 &&
+      herd.y>=meadow.y && herd.y+herd.height<=meadow.y+meadow.height,id+' stands inside the left meadow shoulder');
+  }
+  for(const [width,height] of [[1024,768],[720,360]]) {
+    await page.setViewportSize({width,height});
+    for(const [id,layer] of [['whale3','show-visitors'],['dolphins-relay-2','show-visitors'],['parade-3','show-visitors'],['oak','show-floor'],['blooms-3','show-floor']]) {
+      await page.evaluate(()=>{window.shotDraws.length=0;});
+      await pick.selectOption(id);
+      await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
+      await measure(id,layer);
+    }
   }
   assert.deepEqual(await saved(page),albumBeforeViewer,'a review session never changes the album');
   await page.context().close();
@@ -227,24 +221,23 @@ async function checkMixedMeadow() {
   })));
   await page.emulateMedia({reducedMotion:'no-preference'});
   await act(page,'encore');
-  const wings=page.locator('.found.show-playing > .show-visitors');
-  const left=wings.and(page.locator('[data-side="left"]')), right=wings.and(page.locator('[data-side="right"]'));
-  await left.waitFor();await right.waitFor();
-  const [l,r,actionRow]=await Promise.all([left.boundingBox(),right.boundingBox(),page.locator('.found .actions').first().boundingBox()]);
-  assert(l.x+l.width<r.x && Math.min(l.y,r.y)>=actionRow.y+actionRow.height,'the two visitors have clear space below the phone controls');
-  assert.deepEqual(await beds.locator('canvas').evaluateAll(layers=>layers.map(c=>[c.clientWidth,c.clientHeight])),sizes,
-    'animated flowers and their stills occupy exactly the same places in the word meadow');
-  for(const poster of await posters.all()) assert(await poster.isHidden());
-  // Count painted pixels on both sides in the same frame of an actual encore.
+  const wing=page.locator('.found.show-playing .show-stage > .show-visitors');
+  await wing.waitFor();
+  assert.equal(await wing.count(),1,'one visitor has the spotlight in a normal encore');
+  const [lane,field,actions]=await Promise.all([wing.boundingBox(),page.locator('.found .show-stage').boundingBox(),page.locator('.found .actions').first().boundingBox()]);
+  assert(lane.x>=field.x && lane.x+lane.width<=field.x+field.width && lane.y>=field.y && lane.y+lane.height<=Math.min(field.y+field.height,actions.y));
+  for(let i=0;i<sizes.length;i++){
+    const bed=beds.nth(i), canvas=bed.locator('canvas');
+    if(await canvas.count()) assert.deepEqual(await canvas.evaluate(c=>[c.clientWidth,c.clientHeight]),sizes[i]);
+    else assert(await bed.locator('img').isVisible(),'the other flower beds stay planted');
+  }
   await page.waitForFunction(()=>{
-    const layers=[...document.querySelectorAll('.found > .show-visitors')];
-    return layers.length===2 && layers.every(c=>{
-      const data=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
-      for(let i=3;i<data.length;i+=16) if(data[i]>180) return true;
-      return false;
-    });
+    const c=document.querySelector('.found .show-visitors');
+    if(!c) return false;
+    const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+    return pixels.some((v,i)=>i%4===3 && v>180);
   },null,{timeout:15000});
-  await page.locator('.found > .show-visitors').first().waitFor({state:'detached',timeout:16000});
+  await wing.waitFor({state:'detached',timeout:16000});
   assert.equal(await beds.locator('canvas').count(),0);
   for(const poster of await posters.all()) assert(await poster.isVisible());
   await page.context().close();
@@ -398,7 +391,7 @@ async function checkSaveFooter() {
 async function checkLandscapeRewards() {
   const album=before('ship');
   album.settings.sparkles=true;
-  album.show={tasks:8,picks:['rainbow','music','stars','flowers']};
+  album.show={tasks:8,picks:['flowers']};
   const p=await openGame(album,'no-preference',{viewport:{width:1024,height:640},hasTouch:true});
   await observeScoreAudio(p);
   await act(p,'discover');

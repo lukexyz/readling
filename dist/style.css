@@ -167,42 +167,42 @@ main.wrap{padding-block:29px 40px;outline:none}
 .stamp-face{display:grid;place-items:center;overflow:hidden;border:1px solid #b0ae8c;aspect-ratio:1;background:#f4efdf;border-radius:2px}
 .word-art{display:block;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
 .reveal-art .stamp-face,.card-dialog .stamp-face,.turned .stamp-face{width:clamp(132px,17vw,195px)}
-.victory .show-stage{position:relative;isolation:isolate;display:grid;place-items:center;width:min(100%,820px);height:clamp(185px,25vw,269px);margin:19px auto 0;border:1px solid #aebba7;border-radius:15px;background:#edf0e1;overflow:hidden}
-.rainbow-theatre{position:absolute;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none}
-.meadow-scenery{position:absolute;inset:0;z-index:-1;pointer-events:none}
-.meadow-garden{position:absolute;inset:0}
-.meadow-flower{position:absolute;left:15%;bottom:2%;width:min(30%,238px,var(--native-flower-width));aspect-ratio:4/3;transform:translateX(-50%)}
-.meadow-flower:nth-child(2){left:85%}
-.meadow-garden[data-count="3"] .meadow-flower:first-child{left:11%;width:min(23%,178px,var(--native-flower-width));bottom:4%}
-.meadow-flower:nth-child(3){left:26%;width:min(20%,151px,var(--native-flower-width));bottom:0}
+.victory .show-stage{position:relative;isolation:isolate;container-type:size;display:grid;place-items:center;width:min(100%,820px);height:clamp(185px,25vw,269px);margin:19px auto 0;border:1px solid #aebba7;border-radius:15px;background:#edf0e1;overflow:hidden}
+.meadow-scenery{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:linear-gradient(#dce9e1,#f6f2de 66%,#f9edd2)}
+.rainbow-theatre,.meadow-garden{position:absolute;inset:0;width:100%;height:100%}
+.meadow-sun{position:absolute;left:14%;top:23%;width:clamp(15px,min(7cqw,17cqh),52px);aspect-ratio:1;border-radius:50%;background:#f3daa4;transform:translate(-50%,-50%)}
+.meadow-arches{position:absolute;left:50%;bottom:9%;width:min(100%,302cqh);height:auto;transform:translateX(-50%);overflow:visible}
+.arch-setting{transform:translate(var(--x),var(--y))}
+.meadow-feet{display:none}
+.round-done .show-stage:has(.stamp:nth-child(3)) .meadow-arches{bottom:auto;top:0}
+.round-done .show-stage:has(.stamp:nth-child(3)) .meadow-feet{display:block}
+.round-done .show-stage:has(.stamp:nth-child(3)) .arch-setting{transform:translate(var(--shoulder-x),var(--shoulder-y))}
+.meadow-flower{position:absolute;left:13%;bottom:2%;width:min(30%,66cqh,238px,var(--native-flower-width));aspect-ratio:4/3;transform:translateX(-50%)}
+.meadow-flower[data-family="moonflower"]{left:87%;filter:drop-shadow(0 .7px .6px #667283a8)}
+.meadow-flower[data-family="sunflower"]{left:19%;bottom:6%}
+.meadow-garden:has([data-family="poppy"]) [data-family="sunflower"]{left:81%}
+.meadow-garden[data-count="3"] [data-family="sunflower"]{left:74%;bottom:0;width:min(24%,50cqh,186px,var(--native-flower-width))}
+.meadow-garden[data-count="3"] [data-family="moonflower"]{left:91%;bottom:5%;width:min(21%,50cqh,170px,var(--native-flower-width))}
 .meadow-flower img,.meadow-flower canvas{display:block;width:100%;height:100%}
 .meadow-flower canvas{position:absolute;inset:0}
 .meadow-flower:has(canvas) img{visibility:hidden}
-.victory .reveal-art{margin:0;display:grid;place-items:center}
+.victory .reveal-art{z-index:2;margin:0;display:grid;place-items:center}
 .victory .stamp{box-shadow:1px 3px 0 #49624c30,0 6px 12px #40543e1c;transform:rotate(-3deg)}
 .victory .found-word{margin-top:11px}
 .fireworks-screen{position:fixed;inset:0;width:100%;height:100%;z-index:8;pointer-events:none;user-select:none}
-.show-floor{position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom,0px);margin-inline:auto;width:min(100%,960px);height:min(28vh,320px);height:min(28dvh,320px);z-index:7;pointer-events:none;user-select:none}
+/* The header tally gets a viewport canvas. Everything on the illustrated stage is clipped by its frame. */
+.show-floor,.show-visitors,.show-ink{position:absolute;pointer-events:none;user-select:none;z-index:1}
+.show-floor,.show-ink{inset:0;width:100%;height:100%}
+body>.show-floor{position:fixed;inset:auto 0 0;width:min(100%,960px);height:min(28dvh,320px);margin:auto}
+.show-ink{z-index:3}
 .victory{position:relative}
-.sample-show{padding-bottom:clamp(70px,12vw,130px)}
-.show-visitors{position:absolute;bottom:0;width:min(26%,286px);height:clamp(104px,20vw,180px);max-height:100%;pointer-events:none;user-select:none}
-.show-visitors[data-side="left"]{left:2.5%}
-.show-visitors[data-side="right"]{right:2.5%}
 .victory .actions{position:relative;z-index:1}
-@media(min-width:721px) and (max-width:980px){
-  .victory:not(.review-scene):has(> .show-visitors){padding-bottom:136px}
-  .victory:not(.review-scene)>.show-visitors{height:128px}
-}
-@media(max-width:720px){
-  .victory:has(> .show-visitors){padding-bottom:120px}
-  .show-visitors{width:min(45%,168px);height:112px}
-}
 @media (prefers-reduced-motion:no-preference){
-  .tracing .meadow-bands path{stroke-dasharray:1 1;animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s)) both}
-  .tracing .meadow-gilding{animation:meadow-glint .55s ease-out calc(var(--arch-start) + .9s) both}
+  .tracing .meadow-bands path{stroke-dasharray:1 1;animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s) - var(--review-time,0s)) both}
+  .tracing .arch-jewel{animation:meadow-jewel .82s ease-out calc(var(--arch-start) + .75s - var(--review-time,0s)) both}
 }
+@keyframes meadow-jewel{from{opacity:0;transform:translate(var(--from-x),var(--from-y))}to{opacity:1;transform:translate(0)}}
 @keyframes meadow-trace{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
-@keyframes meadow-glint{from{opacity:0}to{opacity:1}}
 .show-playing .reveal-art .stamp{animation:shown .18s ease-out var(--hit,0s) both}
 .show-playing .reward{animation:star-prize .5s ease-in-out calc(var(--hit,0s) + .2s)}
 @keyframes shown{from{opacity:0}}
@@ -275,7 +275,11 @@ main.wrap{padding-block:29px 40px;outline:none}
   .badge-handoff>.icon{display:none}
 }
 .round-done .reveal-art{display:flex;gap:clamp(6px,1.4vw,14px)}
-.round-done .show-stage .reveal-art{max-width:calc(100% - 24px);min-width:0}
+.round-done .show-stage .reveal-art{position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);width:max-content;max-width:86%;min-width:0;gap:clamp(4px,1.3cqw,12px)}
+.round-done .show-stage .stamp{padding:clamp(3px,1cqw,8px)}
+.round-done .show-stage .reveal-art:has(>.stamp:nth-child(3)) .stamp-face{width:clamp(34px,min(42cqh,15cqw),148px)}
+.found .show-stage.sky-word .reveal-art{position:absolute;left:50%;top:62%;transform:translate(-50%,-50%)}
+.found .show-stage.sky-word .reveal-art .stamp-face{width:min(47cqh,35cqw)}
 .round-done .reveal-art .stamp,.round-done .reveal-art .stamp-face{min-width:0}
 .round-done .show-stage + .actions{margin-top:18px}
 .round-done .reveal-art .stamp-face{width:clamp(58px,9.5vw,112px)}
@@ -286,7 +290,7 @@ main.wrap{padding-block:29px 40px;outline:none}
   #game-page:has(.round-done.victory),main:has(>.round-done.victory),.round-done.victory{display:flex;flex-direction:column;flex:1 0 auto}
   .round-done.victory>p{margin-bottom:clamp(10px,2.3dvh,19px)}
   .round-done.victory>.show-stage{flex:1 0 auto;container-type:size;width:min(100%,max(820px,100dvh));max-height:min(52vw,480px);margin-block:auto}
-  .round-done.victory .stamp-face{width:clamp(58px,min(54cqh,22cqw),168px)}
+  .round-done.victory .stamp-face{width:clamp(46px,min(49cqh,23cqw),168px)}
 }
 .reward-heading{position:relative}
 .sticker-confirmation{position:absolute;inset:0;display:grid;place-items:center;container-type:inline-size}
@@ -511,7 +515,7 @@ dialog .actions{margin-top:12px}
   .mast-row{min-height:clamp(46px,8dvh,65px)}
   main.wrap:has(>.activity){padding-block:clamp(6px,1.6dvh,13px)}
   .page-top{margin-bottom:6px}
-  .activity:not(.review-scene,.sample-show,:has(>.show-visitors)){padding-block:clamp(10px,2.2dvh,18px)}
+  .activity:not(.review-scene,.sample-show){padding-block:clamp(10px,2.2dvh,18px)}
   .activity-heading h1{margin-top:4px;font-size:clamp(32px,5.5dvh,42px)}
   .activity-heading p{margin-top:4px}
   .lesson-grid{margin:clamp(6px,1.6dvh,13px) 0;row-gap:clamp(6px,1.5dvh,12px)}
@@ -545,7 +549,7 @@ dialog .actions{margin-top:12px}
   .shelf-closed{display:none}
   main.wrap:has(>.activity){padding-block:2px 6px}
   main:has(>.activity)>.page-top{min-height:44px;margin-bottom:2px}
-  .activity:not(.review-scene,.sample-show,:has(>.show-visitors)){padding-block:6px}
+  .activity:not(.review-scene,.sample-show){padding-block:6px}
   .activity-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 12px}
   .activity-heading h1,.found:has(>.found-details)>h1,.round-card h1,.round-done h1{margin:0;font-size:30px}
   .activity-heading p{font-size:14px;margin:0}
@@ -615,7 +619,7 @@ dialog .actions{margin-top:12px}
 @media(max-width:590px) and (orientation:portrait) and (max-height:740px){
   main.wrap:has(>.activity){padding-top:6px}
   .page-top{margin-bottom:6px}
-  .activity:not(.sample-show,.review-scene,:has(>.show-visitors)){padding-block:12px}
+  .activity:not(.sample-show,.review-scene){padding-block:12px}
   .lesson-activity .activity-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:0 10px}
   .activity-heading h1{font-size:28px;margin:0}
   .activity-heading p{font-size:14px;margin:0}

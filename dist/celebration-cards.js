@@ -109,7 +109,8 @@ export function mountCelebrationCards(grid, items, {finds, word, picks=[], music
     const prism=prismShots.find(shot=>shot.id===id);
     const study=prism || flowerShots.find(shot=>shot.id===id) || woodlandShots.find(shot=>shot.id===id);
     const orcaLevel=['whale','whale2','whale3'].indexOf(id)+1;
-    const poster=study ? study.still : dolphin ? dolphinPoster(dolphin) : orcaLevel ? './assets/ember-orca/concept-'+orcaLevel+'-poster.webp' :
+    const poster=study ? study.still : dolphin ? dolphinPoster(dolphin) :
+      orcaLevel>1 ? './assets/ember-orca/album-'+orcaLevel+'.webp' : orcaLevel ? './assets/ember-orca/concept-1-poster.webp' :
       id==='oak' ? './assets/flower-studies/oak-3-poster.webp' : '';
     if (poster) {
       const still=new Image();

@@ -7,7 +7,8 @@ import {forms} from './drawings.js';
 
 // The star bounds in off one peg and lands on her picture.
 const beats=[[0,-.30,-.27],[.3,.33,-.22],[.72,0,0]];
-const peg=(e,j)=>({x:e.cx+beats[j][1]*e.w,y:Math.max(48,e.cy+beats[j][2]*e.h)});
+const peg=(e,j)=>e.field ? (j===2?{x:e.cx,y:e.cy}:{x:e.w*(j?.76:.13),y:e.h*(j?.31:.44)}) :
+  {x:e.cx+beats[j][1]*e.w,y:Math.max(48,e.cy+beats[j][2]*e.h)};
 function ballAt(e,t) {
   let j=1;while(j<beats.length-1 && beats[j][0]<t)j++;
   const a=peg(e,j-1), b=peg(e,j), p=clamp01((t-beats[j-1][0])/(beats[j][0]-beats[j-1][0]));
@@ -38,7 +39,7 @@ function note(ctx,x,y,size,tilt,colour) {
 
 const SCENES={
   comet:{len:.74,z:8,
-    cues:[[.3,e=>{const p=peg(e,1);e.burst(p.x,p.y,few(e,12),190);}],[.72,e=>{e.burst(e.cx,e.cy,few(e,46),400);e.on('onHit');}]],
+    cues:[[.3,e=>{const p=peg(e,1);e.burst(p.x,p.y,few(e,9),72);}],[.72,e=>{e.burst(e.cx,e.cy,few(e,20),116);e.on('onHit');}]],
     draw(e,s,t) {
       if(t>.72) return;
       const ctx=e.ctx, u=e.u, p1=peg(e,1), d=t-.3;
@@ -52,52 +53,60 @@ const SCENES={
     }},
 
   // Sky
-  stars:{len:2.5,z:5,
-    cues:[[0,.18,.34,42,290],[.35,.84,.23,45,320],[.8,.30,.18,48,310],[1.1,.73,.24,45,310],[1.6,.5,.16,80,450]]
-      .map(([t,x,y,n,power])=>[t,e=>e.burst(x*e.w,y*e.h,few(e,n),power)])},
-  fountains:{len:2.5,z:5,
-    cues:[[0,.04,60,525],[.2,.96,60,525],[1.0,.08,55,560],[1.15,.92,55,560]].map(([t,x,n,power])=>[t,e=>e.burst(x*e.w,e.h*.88,few(e,n),power,{sky:true})]),
+  stars:{len:2.6,poster:1.88,z:5,
+    cues:[[0,.16,.35,19,76],[.42,.81,.30,22,93],[.91,.25,.25,19,70],[1.55,.84,.34,27,95]]
+      .map(([t,x,y,n,power])=>[t,e=>e.burst(x*e.w,y*e.h,few(e,n),power,{g:.38})]),
+    draw(e,s,t){
+      const p=clamp01((t-1.55)/.75);
+      if(p>0 && p<1) drawStar(e.ctx,e.w*.84,e.h*.34,Math.sin(p*Math.PI)*15*e.u,.15+p*.33,five,'#ffe189');
+    }},
+  fountains:{len:2.5,poster:1.35,z:5,
     step(e,s,t,dt) {
       if(t<.25 || t>1.9) return;
       s.next=(s.next || 0)-dt;
       if(s.next>0) return;
       s.next=.055;
-      const reach=Math.sqrt(e.h/800);
-      for(const side of [-1,1]) e.spark({x:side<0?e.w*.03:e.w*.97,y:e.h+6,vx:-side*(110+e.rand()*210)*e.u,vy:-(640+e.rand()*250)*e.u*reach,
-        size:(4+e.rand()*6)*e.u,kind:e.rand()<.3?'star4':'star5',life:1.5+e.rand()*.6,colour:e.rand()<.4?gold:colours[Math.floor(e.rand()*7)],g:3.2,spin:e.rand()*6-3});
+      for(const side of [-1,1]) e.spark({x:e.w*(side<0?.12:.88),y:e.h*.87,vx:-side*(.06+e.rand()*.14)*e.w,vy:-(.96+e.rand()*.55)*e.h,
+        size:(2.8+e.rand()*3)*e.u,kind:e.rand()<.3?'star4':'star5',life:1.1+e.rand()*.4,colour:e.rand()<.4?gold:colours[Math.floor(e.rand()*7)],g:e.h/(91*e.u),spin:e.rand()*6-3});
     }},
   // Ground
   oak:oakScene,
 
   // Her own finds
   // Fireflies rise and settle into the letters of her word, one letter after another, then drift away.
-  fireflies:{len:2.6,z:7,
+  fireflies:{len:4,poster:2.32,z:7,
     make(e) {
       const word=e.word || e.finds[0] || 'cat', pts=letterPoints(word), wide=word.length*88+8;
-      const k=Math.min(e.h*.3/138,e.w*.84/wide), left=e.w/2-wide*k/2, top=Math.max(8,Math.min(e.th.y-138*k-6,e.h*.2));
+      let cx=e.w*.5,cy=e.h*.28,width=e.w*.81,height=e.h*.34;
+      if(e.field) {
+        const shoulder=e.field.left;
+        if(word.length<=5 && shoulder>e.w*.22) {cx=shoulder*.52;cy=e.h*.35;width=shoulder*.85;height=e.h*.42;}
+        else {cy=e.field.top*.50;height=e.field.top*.88;}
+      }
+      const k=Math.min(height/138,width/wide), left=cx-wide*k/2, top=cy-69*k;
       const stagger=Math.min(.3,.9/Math.max(1,word.length-1));
-      return {flies:pts.map(p=>({tx:left+p.x*k,ty:top+p.y*k,sx:left+p.x*k+(e.rand()-.5)*220*e.u,go:p.letter*stagger+e.rand()*.25,phase:e.rand()*tau}))};
+      return {radius:Math.min(4*e.u,k*5),flies:pts.map(p=>({tx:left+p.x*k,ty:top+p.y*k,sx:left+p.x*k+(e.rand()-.5)*120*e.u,go:p.letter*stagger+e.rand()*.18,phase:e.rand()*tau}))};
     },
     draw(e,s,t) {
-      const ctx=e.ctx, u=e.u, leave=clamp01((t-2)/.6);
+      const ctx=e.ctx, u=Math.min(e.u,s.radius/3), leave=clamp01((t-3.35)/.65);
       for(const f of s.flies) {
         const fly=ease((t-f.go)/.8);
         if(fly<=0) continue;
-        const x=f.sx+(f.tx-f.sx)*fly+Math.sin(t*5+f.phase)*2.5*u*(1+leave*6), y=e.h+20+(f.ty-e.h-20)*fly+Math.cos(t*4+f.phase)*2.5*u-leave*leave*90*u;
+        const x=f.sx+(f.tx-f.sx)*fly+Math.sin(t*5+f.phase)*.8*u*(1+leave*6), y=e.h+20+(f.ty-e.h-20)*fly+Math.cos(t*4+f.phase)*.8*u-leave*leave*55*u;
         const glow=.75+.25*Math.sin(t*9+f.phase);
         ctx.globalAlpha=(1-leave)*.3;ctx.beginPath();ctx.arc(x,y,10*u*glow,0,tau);ctx.fillStyle=gold;ctx.fill();
-        ctx.globalAlpha=1-leave;ctx.beginPath();ctx.arc(x,y,3.9*u,0,tau);paint(ctx,'#fff3a6',1.2*u);
+        ctx.globalAlpha=1-leave;ctx.beginPath();ctx.arc(x,y,s.radius,0,tau);paint(ctx,'#fff3a6',1.3*u);
       }
       ctx.globalAlpha=1;
     }},
-  // Notes float up, to show music in the choices. The music itself is the fanfare.
-  notes:{len:2.3,z:6,
+  notes:{len:2.3,poster:.98,z:6,
     draw(e,s,t) {
       for(let i=0;i<6;i++) {
-        const a=clamp01((t-(i*5%6)*.13)/1.5);
+        const a=clamp01((t-i*.18)/1.28);
         if(a<=0 || a>=1) continue;
         e.ctx.globalAlpha=Math.min(1,(1-a)*3);
-        note(e.ctx,e.cx+(i-2.5)*84*e.u+Math.sin(a*6+i)*16*e.u,e.cy+e.h*.3-a*e.h*.56,(24+i%3*6)*e.u,Math.sin(a*5+i)*.3,colours[(i*2)%7]);
+        const x=e.field?e.w*(i%2?.82:.17):e.cx+(i-2.5)*54*e.u;
+        note(e.ctx,x+Math.sin(a*4+i)*e.w*.04,e.h*(.78-a*.48),(9+i%3*2.8)*e.u,Math.sin(a*5+i)*.22,colours[(i*2)%7]);
       }
       e.ctx.globalAlpha=1;
     }}

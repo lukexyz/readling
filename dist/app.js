@@ -1,5 +1,5 @@
 import {icon, forms, letterForm} from './drawings.js';
-import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
+import {finaleScenery, launchFinale, cancelFinale, planShow, syncFanfare} from './finale.js';
 import {prepareStarPiano, playStarNote, stopStarPiano} from './star-piano.js';
 import {mountCelebrationCards} from './celebration-cards.js';
 import {PROMPTS} from './voice-lines.js';
@@ -793,7 +793,7 @@ function dispatch(act,el) {
       const theatre=$('.meadow-scenery');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
       showStickerHeading(SHOW.find(s=>s.id===id).name);
-      celebrate({word:pageWord(),alone:id});
+      celebrate({word:pageWord(),alone:id,keepStill:true});
       if(id==='music') playFanfare();
       break;
     }
@@ -926,7 +926,7 @@ dismissOnBackdrop(dialog);
 dismissOnBackdrop(stickerPicker);
 // The music is one of the things she adds to her show, so it stays quiet until she has chosen it.
 function playFanfare() {
-  if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) playClip('music','fanfare');
+  if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) playClip('music','fanfare',{playing:syncFanfare});
 }
 // The word her show is about: the find on this page, or the last card of a finished round.
 function pageWord() {
@@ -937,7 +937,7 @@ function drawStars() {
 }
 // Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
 // The stars she has just earned wait out of her total until the show counts them in.
-function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null,offerSticker=false}={}) {
+function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null,offerSticker=false,keepStill=false}={}) {
   const stage=$('.victory');
   if(!stage) return null;
   if(stars && profile.settings.fanfare && !document.hidden) prepareStarPiano();
@@ -948,7 +948,7 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
   function offer() {
     if(offerSticker && trigger?.isConnected) openStickerPicker();
   }
-  const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,turn:profile.show.tasks+encores,
+  const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,keepStill,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',sounds[i]),
     onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
     onStar:i=>{
@@ -994,7 +994,7 @@ function previewShow(options,then) {
     const restore=()=>{if(sample) sample.remove();else if(options.picks) dress(profile.show.picks);};
     const show=celebrate({word,...options,ended:finished=>{restore();if(finished) then?.();}});
     if(!show){restore();notice('The show cannot play while this device asks for less motion.');then?.();return;}
-    if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare');}
+    if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare',{playing:syncFanfare});}
     else if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
   },80);
 }
@@ -1007,16 +1007,14 @@ function showTimes(picks,options={}) {
 function trialStats() {
   const picks=[...trial], tier=trialRosette?2:0, plan=showTimes(picks,{all:true,tier}), secs=n=>(Math.round(n*10)/10).toFixed(1);
   const turns=Array.from({length:12},(_,turn)=>showTimes(picks,{turn,tier}).total), low=Math.min(...turns), high=Math.max(...turns);
-  const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'Her stage badge'};
+  const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'Her stage badge',notes:'Music'};
   const rows=plan.acts.map(([id,at,len,stays])=>({name:base[id] || SHOW.find(s=>s.id===id)?.name || id,at,end:stays?plan.total:Math.min(plan.total,at+len),stays}));
-  // The fanfare starts once her word has been said, a little after the picture appears.
-  if(trial.has('music')) rows.push({name:'Music',at:plan.hit+.65,end:Math.min(plan.total,plan.hit+.65+3.7)});
   rows.sort((a,b)=>a.at-b.at);
   let busiest=0;
   for(let t=0;t<plan.total;t+=.1) busiest=Math.max(busiest,plan.acts.filter(([,at,len])=>t>=at && t<=at+len).length);
   return `<div class="trial-stats"><p><strong>${secs(plan.total)} seconds</strong> for this show, with ${trial.size} of ${SHOW.length} things ticked.</p>
     <p>Her picture appears at ${secs(plan.hit)} seconds. At its busiest, ${busiest} ${busiest===1?'thing plays':'things play'} at once.</p>
-    ${high-low>.05 || Math.abs(high-plan.total)>.05?`<p>In her own show the visitors and the big finishes take turns, two of each, so this would run for ${secs(low)} to ${secs(high)} seconds.</p>`:''}
+    ${high-low>.05 || Math.abs(high-plan.total)>.05?`<p>Her stickers take turns in the meadow. The next twelve shows would run for ${secs(low)} to ${secs(high)} seconds.</p>`:''}
     <details id="trial-timeline" ${trialTimeline?'open':''}><summary>When each part plays</summary><div class="trial-times">${rows.map(r=>
       `<div class="trial-time"><span>${r.name}</span><i style="--from:${(r.at/plan.total*100).toFixed(1)}%;--wide:${Math.max(1.5,(r.end-r.at)/plan.total*100).toFixed(1)}%"></i><span>${secs(r.at)} to ${secs(r.end)}</span></div>`).join('')}</div></details></div>`;
 }

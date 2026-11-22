@@ -17,12 +17,10 @@
 #counter,.review-viewport,.review-help { color:var(--sub); }
 .review-options button { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:5px 10px; min-height:40px; }
 .review-scene { text-align:center; }
-@media(min-width:721px) { .review-scene:has(> .show-visitors) { padding-bottom:48px; } }
 .review-scene h1 { margin-top:8px; }
 .review-scene.show-playing .reveal-art .stamp { animation:none; }
-.review-scene .tracing .meadow-bands path { stroke-dasharray:1 1; animation:meadow-trace 1.15s ease-in-out calc(var(--arch-start) + var(--lag,0s) - var(--review-time,0s)) both paused; }
-.review-scene .tracing .meadow-gilding { animation:meadow-glint .55s ease-out calc(var(--arch-start) + .9s - var(--review-time,0s)) both paused; }
-.scene-edge { position:absolute; inset-block:0; width:50%; border:0; padding:12px; display:flex; align-items:center; background:transparent; }
+.review-scene .tracing :is(.meadow-bands path,.arch-jewel) { animation-play-state:paused; }
+.scene-edge { z-index:4; position:absolute; inset-block:0; width:50%; border:0; padding:12px; display:flex; align-items:center; background:transparent; }
 .scene-edge.before { left:0; justify-content:flex-start; }
 .scene-edge.after { right:0; justify-content:flex-end; }
 .scene-edge span { display:grid; place-items:center; width:32px; height:32px; opacity:0; border-radius:50%; background:#fffdf2df; color:var(--deep); font-size:24px; line-height:1; }

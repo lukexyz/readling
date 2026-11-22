@@ -1,3 +1,4 @@
+import {finaleScenery,meadowLayout,visitorLane} from './meadow.js';
 import {cutout,prepareShow} from './show-cutouts.js';
 import {colours,gold,ink,cream,water,tau,clamp01,ease,easeIn,pop,bump,five,four,drawStar,paint,oval,flower,random} from './show-kit.js';
 import {SCENES} from './show-scenes.js';
@@ -15,52 +16,12 @@ import {prismParts} from './show-prism.js';
 // The celebration show. Her letter sounds play, the star reveals her picture,
 // and the things she has added take turns after that. Her stars are counted out at the end.
 const GROUND=['mushrooms','vines','oak'], SKY=['stars','fountains','blooms','paint'];
-// Only two visitors and two big finishes play in one show, in rotation, so a full show stays near a quarter of a minute.
-const VISIT=['bunnies','parade','dolphins','elephants'], FINISH=['fireflies','picture','whale'];
+// Word and memory rewards rotate through the collection. The full rehearsal plays every family.
+const VISIT=['bunnies','parade','dolphins','elephants'];
 let stopActive=null;
+let cueFanfare=null;
+export function syncFanfare() {cueFanfare?.();}
 const waitingForArtwork=new WeakMap();
-
-// Seven bands of printed colour. Both feet dip behind the hills, and the second arch sits inside the first.
-function meadowRainbow(shot) {
-  const echo=shot.family==='rainbow2', width=echo?3.4:5.3;
-  const rx=echo?243:309, ry=echo?159:209;
-  const arc=(inset)=>`M${410-rx+inset} 244a${rx-inset} ${ry-inset} 0 0 1 ${2*(rx-inset)} 0`;
-  const inks=echo?['#91849f','#8c99b1','#82acbc','#9dbb9b','#e7c77f','#dbac86','#ca9393']:
-    ['#bd625a','#dd8c59','#e7bd62','#92aa77','#66a5a4','#7698b4','#9484a5'];
-  const bands=inks.map((ink,i)=>`<path pathLength="1" d="${arc(i*width)}" stroke="${ink}" stroke-width="${width+.18}" style="--lag:${i*.045}s"/>`).join('');
-  const edging=`<path pathLength="1" d="${arc(-4.8)}" stroke="#bc9855" stroke-width="1.2"/>`;
-  const stars=shot.level===1?[]:shot.level===2?[[.24,3.8],[.70,3],[.78,4.5]]:[[.16,3],[.23,6],[.29,2.6],[.36,4],[.64,4.5],[.72,3],[.78,6],[.86,2.6]];
-  const gilding=stars.map(([fraction,r])=>{
-    const angle=Math.PI*fraction, x=410-(rx+15)*Math.cos(angle), y=244-(ry+15)*Math.sin(angle);
-    return `<path transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${r})" d="M0-1.45Q.1-.2 1 0 .12.2 0 1.45-.13.2-1 0-.12-.2 0-1.45Z"/>`;
-  }).join('');
-  return `<g data-meadow-rainbow="${shot.id}"><g class="meadow-bands" fill="none">${edging}${bands}</g><g class="meadow-gilding" fill="#b18b45">${gilding}</g></g>`;
-}
-
-// A printed theatre stays on the page after the show and in reduced motion. The rainbows appear once she has added them.
-function finaleScenery(picks=[],alone='') {
-  const plants=flowerFamilies.map(family=>family.shots.find(shot=>shot.id===alone) ||
-    family.shots.findLast(shot=>picks.includes(shot.id))).filter(Boolean);
-  const garden=plants.map(shot=>`<div class="meadow-flower" data-meadow-flower="${shot.id}"><img src="${shot.still}" alt="" width="480" height="360"></div>`).join('');
-  const arches=['rainbow','rainbow2'].map(key=>
-    prismByFamily[key].find(shot=>shot.id===alone) || highestPrism(key,id=>picks.includes(id))).filter(Boolean);
-  return `<div class="meadow-scenery" aria-hidden="true"><svg class="rainbow-theatre" viewBox="0 0 820 270" preserveAspectRatio="none">
-    <defs><linearGradient id="show-sky" x2="0" y2="1" gradientUnits="objectBoundingBox">
-      <stop stop-color="#dce9e1"/><stop offset=".66" stop-color="#f6f2de"/><stop offset="1" stop-color="#f9edd2"/>
-    </linearGradient></defs>
-    <rect width="820" height="270" fill="url(#show-sky)"/>
-    <circle cx="114" cy="62" r="23" fill="#f3daa4"/>
-    <path d="M59 81q15-5 30-3 12-10 29-6 11-3 20 2 18 0 27 5-57 4-106 2Z M664 60q15-5 28-4 12-8 24-5 12-1 21 4l20 3q-46 4-93 2Z" fill="#fff9e9"/>
-    ${arches.map(meadowRainbow).join('')}
-    <path d="M0 178Q82 150 149 175T308 210Q376 216 449 202T605 184Q695 172 820 133V270H0Z" fill="#d4ddc6"/>
-    <path d="M0 203Q95 164 203 198T405 232Q504 229 618 199T820 184V270H0Z" fill="#b9cbb0"/>
-    <path d="M0 212Q82 210 169 233T387 260Q511 263 643 233T820 211V270H0Z" fill="#96b19a"/>
-    <g fill="none" stroke="#627e6d" stroke-width="1.5" stroke-linecap="round">
-      <path d="M24 238q23-2 43 3m-14 4 12 1m63 3 28 6m525-9 26-5m59-13 24-4"/>
-      <path d="M79 237q-2-12-8-18m8 18q0-17 6-26m-6 26q4-9 9-12m648 10q-2-13-7-19m7 19q1-15 6-22"/>
-    </g>
-  </svg>${garden?`<div class="meadow-garden" data-count="${plants.length}" style="--native-flower-width:${480/(globalThis.devicePixelRatio || 1)}px">${garden}</div>`:''}</div>`;
-}
 
 // The parts that belong to every show.
 const BASE={
@@ -91,11 +52,11 @@ const BASE={
     }},
   // Pin the badge she just earned in the meadow. Standalone show studies can use a plain rosette.
   rosette:{len:1.5,stays:true,z:7,
-    cues:[[.2,e=>{const p=pin(e);e.burst(p.x,p.y,54,330);}]],
+    cues:[[.2,e=>{const p=pin(e);e.burst(p.x,p.y,18,84,{g:.45});}]],
     draw(e,s,t) {
       if(e.badgeImage) {
         if(!e.badgeImage.complete || !e.badgeImage.naturalWidth) return;
-        const p=pin(e), side=Math.min(108*e.u,e.th.w*.22,e.th.h*.48);
+        const p=pin(e), side=Math.min(108*e.u,e.th.w*.22,e.th.h*.34,e.field ? (e.w-e.field.right)*.86 : Infinity);
         const size=side*(.72+.28*ease(t/.24));
         e.ctx.save();e.ctx.globalAlpha=clamp01(t/.16);
         e.ctx.drawImage(e.badgeImage,p.x-size/2,p.y-size/2,size,size);e.ctx.restore();
@@ -116,111 +77,65 @@ const BASE={
       ctx.restore();
     }}
 };
-const pin=e=>({x:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.27});
+const pin=e=>({x:e.field?(e.w+e.field.right)*.5:e.th.x+e.th.w*.86,y:e.th.y+e.th.h*.23});
 const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts,...prismParts};
 const isVisitor=id=>Boolean(orcas[id] || dolphins[id] || (woodlandParts[id] && !woodlandParts[id].stays) || id==='splash');
 
-function rotateCast(mine,turn,all) {
-  if (all || mine.length<=2) return mine;
-  return [mine[turn%mine.length],mine[(turn+1)%mine.length]];
-}
-
-// Each family contributes its highest earned jump. Normal shows share one dolphin
-// slot; the grown-ups' full rehearsal includes one act from every chosen family.
-function visitors(have,turn,all) {
-  const jumps=dolphinFamilies.map(family=>family.levels.findLast(shot=>have(shot.id))?.id).filter(Boolean);
-  const available=VISIT.map(key=>key==='dolphins' ? (jumps.length && key) : highestWoodland(key,have)).filter(Boolean);
-  const cast=rotateCast(available,turn,all);
-  const slot=cast.indexOf('dolphins');
-  if (slot<0) return cast;
-  // In a larger cast dolphins appear twice per rotation. Count their appearances
-  // separately so a visitor rotation cannot permanently skip a dolphin family.
-  const appearance=available.length<=2 ? turn : 2*Math.floor(turn/available.length)+slot;
-  cast.splice(slot,1,...(all ? jumps : [jumps[appearance%jumps.length]]));
-  return cast;
-}
-
-// Works out when each part of a show starts and how long the whole show runs. `letters` is how many of her letters
-// land before the picture, which happens only where her word is on the page, and `staged` says whether the page has the stage.
-// Each act is the part's name, its start, its length, and whether it then stays to the end.
+// A normal reward gives one supporting scene and one visitor or finale a turn.
+// The dolphin families share a slot, and rotate each time that slot comes round.
 function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,stars=0,tier=0}={}) {
-  const acts=[], have=id=>(id===alone || picks.includes(id)) && PARTS[id];
-  const picked=key=>prismByFamily[key] ? highestPrism(key,have)?.id : have(key) && key;
-  const blooms=flowerFamilies.map(family=>family.shots.findLast(shot=>have(shot.id))?.id).filter(Boolean);
-  const ground=GROUND.map(key=>key==='oak' ? (have(key) && key) : highestWoodland(key,have)).filter(Boolean);
-  // Each show uses the highest earned orca in its single ocean-finale slot.
-  const whale=['whale3','whale2','whale'].find(have) || 'whale', contact=orcas[whale].contact;
-  const wetRabbit=(!alone || alone==='splash') && have('splash') && highestWoodland('bunnies',have);
-  const visitorSides={}, freeAt={left:0,right:0};
-  let lastSide='', end=0, hit=0;
-  function homeSide(id) {
-    if(woodlandParts[id]?.family==='elephants' || (orcas[id] && wetRabbit)) return 'left';
-    if(woodlandParts[id]?.family==='bunnies') return 'right';
-    return '';
-  }
-  function openSide(id,at,next) {
-    const home=homeSide(id);
-    if(home) return home;
-    const left=Math.max(at,freeAt.left), right=Math.max(at,freeAt.right);
-    if(left!==right) return left<right?'left':'right';
-    // When both are free, leave room for the next fixed entrance or answer the last visitor.
-    const other=homeSide(next) || lastSide;
-    if(other) return other==='left'?'right':'left';
-    return woodlandParts[id]?.family==='parade'?'left':'right';
-  }
-  const add=(id,at,len=PARTS[id].len,next='')=>{
-    len=Math.min(len,30);
+  const acts=[], visitorSides={}, have=id=>id===alone || picks.includes(id);
+  const prism=key=>highestPrism(key,have)?.id;
+  const gardens=flowerFamilies.map(f=>f.shots.findLast(s=>have(s.id))?.id);
+  const roots=GROUND.map(key=>key==='oak' ? have(key) && key : highestWoodland(key,have));
+  const sky=SKY.map(key=>prismByFamily[key]?prism(key):have(key) && key);
+  const scenery=[prism('rainbow'),prism('rainbow2'),...gardens,...roots,...sky].filter(Boolean);
+  const jumps=dolphinFamilies.map(f=>f.levels.findLast(s=>have(s.id))?.id).filter(Boolean);
+  const whale=['whale3','whale2','whale'].find(have);
+  const visitors=VISIT.map(key=>key==='dolphins'?jumps:[highestWoodland(key,have)]);
+  const features=[...visitors,[have('fireflies') && 'fireflies'],[prism('picture')],[whale]]
+    .filter(group=>group[0]);
+  let end=0, hit=0;
+  function add(id,at,len=PARTS[id].len) {
     if(isVisitor(id)) {
-      const side=id==='splash' ? visitorSides[whale] : openSide(id,at,next);
+      const side=woodlandParts[id]?.family==='bunnies'?'right':
+        orcas[id] || ['parade','elephants'].includes(woodlandParts[id]?.family)?'left':'right';
+      visitorSides[id]=id==='splash'?'left':side;
       if(id==='splash') {
-        // The spray belongs to the orca. Its rabbit shakes dry across the panel.
-        if(wetRabbit) visitorSides[wetRabbit]='right';
-      } else {
-        at=Math.max(at,freeAt[side]);
-        if(id===whale && wetRabbit) at=Math.max(at,freeAt.right-contact);
-        lastSide=side;
+        const rabbit=highestWoodland('bunnies',have);
+        if(rabbit) visitorSides[rabbit]='right';
       }
-      visitorSides[id]=side;
-      freeAt[side]=Math.max(freeAt[side],at+len+.1);
     }
     acts.push([id,at,len,!!PARTS[id].stays]);
-    if(!PARTS[id].stays) end=Math.max(end,at+len);
-    return at;
-  };
+    end=Math.max(end,at+len);
+  }
   if(alone) {
-    const friends={music:['notes'],
-      splash:[whale,...blooms,...ground],
-      hats:[visitors(have,turn,true)[0] || (have(whale)?whale:'bunnies')]}[alone] || [];
-    for(const id of friends) add(id,.1);
-    if(PARTS[alone]) add(alone,alone==='splash'?.1+contact:friends.length?.6:.1,alone==='tally'?.22*stars+.95:PARTS[alone].len);
-    for(const [id,at] of acts) if(PARTS[id].stays) end=Math.max(end,at+PARTS[id].len+.9);
+    if(alone==='music') add('notes',.1);
+    else if(alone==='hats') add(visitors.flat().find(Boolean) || whale || 'bunnies',.1);
+    else if(alone==='splash') {
+      const actor=whale || 'whale';
+      add(actor,.1);add('splash',.1+orcas[actor].contact);
+    } else if(PARTS[alone]) add(alone,.1,alone==='tally'?.22*stars+.95:PARTS[alone].len);
   } else {
     hit=n?.25+n*.5+.3:staged?.95:.74;
-    if(n) add('letters',.25,hit+.45);
+    if(n) add('letters',.25,hit-.25);
     add('comet',hit-.72);
-    let t=hit+(n?.8:.45);
-    blooms.forEach((id,k)=>add(id,hit+.15+k*.18));
-    ground.forEach((id,k)=>add(id,hit+.15+(k+Number(blooms.length>0))*.3));
-    ['rainbow','rainbow2'].map(picked).filter(Boolean).forEach((id,k)=>add(id,hit+k*.25));
-    // Each group starts while the one before it is finishing, so there is always one new thing to watch.
-    const sky=SKY.map(picked).filter(Boolean);
-    sky.forEach((id,k)=>add(id,t+k*.3));
-    if(sky.length) t=Math.max(t,end-1.2);
-    const finishes=FINISH.map(id=>id==='whale'?picked(whale):picked(id)).filter(Boolean);
-    for(const cast of [visitors(have,turn,all),rotateCast(finishes,turn,all)]) {
-      cast.forEach((id,k)=>{
-        const at=add(id,t,PARTS[id].len,cast[k+1]);
-        if(id===whale && have('splash')) add('splash',at+contact);
-        t=at+PARTS[id].len*(k<cast.length-1?.55:1);
-      });
-      if(cast.length) t=Math.max(t,end)-.9;
+    let t=hit+(n?.65:.25);
+    if(have('music')) {add('notes',t);t=end+.08;}
+    // With a fanfare the notes already open the show. Alternate the garden and
+    // visitor spotlights so a full collection still leaves a short path to the tally.
+    const alternate=!all && have('music') && scenery.length && features.length;
+    const rotation=alternate?Math.floor(turn/2):turn;
+    const opening=all?scenery:scenery.length && (!alternate || turn%2===0)?[scenery[rotation%scenery.length]]:[];
+    const family=features[rotation%features.length];
+    const featured=all?features.flat():family && (!alternate || turn%2===1)?[family[Math.floor(rotation/features.length)%family.length]]:[];
+    for(const id of [...opening,...featured]) {
+      add(id,t);
+      if(id===whale && have('splash')) add('splash',t+orcas[id].contact);
+      t=end+.15;
     }
-    if(tier){add('rosette',t);t+=1.1;}
+    if(tier) {add('rosette',t);t=end+.12;}
     if(stars) add('tally',t,.22*stars+.95);
-    else end=Math.max(end,t);
-    for (const [id,at,len] of acts) {
-      if (id==='oak' || flowers[id] || woodlandParts[id]?.stays || prismParts[id]?.stays) end=Math.max(end,at+len);
-    }
   }
   return {acts,hit,total:end+.6,visitorSides};
 }
@@ -232,18 +147,24 @@ function launchFinale(stage,options={}) {
   const motion=matchMedia('(prefers-reduced-motion: reduce)');
   const {picks=[],finds=[],word='',stars=0,tier=0,turn=0,alone='',all=false,spell=true,freeze=null,into=null,loop=true,review=false}=options;
   if(!into) cancelFinale();
-  if(!into && !review && freeze===null && (motion.matches || document.hidden)) return null;
+  const meadow=stage?.querySelector('.show-stage:has(.reveal-art .stamp)');
+  const real=meadow?.querySelector('.rainbow-theatre')?stage:null;
+  const quietPick=!!(real && alone && options.keepStill && !review && freeze===null && motion.matches);
+  if(!into && !review && freeze===null && (document.hidden || motion.matches && !quietPick)) return null;
   const canvas=into || document.createElement('canvas'), ctx=canvas.getContext('2d');
   // Ground actors and show extras have their own small canvas. Its drawing units are
   // device pixels; a 480 px render occupies 240 CSS px on a 2× tablet.
   const floorCanvas=into || document.createElement('canvas'), floorCtx=floorCanvas.getContext('2d');
   if(!ctx || !floorCtx) return null;
-  const real=!into && stage?.querySelector('.rainbow-theatre') && stage.querySelector('.reveal-art')?stage:null;
   const soundCount=options.soundCount??word.length;
   const {acts,hit,total,visitorSides}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
-  if(!into){canvas.className='fireworks-screen';canvas.setAttribute('aria-hidden','true');document.body.append(canvas);}
-  if(!into){floorCanvas.className='show-floor';floorCanvas.setAttribute('aria-hidden','true');document.body.append(floorCanvas);}
-  let limit=320, frame=0, last=0, states=[], stopped=false;
+  if(real && word.length>5 && acts.some(([id])=>id==='fireflies')) meadow.classList.add('sky-word');
+  function mount(layer,host,className) {
+    layer.className=className;layer.setAttribute('aria-hidden','true');host.append(layer);
+  }
+  if(!into && (!real || acts.some(([id])=>id==='tally'))) mount(canvas,document.body,'fireworks-screen');
+  if(!into) mount(floorCanvas,meadow || document.body,'show-floor');
+  let limit=320, frame=0, last=0, states=[], stopped=false, seeking=false;
   function burst(e,x,y,n,energy,{sky=false,kind='mix',g=1,drag=.55}={}) {
     e.ring(x,y,energy*.28*e.u);
     for(let i=0;i<n;i++) {
@@ -262,17 +183,26 @@ function launchFinale(stage,options={}) {
       const c=e.has('hats') && cutout('hat');
       if(!c?.ready) return;
       const pen=this.ctx;
-      pen.save();pen.translate(x,y);pen.rotate(angle);pen.drawImage(c.canvas,-size/2,-size*.74,size,size);pen.restore();
+      const tip=alone==='hats'?.19*bump((this.time-.75)/.75):0;
+      pen.save();pen.translate(x,y);pen.rotate(angle-tip);
+      pen.shadowColor='#465640a6';pen.shadowBlur=1;
+      pen.drawImage(c.canvas,-size/2,-size*(.74+tip*.3),size,size);pen.restore();
     },
-    on(name,...a) {if(freeze===null && !into) options[name]?.(...a);}};
+    on(name,...a) {if(!seeking && !quietPick && !review && freeze===null && !into) options[name]?.(...a);}};
   const floor={...e,ctx:floorCtx};
+  let inkView;
+  if(real && acts.some(([id])=>id==='comet' || id==='rosette' || id.startsWith('picture'))) {
+    const layer=document.createElement('canvas');
+    mount(layer,meadow,'show-ink');inkView={...e,ctx:layer.getContext('2d')};
+  }
   const wings={};
   if(real) for(const side of new Set(Object.values(visitorSides))) {
     const layer=document.createElement('canvas');
-    layer.className='show-visitors';layer.dataset.side=side;layer.setAttribute('aria-hidden','true');
-    real.append(layer);wings[side]={...e,ctx:layer.getContext('2d'),panelSide:side};
+    mount(layer,meadow,'show-visitors');layer.dataset.side=side;
+    wings[side]={...e,ctx:layer.getContext('2d'),panelSide:side};
   }
-  const wingViews=Object.values(wings), groundViews=[floor,...wingViews], views=[...groundViews,e];
+  const wingViews=Object.values(wings), groundViews=[floor,...wingViews];
+  const localViews=inkView?[...groundViews,inkView]:groundViews, views=[...localViews,e];
   const splashView=wings[visitorSides.splash] || floor;
   if(visitorSides.splash==='left' && wings.right) splashView.rabbitView=wings.right;
   for(const view of views) {
@@ -285,8 +215,8 @@ function launchFinale(stage,options={}) {
     view.ring=(x,y,r)=>view.rings.push({x,y,age:0,r});
   }
   if(tier && options.badgeSrc) {
-    e.badgeImage=new Image();
-    e.badgeImage.src=options.badgeSrc;
+    e.badgeImage=new Image();e.badgeImage.src=options.badgeSrc;
+    if(inkView) inkView.badgeImage=e.badgeImage;
   }
   // The Blender camera and the printed poster occupy the same bed behind the word card.
   const planted=new Map();
@@ -304,10 +234,12 @@ function launchFinale(stage,options={}) {
       e.cx=e.w/2;e.cy=e.h*.5;e.th={x:e.cx-wide/2,y:e.cy-wide*.164,w:wide,h:wide*.328};
       return;
     }
-    const r=stage.querySelector('.reveal-art').getBoundingClientRect(), t=stage.querySelector('.show-stage').getBoundingClientRect();
-    e.cx=r.left+r.width/2;e.cy=Math.max(0,Math.min(e.h,r.top+r.height*.5));e.th={x:t.left,y:t.top,w:t.width,h:t.height};
-    const total=document.querySelector('#masthead .stars');
-    if(total){const b=total.getBoundingClientRect();e.starHome={x:b.left+11,y:b.top+b.height/2};}
+    if(!floor.target || !meadow.clientWidth) return;
+    const frame=meadow.getBoundingClientRect(), d=floor.w/meadow.clientWidth;
+    e.th={x:frame.left+meadow.clientLeft,y:frame.top+meadow.clientTop,w:meadow.clientWidth,h:meadow.clientHeight};
+    e.cx=e.th.x+floor.target.x/d;e.cy=e.th.y+floor.target.y/d;
+    const icon=document.querySelector('#masthead .stars > :first-child');
+    if(icon){const b=icon.getBoundingClientRect();e.starHome={x:b.left+b.width/2,y:b.top+b.height/2};}
   }
   function sizeStrip(view) {
     const layer=view.ctx.canvas, rect=layer.getBoundingClientRect(), dpr=window.devicePixelRatio || 1;
@@ -318,16 +250,37 @@ function launchFinale(stage,options={}) {
     view.cx=w/2;view.cy=h/2;view.th={x:0,y:0,w,h};
     view.ctx.lineJoin='round';view.ctx.lineCap='round';
   }
-  // The illustration has its own ground. Visitors get the space below it, even
-  // when a caption wraps or the sticker choices open midway through a show.
-  const meadow=real?.querySelector('.show-stage');
-  function fitWings() {
-    const room=Math.max(1,Math.floor(real.getBoundingClientRect().bottom-meadow.getBoundingClientRect().bottom-6));
+  function fitMeadow() {
+    const field=meadowLayout(meadow,word);
+    const lanes={};
     for(const view of wingViews) {
-      view.ctx.canvas.style.maxHeight=room+'px';sizeStrip(view);
+      const lane=visitorLane(field,view.panelSide,!!splashView.rabbitView);
+      lanes[view.panelSide]=lane;
+      Object.assign(view.ctx.canvas.style,{left:lane.x+'px',top:lane.y+'px',width:lane.w+'px',height:lane.h+'px'});
+      sizeStrip(view);view.field=field;
+    }
+    for(const view of [floor,inkView].filter(Boolean)) {
+      sizeStrip(view);
+      const d=view.w/field.w;
+      view.field={left:field.left*d,right:field.right*d,top:field.top*d,bottom:field.bottom*d};
+      view.target={x:field.target.x*d,y:field.target.y*d,size:field.target.size*d,angle:field.target.angle};
+      view.u=Math.min(view.h/230,view.w/390,1.18*d);
+    }
+    if(inkView){inkView.cx=inkView.target.x;inkView.cy=inkView.target.y;}
+    const frame=floor.ctx.canvas.getBoundingClientRect(), scale=floor.w/frame.width;
+    for(const {layer,view} of planted.values()) {
+      const bed=layer.parentElement?.getBoundingClientRect();
+      if(bed) view.bed={pen:floor.ctx,x:(bed.left-frame.left+bed.width/2)*scale,
+        y:(bed.bottom-frame.top)*scale,w:bed.width*scale,h:bed.height*scale};
+    }
+    if(splashView.rabbitView) {
+      const d=floor.w/field.w, {left,right}=lanes;
+      splashView.crossing={view:floor,from:(left.x+left.w*.55)*d,to:(right.x+right.w*.48)*d,
+        y:(left.y+left.h*.88)*d,land:(right.y+right.h*.88)*d};
     }
   }
   function resize() {
+    if(real && (!meadow.clientWidth || !meadow.clientHeight)) return;
     if(into) {
       const {width=520,height=390,unit=.6}=options.previewSize || {};
       e.w=width;e.h=height;e.u=unit;
@@ -336,7 +289,7 @@ function launchFinale(stage,options={}) {
     } else {
       e.w=window.innerWidth;e.h=window.innerHeight;
       const dpr=Math.min(devicePixelRatio || 1,1.6,Math.sqrt(2000000/(e.w*e.h)));
-      canvas.width=Math.round(e.w*dpr);canvas.height=Math.round(e.h*dpr);
+      canvas.width=canvas.isConnected?Math.round(e.w*dpr):1;canvas.height=canvas.isConnected?Math.round(e.h*dpr):1;
       e.u=Math.max(.67,Math.min(1.22,e.w/900));limit=e.w<650?230:360;
     }
     ctx.setTransform(canvas.width/e.w,0,0,canvas.height/e.h,0,0);ctx.lineJoin='round';ctx.lineCap='round';
@@ -346,18 +299,14 @@ function launchFinale(stage,options={}) {
     } else {
       const dpr=window.devicePixelRatio || 1;
       real?.querySelector('.meadow-garden')?.style.setProperty('--native-flower-width',480/dpr+'px');
-      sizeStrip(floor);
-      if(wingViews.length) fitWings();
+      if(real) fitMeadow();else sizeStrip(floor);
     }
     locate();
+    if(states.length) seek(e.time,true);
   }
   resize();
-  const roomObserver=wingViews.length ? new ResizeObserver(()=>{
-    if(stopped) return;
-    fitWings();
-    if(states.length && (review || freeze!==null)) picture();
-  }) : null;
-  if(roomObserver) {roomObserver.observe(real);roomObserver.observe(meadow);}
+  const roomObserver=real ? new ResizeObserver(()=>{if(!stopped) resize();}) : null;
+  if(roomObserver) {roomObserver.observe(meadow);roomObserver.observe(meadow.querySelector('.reveal-art'));}
 
   floor.soloPrism=!review && !!prismParts[alone];
   const meadowArches=real?acts.filter(([id])=>prismParts[id]?.stays)
@@ -372,17 +321,20 @@ function launchFinale(stage,options={}) {
   for(const view of views) {view.hit=hit;view.total=total;}
   // The star, letters and badge still land on their actual targets in the word card and header.
   function viewFor(id) {
-    if(Object.hasOwn(BASE,id) || id==='comet') return e;
+    if(id==='comet' || id==='rosette') return inkView || e;
+    if(id.startsWith('picture') && inkView) return inkView;
+    if(Object.hasOwn(BASE,id)) return e;
     return planted.get(id)?.view || wings[visitorSides[id]] || floor;
   }
 
+  let musicAt=null;
   function reset() {
     for(const view of views) {
       view.rand=random(977+turn*131);view.time=0;view.soak=0;view.sparks.length=0;view.rings.length=0;
     }
     states=acts.map(([id,at])=>{
       const view=viewFor(id),part=PARTS[id];
-      return {at,part,view,cue:0,s:part.make?.(view) || {}};
+      return {at:id==='notes' && musicAt!==null?musicAt:at,part,view,cue:0,s:part.make?.(view) || {}};
     });
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
@@ -426,7 +378,7 @@ function launchFinale(stage,options={}) {
   }
   function picture() {
     ctx.clearRect(0,0,e.w,e.h);
-    if(!into) for(const view of groundViews) view.ctx.clearRect(0,0,view.w,view.h);
+    if(!into) for(const view of localViews) view.ctx.clearRect(0,0,view.w,view.h);
     for(const {view} of planted.values()) view.ctx.clearRect(0,0,view.w,view.h);
     let scattered=false;
     for(const st of states) {
@@ -442,23 +394,30 @@ function launchFinale(stage,options={}) {
     stopped=true;
     cancelAnimationFrame(frame);
     if(!into) {
-      canvas.remove();stage?.classList.remove('show-playing');
-      floorCanvas.remove();
+      canvas.remove();stage?.classList.remove('show-playing');meadow?.classList.remove('sky-word');
+      floorCanvas.remove();inkView?.ctx.canvas.remove();
+      stage?.style.removeProperty('--review-time');
       roomObserver?.disconnect();
       for(const view of wingViews) view.ctx.canvas.remove();
       for(const {layer} of planted.values()) layer.remove();
       for(const [arch] of meadowArches) arch.classList.remove('tracing');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
-      if(stopActive===stop) stopActive=null;
+      if(stopActive===stop) {stopActive=null;cueFanfare=null;}
     }
-    if(freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
+    if(!quietPick && freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
   }
   function hidden() {if(document.hidden && !review) stop();}
+  let holdLeft=options.keepStill && !quietPick && alone!=='music' && alone!=='fireflies' ? .55 : 0;
   function tick(now) {
     // A slow tablet draws fewer frames. The show still keeps real time, in steps small enough to stay smooth.
     let dt=Math.min((now-last)/1000,1.2);last=now;
     if(into?!canvas.isConnected:stage && !stage.isConnected){stop();return;}
+    if(holdLeft && e.time+dt>=quietStill) {
+      const approach=Math.max(0,quietStill-e.time);
+      const pause=Math.min(holdLeft,dt-approach);
+      holdLeft-=pause;dt-=pause;
+    }
     for(;dt>0;dt-=1/30) advance(Math.min(dt,1/30));
     if(e.time>=e.total){if(!into || !loop){stop(true);return;}reset();}
     picture();
@@ -467,6 +426,10 @@ function launchFinale(stage,options={}) {
   }
   if(!into) {
     stopActive=stop;
+    if(!review && !quietPick && freeze===null) cueFanfare=()=>{
+      const cue=states.find(st=>st.part===SCENES.notes);
+      if(cue && musicAt===null && e.time<cue.at+.35) {musicAt=e.time;cue.at=musicAt;}
+    };
     window.addEventListener('resize',resize);window.addEventListener('scroll',locate,{passive:true});
     document.addEventListener('visibilitychange',hidden);if(!review) motion.addEventListener('change',stop);
   }
@@ -477,18 +440,19 @@ function launchFinale(stage,options={}) {
   function seek(seconds,rewind=false) {
     if(stopped) return;
     const target=Math.max(0,Math.min(seconds,total));
+    seeking=true;
     if(rewind || target<e.time) reset();
     while(target-e.time>1/30) advance(1/30);
     if(target>e.time) advance(target-e.time);
-    picture();
+    seeking=false;picture();
     for(const view of views) view.ctx.canvas.style.opacity=clamp01((total-target)/.4);
-    if(real && meadowArches.length) stage.style.setProperty('--review-time',target+'s');
+    if(review && meadowArches.length) stage.style.setProperty('--review-time',target+'s');
   }
   function start() {
     if(stopped) return;
     reset();
-    if(real) {
-      for(const {view,layer} of planted.values()) if(!view.flowerReady) layer.remove();
+    for(const {view,layer} of planted.values()) if(!view.flowerReady) layer.remove();
+    if(real && !quietPick) {
       for(const [arch,at] of meadowArches) {
         arch.style.setProperty('--arch-start',at+'s');
         arch.classList.add('tracing');
@@ -496,18 +460,19 @@ function launchFinale(stage,options={}) {
       stage.style.setProperty('--hit',e.hit+'s');
       stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
     }
-    const poster=PARTS[alone]?.poster;
-    quietStill=poster===undefined ? e.total*.55 : acts.find(([id])=>id===alone)[1]+poster;
+    const feature=acts.find(([id])=>id===alone) || acts[0];
+    const poster=PARTS[feature?.[0]]?.poster;
+    quietStill=feature ? feature[1]+(poster ?? feature[2]*.53) : e.total*.5;
     if(review) {seek(quietStill);return;}
-    const still=freeze!==null?freeze:into && loop && motion.matches?quietStill:null;
+    const still=freeze!==null?freeze:quietPick || into && loop && motion.matches?quietStill:null;
     if(still!==null) {
-      while(e.time<still) advance(1/60);
-      picture();
+      seek(still);
     } else {last=performance.now();frame=requestAnimationFrame(tick);}
   }
   // A cold sprite sheet must be decoded before the clock starts, including for
   // a reduced-motion still. A cancelled show or superseded poster stays stopped.
   const pending=acts.map(([id])=>PARTS[id].prepare?.(viewFor(id))).filter(Boolean);
+  if(e.has('hats') && acts.some(([id])=>isVisitor(id))) pending.push(prepareShow(['hat']));
   if(review && e.badgeImage) pending.push(e.badgeImage.decode());
   let ready;
   if(pending.length) {
@@ -518,6 +483,7 @@ function launchFinale(stage,options={}) {
       start();
     });
   } else start();
+  if(quietPick) return null; // The static pose stays until navigation. The learner can act immediately.
   if(review) return {hit,total,stop,seek,ready:ready || Promise.resolve(),get posterTime(){return quietStill;}};
   return {hit:e.hit,total:e.total,stop};
 }

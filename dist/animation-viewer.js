@@ -16,7 +16,6 @@ for(const [name,ids] of groups) {
   picker.append(group);
 }
 const ids=Array.from(picker.options,option=>option.value);
-const wholeScreen=new Set(core.map(effect=>effect.id));
 const sample=document.createElement('canvas');
 const sampleCtx=sample.getContext('2d',{willReadFrequently:true});
 const fanfare=new Audio('./assets/audio/music/fanfare.mp3');fanfare.preload='none';
@@ -51,14 +50,19 @@ function canvasBounds(canvas) {
 }
 function measure() {
   const guide=get('bounds'), arch=meadow.querySelector('[data-meadow-rainbow="'+current+'"]');
-  const plant=meadow.querySelector('[data-meadow-flower="'+current+'"]'), visitors=scene.querySelector('.show-visitors');
-  const frame=arch || plant ? meadow : visitors ? scene : null;
-  const frameBox=frame?.getBoundingClientRect(), origin=frame===meadow?'Meadow':frame===scene?'Panel':'Screen';
+  const plant=meadow.querySelector('[data-meadow-flower="'+current+'"]');
+  const frame=current==='tally'?null:meadow;
+  const frameBox=frame?.getBoundingClientRect(), origin=frame?'Meadow':'Screen';
   const host=frame || document.body;
   if(guide.parentElement!==host) host.append(guide);
-  const artwork=plant?.querySelector('canvas') || plant?.querySelector('img') || visitors ||
-    document.querySelector(wholeScreen.has(current)?'.fireworks-screen':'.show-floor');
-  const box=arch ? arch.getBoundingClientRect() : canvasBounds(artwork);
+  const layers=plant?[plant.querySelector('canvas,img:last-child') || plant.querySelector('img')]:
+    frame?meadow.querySelectorAll('.show-floor,.show-ink,.show-visitors'):document.querySelectorAll('.fireworks-screen');
+  const boxes=Array.from(layers,canvasBounds).filter(Boolean);
+  let box=arch?.getBoundingClientRect();
+  if(!box && boxes.length) {
+    const left=Math.min(...boxes.map(b=>b.left)),top=Math.min(...boxes.map(b=>b.top));
+    box={left,top,width:Math.max(...boxes.map(b=>b.left+b.width))-left,height:Math.max(...boxes.map(b=>b.top+b.height))-top};
+  }
   get('left-label').textContent=origin+' left';get('bottom-label').textContent=origin+' bottom';
   get('size-label').textContent=arch?'Full arch extent':'Visible artwork';
   get('viewport').textContent=Math.round(innerWidth)+' × '+Math.round(innerHeight)+' viewport';
@@ -119,7 +123,7 @@ async function selectEffect(id,auto=true) {
   get('bounds').hidden=true;get('size').textContent=get('left').textContent=get('bottom').textContent='—';
   status.textContent='Loading artwork…';
   soundButton.hidden=id!=='music';fanfare.pause();
-  const picks=id==='splash'?['whale',id]:id==='hats'?['bunnies',id]:[id];
+  const picks=id==='splash'?['whale','bunnies',id]:id==='hats'?['bunnies',id]:[id];
   meadow.querySelector('.meadow-scenery')?.remove();
   meadow.insertAdjacentHTML('afterbegin',finaleScenery(picks,id));
   try {

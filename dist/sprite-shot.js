@@ -9,6 +9,13 @@ export function fitShot(ctx, crop, availableWidth, availableHeight, centre, bott
   ctx.scale(scale,scale);
 }
 
+// Hold the signature pose for a beat without moving the impact or the end of the take.
+export function poseTime(t,pose) {
+  const distance=t-pose, window=.34, hold=.12;
+  if(Math.abs(distance)>=window) return t;
+  return pose+Math.sign(distance)*Math.max(0,Math.abs(distance)-hold)*window/(window-hold);
+}
+
 // Fixed-camera Blender frames are trimmed independently. Restore their original
 // offsets on a transparent canvas so droplets and the animal share one trajectory.
 export async function loadSpriteShot(manifest) {

@@ -909,7 +909,21 @@ document.addEventListener('change',e=>{
   if(el.id==='trial-rosette'){trialRosette=el.checked;const top=dialog.scrollTop;trialDialog();dialog.scrollTop=top;$('#trial-rosette')?.focus({preventScroll:true});}
   if(el.id==='file-picker') void importAlbum(el.files[0]);
 });
-dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom)dialog.close();}});
+function dismissOnBackdrop(modal) {
+  let pressedOutside=false;
+  function outside(e) {
+    if(e.target!==modal) return false;
+    const r=modal.getBoundingClientRect();
+    return e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom;
+  }
+  modal.addEventListener('pointerdown',e=>{pressedOutside=outside(e);});
+  modal.addEventListener('click',e=>{
+    if(pressedOutside && outside(e)) modal.close();
+    pressedOutside=false;
+  });
+}
+dismissOnBackdrop(dialog);
+dismissOnBackdrop(stickerPicker);
 // The music is one of the things she adds to her show, so it stays quiet until she has chosen it.
 function playFanfare() {
   if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) playClip('music','fanfare');

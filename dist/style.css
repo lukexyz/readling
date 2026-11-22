@@ -315,9 +315,13 @@ main.wrap{padding-block:29px 40px;outline:none}
 #sticker-picker{width:min(540px,calc(100% - 28px),125dvh);max-height:calc(100dvh - max(12px,env(safe-area-inset-top)) - max(12px,env(safe-area-inset-bottom)));padding:clamp(14px,3vmin,24px);overscroll-behavior:contain}
 #sticker-picker::backdrop{background:rgb(237 239 222 / .55)}
 html:has(#sticker-picker[open]){overflow:hidden}
-#sticker-title{outline:0}
-#sticker-picker .dialog-top{margin:0}
-#sticker-picker .btn{min-height:44px;padding:7px 13px}
+#sticker-title{margin-inline:34px;text-align:center;text-wrap:balance;font-size:clamp(1.25rem,6vw,1.875rem);outline:0}
+.sticker-close{
+  position:absolute;inset-block-start:4px;inset-inline-end:4px;display:grid;place-items:center;
+  width:44px;height:44px;padding:0;border:0;border-radius:50%;background:transparent;color:#808879;
+  font:500 20px/1 var(--sans);outline-offset:-5px
+}
+.sticker-close:is(:hover,:focus-visible){color:var(--deep)}
 .show-picks{display:flex;gap:clamp(8px,2vmin,14px);justify-content:center;margin-top:12px}
 .show-pick{flex:1 1 0;min-width:0;max-width:250px;display:grid;align-content:start;gap:8px;padding:8px 8px 10px;border:2px solid #59644c;border-radius:15px;background:var(--card);box-shadow:0 3px 0 #dcd4b8;font-weight:800;font-size:clamp(15px,2.3vmin,18px)}
 .show-pick:hover{background:#f6f1df}.show-pick:active{transform:translateY(3px);box-shadow:0 1px 0 #dcd4b8}

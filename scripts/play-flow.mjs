@@ -310,7 +310,7 @@ async function checkLaptopReward() {
     await observeScoreAudio(p);
     await act(p,'discover');await act(p,'reveal');
     await p.getByRole('heading',{name:'Look what you found!'}).waitFor();
-    if(await p.locator('#sticker-picker').isVisible()) await p.getByRole('button',{name:'Later'}).click();
+    if(await p.locator('#sticker-picker').isVisible()) await p.getByRole('button',{name:'Close sticker picker'}).click();
     for(const [width,height] of [[1343,760],[1280,680],[1440,900]]) {
       await p.setViewportSize({width,height});
       const boxes=await p.evaluate(()=>['.found','.found>.show-stage','.found-details','.found>.actions'].map(s=>document.querySelector(s).getBoundingClientRect().toJSON()));
@@ -451,12 +451,25 @@ async function checkLandscapeRewards() {
   assert(notes.every((n,i)=>n.hz>0 && (i===0 || n.hz>notes[i-1].hz)),JSON.stringify(notes));
   assert.equal(await p.locator('.fireworks-screen').count(),0);
   assert.equal(await p.evaluate(()=>scrollY),0);
-  await fits(picker.locator('button'));
-  await resize(768,1024);await fits(picker.locator('button'));
-  await resize(1024,640);await fits(picker.locator('button'));
+  for(const [width,height] of [[768,1024],[320,568],[1024,640]]) {
+    await resize(width,height);await fits(picker.locator('button'));
+    const header=await picker.evaluate(el=>{
+      const range=document.createRange();range.selectNodeContents(el.querySelector('h2'));
+      const title=range.getBoundingClientRect(), dialog=el.getBoundingClientRect(), close=el.querySelector('.sticker-close').getBoundingClientRect();
+      return {offset:(title.left+title.right-dialog.left-dialog.right)/2,clear:title.right<=close.left,width:close.width,height:close.height};
+    });
+    assert(Math.abs(header.offset)<1 && header.clear && header.width>=44 && header.height>=44,JSON.stringify(header));
+  }
   const earned=await saved(p);
-  await p.keyboard.press('Escape');
   const reopen=p.getByRole('button',{name:'My Stickers',exact:true});
+  const box=await picker.boundingBox();
+  await p.touchscreen.tap(box.x+box.width/2,box.y+5);
+  assert(await picker.isVisible(),'tapping the padding inside the picker keeps it open');
+  await p.touchscreen.tap(box.x-8,box.y+box.height/2);
+  await reopen.and(p.locator(':focus')).waitFor();
+  assert.deepEqual(await saved(p),earned,'tapping outside keeps the sticker choice available');
+  await reopen.tap();await picker.waitFor();
+  await p.keyboard.press('Escape');
   await reopen.and(p.locator(':focus')).waitFor();
   await fits(reopen);
   await fits(p.getByRole('button',{name:'Next word!',exact:true}));
@@ -481,7 +494,7 @@ try {
   await fresh.getByRole('button',{name:'Back to my word album'}).click();
   await act(fresh,'discover');await traceAndBlend(fresh,'cat');
   const picker=fresh.getByRole('dialog',{name:'You earned a sticker!'});
-  await picker.getByRole('button',{name:'Later'}).click();
+  await picker.getByRole('button',{name:'Close sticker picker'}).click();
   assert.deepEqual((await saved(fresh)).show.picks,[]);
   const starter=fresh.getByRole('button',{name:'Level 1, view Oak keepsakes badge 1'});
   assert((await starter.locator('img').getAttribute('src')).endsWith('/oak-1.webp'));

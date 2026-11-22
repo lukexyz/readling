@@ -26,9 +26,8 @@
   <footer id="save-footer" hidden></footer>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <dialog id="sticker-picker" aria-labelledby="sticker-title">
-    <div class="dialog-top"><h2 id="sticker-title" tabindex="-1" autofocus>You earned a sticker!</h2>
-      <form method="dialog"><button class="btn secondary" type="submit">Later</button></form>
-    </div>
+    <h2 id="sticker-title" tabindex="-1" autofocus>You earned a sticker!</h2>
+    <form method="dialog"><button class="sticker-close" type="submit" aria-label="Close sticker picker"><span aria-hidden="true">×</span></button></form>
     <div class="show-picks"></div>
   </dialog>
   <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>

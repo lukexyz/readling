@@ -631,6 +631,72 @@ dialog .actions{margin-top:12px}
   .found-details .handwritten svg{height:30px;width:34px}
   .found-details .badge-award{margin-top:5px}
 }
+/* Let tablet activities use the space left by the real header, sound shelf and save footer. */
+@media (min-width:700px) and (min-height:521px) and (any-pointer:coarse){
+  body:has(main>.round-card,main>.found.victory>.found-details,main>.round-done.victory){
+    display:flex;flex-direction:column;min-height:100dvh;
+  }
+  #game-page:has(.round-card,.found.victory>.found-details,.round-done.victory),
+  main.wrap:has(>.round-card,>.found.victory>.found-details,>.round-done.victory){
+    display:flex;flex-direction:column;flex:1 0 auto;
+  }
+  main.wrap:has(>.round-card,>.found.victory>.found-details,>.round-done.victory){
+    padding-block:clamp(8px,1.6dvh,14px) max(12px,env(safe-area-inset-bottom));
+  }
+  main>:is(.round-card,.found.victory:has(>.found-details),.round-done.victory){
+    flex:1 0 auto;padding-inline:clamp(18px,2.2vw,32px);
+  }
+  .round-card{
+    display:grid;grid-template: auto auto 1fr auto / minmax(0,1fr);min-width:0;
+  }
+  .round-card .face-down{
+    justify-self:center;align-self:stretch;min-width:min(100%,clamp(320px,43vw,540px));
+    max-width:100%;margin:clamp(10px,1.7dvh,18px) 0;padding:10px clamp(10px,2vw,26px);
+  }
+  .round-card .word-print{min-width:0;max-width:100%}
+  .face-down .grapheme{width:clamp(60px,9vw,112px);height:clamp(86px,18dvh,166px)}
+  .round-card :is(.memory-match,.turned){align-self:center;min-width:0}
+  .round-card .turned .stamp-face{width:clamp(105px,min(27dvh,35vw),235px)}
+  .memory-match .picture-picks{container-type:inline-size}
+  .memory-match .picture-pick .stamp-face{width:clamp(70px,min(25cqw,23dvh),178px)}
+
+  .found.victory:has(>.found-details){
+    display:grid;align-items:center;grid-template-rows:auto auto minmax(150px,1fr) auto auto;
+  }
+  .found.victory:has(>.found-details)>.show-stage,
+  .round-done.victory>.show-stage{
+    align-self:stretch;width:100%;height:auto;min-height:150px;max-height:none;margin:10px 0 0;
+  }
+  .round-done.victory>.show-stage{margin-top:0}
+  .found.victory>.actions{margin-top:clamp(10px,1.8dvh,18px)}
+
+  @media (orientation:portrait){
+    .round-card .face-down{min-width:min(85%,620px)}
+  }
+  @media (orientation:landscape){
+    .found.victory:has(>.found-details){
+      grid-template-columns:minmax(0,1fr) minmax(0,min(29%,320px));
+      grid-template-rows:auto auto minmax(150px,1fr) auto;column-gap:clamp(14px,2vw,28px);
+    }
+    .found.victory>:is(.kicker,h1,.actions){grid-column:1/-1}
+    .found.victory>.found-details{min-width:0;overflow-wrap:anywhere}
+    .found.victory:has(.badge-handoff){grid-template-columns:minmax(0,1fr) min(36%,380px)}
+    .found-details:has(.badge-handoff) .found-word{margin-top:0}
+    .found-details:has(.badge-handoff) :is(.handwritten,.reward){display:inline-flex;vertical-align:middle;margin:4px}
+    .found-details:has(.badge-handoff) .handwritten svg{width:34px;height:30px}
+    .found-details .badge-award:has(.badge-handoff),.found-details .badge-handoff{
+      display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 9px;align-items:center;
+    }
+    .found-details .badge-award:has(.badge-handoff){padding:5px 10px}
+    .found-details .badge-handoff{grid-column:1/-1;border:0;border-top:1px solid var(--badge-edge);padding:4px 0 0}
+    .found-details .badge-handoff>.icon{display:none}
+    .found-details .badge-award:has(.badge-handoff) .badge-pin,.found-details .badge-handoff img{width:44px}
+    .round-card .memory-match{
+      display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:center;gap:16px;
+    }
+    .memory-match :is(.read-card,.picture-picks){max-width:100%}
+  }
+}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 }

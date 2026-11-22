@@ -1,15 +1,17 @@
 // Exercise the shipped Worker in Chromium. Its public R2 artwork is supplied by
 // the matching local files; no account, remote storage or speech service is used.
+// Pass --tablet-webkit to run just the tablet layout checks with Playwright WebKit.
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {chromium} from 'playwright-core';
+import {chromium,devices,webkit} from 'playwright-core';
 import worker from '../dist/server/index.js';
 import {KEY,STAGES,SHOW,unitsOf,newProfile,findNext,startLesson,collect} from '../dist/game.js';
 import {flowerShots} from '../dist/gardens.js';
 
 const dist=new URL('../dist/',import.meta.url), origin='http://readling.test';
-const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,args:['--disable-logging']});
+const tabletWebKit=process.argv.includes('--tablet-webkit');
+const browser=tabletWebKit?await webkit.launch():await chromium.launch({executablePath:process.env.CHROMIUM_PATH || undefined,args:['--disable-logging']});
 const errors=[];
 async function openGame(seed, motion='reduce', screen={}) {
   const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:motion,...screen});
@@ -472,7 +474,99 @@ async function checkLandscapeRewards() {
   assert.equal(await picker.isVisible(),false,'leaving a celebration cancels its pending choice');
   await p.context().close();
 }
-try {
+async function checkTabletActivitySpace() {
+  const album=before('stump');
+  album.settings.sparkles=true;
+  album.settings.fanfare=false;
+  album.show.picks=['rainbow','flowers'];
+  startLesson(album,'stump');
+  album.lesson.i=5;
+  album.lesson.ink=Array.from('stump',()=>[[[20,70],[32,25],[55,65]]]);
+  for(const card of Object.values(album.cards)) card.due=0;
+  for(const sound of Object.values(album.sounds)) sound.due=Date.now()+86400000;
+  ['belt','cat','dog','hat'].forEach((word,i)=>{album.cards[word].due=i+1;});
+  const p=await openGame(album,'reduce',devices['iPad (gen 7) landscape']);
+  // Both footer states can be exercised without contacting an account.
+  await p.evaluate(async()=>{(await import('/cloud.js')).cloud.remembered=()=>true;});
+  const sizes=[[1024,620],[1133,675],[1180,720],[1180,820],[1366,924],[1366,1024],[820,1080]];
+  async function measure(selector,width,height,page=p) {
+    await page.setViewportSize({width,height});
+    await page.evaluate(async()=>{await document.fonts.ready;await new Promise(ok=>requestAnimationFrame(()=>requestAnimationFrame(ok)));});
+    const layout=await page.locator('main>.activity').evaluate((card,selector)=>{
+      const box=node=>node.getBoundingClientRect();
+      const target=box(card.querySelector(selector)), panel=box(card), actions=box(card.querySelector('.actions'));
+      const footer=document.body.classList.contains('has-reward-footer') && document.querySelector('#save-footer button');
+      const screen=visualViewport, bottom=screen.offsetTop+screen.height;
+      return {gap:bottom-(footer?box(footer).bottom:panel.bottom),width:target.width,height:target.height,
+        panelWidth:panel.width,inside:target.top>=panel.top && target.bottom<=actions.top+1 && target.left>=panel.left && target.right<=panel.right,
+        controls:actions.bottom<=bottom && (!footer || box(footer).top>=panel.bottom),scrollX:document.documentElement.scrollWidth-innerWidth};
+    },selector);
+    const label=selector+' at '+width+'×'+height+' '+JSON.stringify(layout);
+    assert(layout.gap>=0 && layout.gap<=26 && layout.inside && layout.controls && !layout.scrollX,label);
+    return layout;
+  }
+  await act(p,'review');await act(p,'start-round');
+  assert.equal(await p.locator('.face-down .word-print').getAttribute('aria-label'),'belt');
+  assert.equal(await p.locator('[data-act=shelf]').getAttribute('aria-expanded'),'true');
+  let previous;
+  for(const [w,h] of sizes) {
+    const read=await measure('.face-down',w,h);
+    assert(read.height>=h*.32,'The reading card gets the spare height at '+w+'×'+h);
+    if(w===1180 && h===820) assert(read.height>previous.height+65);
+    previous=read;
+  }
+  const open=await measure('.face-down',1180,720);
+  await act(p,'shelf');
+  assert((await measure('.face-down',1180,720)).height>open.height+25,'Closing the sound shelf enlarges the card');
+  await act(p,'shelf');await act(p,'flip');await measure('.picture-picks',1180,720);
+  await p.locator('[data-act=pick][data-word=belt]').click();await measure('.turned',1180,720);
+  await act(p,'home');await act(p,'discover');await act(p,'reveal');
+  const picker=p.locator('#sticker-picker');
+  await p.locator('.badge-award').waitFor();await p.locator('.handwritten').waitFor();
+  if(await picker.isVisible()) await picker.locator('[data-act=add-to-show]').first().click();
+  for(const [w,h] of sizes) {
+    const stage=await measure('.show-stage',w,h);
+    assert(stage.width>stage.panelWidth*.60 && stage.height>h*.34,'The discovery meadow uses the available space at '+w+'×'+h);
+    if(w===1180 && h===820) assert(stage.height>previous.height+65);
+    previous=stage;
+  }
+  await p.setViewportSize({width:1180,height:720});
+  await p.emulateMedia({reducedMotion:'no-preference'});await act(p,'encore');
+  const canvas=p.locator('.found .show-stage canvas.show-floor');
+  await canvas.waitFor();
+  for(const height of [720,820]){
+    await p.setViewportSize({width:1180,height});
+    await p.waitForFunction(()=>{
+      const stage=document.querySelector('.found>.show-stage'), layer=stage.querySelector('canvas.show-floor');
+      return layer && Math.abs(layer.height-stage.clientHeight*devicePixelRatio)<=2 && Math.abs(layer.width-stage.clientWidth*devicePixelRatio)<=2;
+    });
+  }
+  await act(p,'home');await p.emulateMedia({reducedMotion:'reduce'});
+  await p.evaluate(async()=>{(await import('/cloud.js')).cloud.remembered=()=>false;});
+  await p.goto(origin+'/#found/stump');await p.locator('.found').waitFor();
+  assert(await p.locator('#save-footer button').isVisible());
+  await measure('.show-stage',1024,620);await measure('.show-stage',1180,720);
+  await act(p,'review');await act(p,'start-round');
+  while(await p.locator('.face-down').count()) {
+    const word=await p.locator('.face-down .word-print').getAttribute('aria-label');
+    await act(p,'flip');await p.locator('[data-act=pick][data-word="'+word+'"]').click();await act(p,'next-card');
+  }
+  if(await picker.isVisible()) await picker.getByRole('button',{name:'Close sticker picker'}).click();
+  await p.locator('.round-done').waitFor();await measure('.show-stage',1024,620);await measure('.show-stage',1180,720);
+  await p.context().close();
+
+  const firstStage=before('pig');
+  firstStage.settings.sparkles=true;firstStage.settings.fanfare=false;
+  startLesson(firstStage,'pig');firstStage.lesson.i=3;
+  firstStage.lesson.ink=Array.from('pig',()=>[[[15,33],[68,51]]]);
+  const graduate=await openGame(firstStage,'reduce',devices['iPad (gen 7) landscape']);
+  await act(graduate,'discover');await act(graduate,'reveal');
+  await graduate.locator('.badge-handoff').waitFor();
+  if(await graduate.locator('#sticker-picker').isVisible()) await graduate.getByRole('button',{name:'Close sticker picker'}).click();
+  await measure('.show-stage',1024,620,graduate);await measure('.show-stage',1180,720,graduate);
+  await graduate.context().close();
+}
+async function checkPlayFlow() {
   await checkDeferredStickers();
   await checkWritingBack();
   await checkLaptopReward();
@@ -616,6 +710,11 @@ try {
     await later.locator('[data-act=card][data-word="'+w+'"]').click();
     await picture(later,w,'.card-dialog');await later.context().close();
   }
-  assert.deepEqual(errors,[]);
   console.log('Chromium passed word and memory sticker awards, album replay, reading and writing, stage and badge progression, sound shelf and bonus words.');
+}
+try {
+  await checkTabletActivitySpace();
+  console.log((tabletWebKit?'WebKit':'Chromium')+' passed the iPad reading cards, reward meadow, canvas resizing and save footer checks.');
+  if(!tabletWebKit) await checkPlayFlow();
+  assert.deepEqual(errors,[]);
 } finally {await browser.close();}

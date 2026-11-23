@@ -79,9 +79,14 @@ const SCENES={
       const word=e.word || e.finds[0] || 'cat', pts=letterPoints(word), wide=word.length*88+8;
       let cx=e.w*.5,cy=e.h*.28,width=e.w*.81,height=e.h*.34;
       if(e.field) {
-        const shoulder=e.field.left;
-        if(word.length<=5 && shoulder>e.w*.22) {cx=shoulder*.52;cy=e.h*.35;width=shoulder*.85;height=e.h*.42;}
-        else {cy=e.field.top*.50;height=e.field.top*.88;}
+        const shoulder=Math.max(0,e.field.left), sky=Math.max(0,e.field.top);
+        const under=Math.max(0,e.h-e.field.bottom);
+        const sideScale=Math.min(shoulder*.88/wide,e.h*.46/138),skyScale=Math.min(width/wide,sky*.83/138);
+        if(word.length>=5 && Math.min(width/wide,under*.79/138)>Math.max(sideScale,skyScale)*1.12) {
+          cy=e.field.bottom+under*.51;height=under*.79;
+        } else if(sideScale>=skyScale) {
+          cx=shoulder*.50;cy=e.h*.32;width=shoulder*.88;height=e.h*.46;
+        } else {cy=sky*.49;height=sky*.83;}
       }
       const k=Math.min(height/138,width/wide), left=cx-wide*k/2, top=cy-69*k;
       const stagger=Math.min(.3,.9/Math.max(1,word.length-1));
@@ -99,13 +104,14 @@ const SCENES={
       }
       ctx.globalAlpha=1;
     }},
-  notes:{len:2.3,poster:.98,z:6,
+  notes:{len:3.67,poster:.98,z:6,cues:[[0,e=>e.on('onMusic')]],
     draw(e,s,t) {
-      for(let i=0;i<6;i++) {
-        const a=clamp01((t-i*.18)/1.28);
+      const beats=[0,.24,.52,.82,1.12,1.48,1.82,2.22,2.52,2.55];
+      for(let i=0;i<beats.length;i++) {
+        const a=clamp01((t-beats[i])/(i>=8?1.12:1.28));
         if(a<=0 || a>=1) continue;
         e.ctx.globalAlpha=Math.min(1,(1-a)*3);
-        const x=e.field?e.w*(i%2?.82:.17):e.cx+(i-2.5)*54*e.u;
+        const x=e.field?e.w*(i%2?.82:.17):e.w*(.17+.135*(i%6));
         note(e.ctx,x+Math.sin(a*4+i)*e.w*.04,e.h*(.78-a*.48),(9+i%3*2.8)*e.u,Math.sin(a*5+i)*.22,colours[(i*2)%7]);
       }
       e.ctx.globalAlpha=1;

@@ -3,6 +3,7 @@ import {cutout,prepareShow} from './show-cutouts.js';
 import {bump,clamp01,swing} from './show-kit.js';
 import {fitShot,poseTime} from './sprite-shot.js';
 import {contactShadow} from './meadow.js';
+import {drawRabbitVisit} from './show-rabbits.js';
 
 export function paradeWords(finds,word,turn=0) {
   if (!finds.length) return [];
@@ -24,6 +25,66 @@ function paintPictures(ctx,anchors,words) {
   }
 }
 
+// These long curriculum words can fold at the seam between two whole words.
+const ticketWords=new Map(['star fish','dish cloth','egg plant','black bird','jelly fish','dragon fly',
+  'rain coat','book case','note book','arm chair','shoe lace','hedge hog','black berry',
+  'humming bird','light house','grape fruit','straw berry'].map(parts=>[parts.replace(' ',''),parts.indexOf(' ')]));
+
+// The paper is cached once per performance. Each cell keeps the marks from her writing pad.
+function handwritingTicket(word,ink) {
+  if(!ink?.some(lines=>lines?.some(line=>line.length))) return null;
+  const paper=document.createElement('canvas'), cell=92, rowHeight=112;
+  const wrap=ticketWords.get(word) ?? word.length, columns=Math.max(wrap,word.length-wrap), rows=wrap<word.length?2:1;
+  paper.width=cell*columns+26;paper.height=rows*rowHeight+20;paper.columns=columns;
+  let top=138,bottom=0;
+  for(const lines of ink) for(const stroke of lines) for(const [,y] of stroke){top=Math.min(top,y);bottom=Math.max(bottom,y);}
+  const ctx=paper.getContext('2d');
+  ctx.fillStyle='#fff5d7';ctx.strokeStyle='#957548';ctx.lineWidth=4;
+  ctx.beginPath();ctx.roundRect(3,3,paper.width-6,paper.height-6,12);ctx.fill();ctx.stroke();
+  ctx.setLineDash([6,7]);ctx.lineWidth=2;ctx.strokeRect(9,9,paper.width-18,paper.height-18);ctx.setLineDash([]);
+  ctx.strokeStyle='#52634a';ctx.fillStyle='#879176';ctx.lineCap='round';ctx.lineJoin='round';
+  for(const [i,ch] of [...word].entries()) {
+    const second=i>=wrap, rowLength=second?word.length-wrap:wrap;
+    const lines=ink[i] || [], x=13+((columns-rowLength)/2+(second?i-wrap:i))*cell, row=10+(second?rowHeight:0);
+    if(!lines.length) {
+      ctx.font='67px Georgia, serif';ctx.textAlign='center';ctx.fillText(ch,x+cell*.5,row+rowHeight*.76);continue;
+    }
+    let left=180,right=0;
+    for(const line of lines) for(const [px] of line) {left=Math.min(left,px);right=Math.max(right,px);}
+    const scale=Math.min(1.5,(cell-12)/Math.max(1,right-left),(rowHeight-14)/Math.max(40,bottom-top));
+    ctx.save();ctx.translate(x+cell/2,row+rowHeight*.5);ctx.scale(scale,scale);ctx.translate(-(left+right)/2,-(top+bottom)/2);
+    ctx.lineWidth=5;
+    for(const line of lines) {
+      if(!line.length) continue;
+      ctx.beginPath();ctx.moveTo(...line[0]);
+      for(let j=1;j<line.length;j++) ctx.lineTo(...line[j]);
+      if(line.length===1) ctx.lineTo(line[0][0]+.05,line[0][1]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  return paper;
+}
+
+function unfurlTicket(e,anchor,paper,turn) {
+  const bed=e.ticketBed, view=bed?.view || e, ctx=view.ctx, d=view.pixelsPerCssPixel || 1;
+  const hitch=bed?{x:anchor.x*bed.dx,y:bed.y+anchor.y*bed.dy}:anchor;
+  const ratio=paper.width/paper.height, desired=Math.min(188,34+paper.columns*25)*d;
+  const space=view.field, shallow=bed && (e.h/bed.view.pixelsPerCssPixel<62 || paper.columns>5);
+  const side=shallow && space.left>desired*.65;
+  const width=Math.min(desired,side?space.left*.86:view.w*(e.preview?.41:.44));
+  const height=Math.min(width/ratio,side?view.h*.76:bed?Math.max(1,view.h-space.bottom-4*d):e.h*.55);
+  const x=side?space.left*.50:Math.max(width*.52,Math.min(view.w-width*.52,hitch.x-width*.65));
+  const y=side?view.h*.53:Math.min(view.h-height*.55,Math.max(bed?space.bottom+height*.51:height*.52,hitch.y-height*.15));
+  ctx.save();
+  if(Math.hypot(x-hitch.x,y-hitch.y)<width*1.15) {
+    ctx.strokeStyle='#806a43';ctx.lineWidth=Math.max(1,width*.01);ctx.beginPath();
+    ctx.moveTo(hitch.x,hitch.y);ctx.quadraticCurveTo(x+width*.34,y+height*.40,x,y);ctx.stroke();
+  }
+  ctx.translate(x,y);ctx.rotate(-.04*(1-turn));ctx.scale(turn,1);
+  ctx.drawImage(paper,-width*.5,-height*.5,width,height);ctx.restore();
+}
+
 // The gallery has no album. Give its band the same example finds used on the game preview cards.
 export async function loadParadeExample(shot) {
   const words=['cat','dog','hen'];
@@ -40,33 +101,20 @@ function woodlandPart(shot) {
   // Use the herd's common ground line. The original Blender camera includes
   // empty pixels below the feet and above the highest raised trunk.
   const panelCrop=shot.family==='elephants' ? [0,64,480,242] : parade ? [4,51,468,292] : [42,16,403,331];
-  const artwork=new WeakMap();
+  const artwork=new WeakMap(), tickets=new WeakMap();
   let pending,poster=(shot.frames-1)/shot.fps;
-  // Bound the whole camera, including the jump. The tallest rabbit in level
-  // one then occupies at most 72 CSS pixels on a desktop or tablet.
-  function cameraHeight(e) {
-    if(shot.family==='elephants' && e.panelSide) return Math.min(e.h,130*e.pixelsPerCssPixel);
-    return shot.family==='bunnies' && !e.preview ? Math.min(e.h,104*e.pixelsPerCssPixel) : e.h;
-  }
   function place(e,width,centre,t=0) {
-    if(e.field && !ground) {
-      const travel=swing(poseTime(t,poster)/(shot.frames/shot.fps));
-      const size=e.w*(parade?.84:.75), height=e.h*(shot.family==='elephants'?.74:.86);
+    if(e.panelSide==='path') {
+      const progress=clamp01(t/(shot.frames/shot.fps));
+      const size=e.w*.68, height=Math.min(e.h*.91,142*e.pixelsPerCssPixel);
       const drawnWidth=Math.min(size,height*panelCrop[2]/panelCrop[3],panelCrop[2]);
-      const margin=drawnWidth*.5+e.w*(parade?.035:.09);
-      const distance=Math.max(0,e.w-2*margin), y=e.h*.94;
-      const x=e.w/2+(e.panelSide==='right'?.5-travel:travel-.5)*distance;
-      contactShadow(e.ctx,x,y-2,Math.min(size*.29,height*.40),Math.min(height*.023,5));
-      if(shot.family==='bunnies' && e.panelSide==='right') {
-        e.ctx.translate(2*x,0);e.ctx.scale(-1,1);
-      }
+      const margin=drawnWidth*.56+(parade?e.w*.20:0), travel=progress*.68+swing(progress)*.32;
+      const x=-margin+(e.w+2*margin)*travel, y=e.h*.97;
+      contactShadow(e.ctx,x,y-2,drawnWidth*.25,Math.min(height*.027,5),.15);
       fitShot(e.ctx,panelCrop,size,height,x,y);return;
     }
-    // Both animals face in towards the word, including any hat tracked to their head.
-    if(shot.family==='bunnies' && e.panelSide==='right') {
-      e.ctx.translate(e.w,0);e.ctx.scale(-1,1);
-    }
-    fitShot(e.ctx,e.panelSide ? panelCrop : shot.crop,e.w*width,cameraHeight(e),e.w*centre,e.h);
+    const height=shot.family==='elephants' && e.panelSide?Math.min(e.h,130*e.pixelsPerCssPixel):e.h;
+    fitShot(e.ctx,e.panelSide ? panelCrop : shot.crop,e.w*width,height,e.w*centre,e.h);
   }
   function paint(e,index) {
     const asset=artwork.get(e);
@@ -80,18 +128,28 @@ function woodlandPart(shot) {
   }
   return {
     family:shot.family,len:shot.frames/shot.fps,stays:ground,z:ground ? 1 : 6,
-    get poster() { return poster; },
+    get poster() {
+      if(shot.family==='bunnies') return shot.frames/shot.fps*(shot.level===2?.40:.32);
+      return ground?poster:Math.min(poster,shot.frames/shot.fps*.60);
+    },
     async prepare(e) {
       try {
         pending ||= shot.load().finally(()=>{pending=null;});
         const [asset]=await Promise.all([pending,parade && prepareShow(e.paradeWords.slice(0,shot.level))]);
         artwork.set(e,asset);poster=(asset.poster-1)/shot.fps;
+        if(parade) {
+          const word=e.paradeWords.find(w=>e.handwriting?.[w]?.ink?.some(lines=>lines.length));
+          if(word) tickets.set(e,handwritingTicket(word,e.handwriting[word].ink));
+        }
       } catch(error) {console.warn('Could not load '+shot.name,error);}
     },
     draw(e,state,time) {
+      if(shot.family==='bunnies') {
+        drawRabbitVisit(e,shot,artwork.get(e),time);return;
+      }
       const frame=Math.min(shot.frames-1,Math.floor(poseTime(time,poster)*shot.fps));
       if(e.field && ground) {
-        const {ctx,w,h}=e, foot=h*.94;
+        const {ctx,w,h}=e, foot=h*.76;
         if(shot.family==='vines') {
           const sides=shot.level===1 ? [[20,186,0]] : [[20,220,0],[240,212,1]];
           if(shot.level>1) {
@@ -141,6 +199,7 @@ function woodlandPart(shot) {
         else { width=.86; }
       }
       const ctx=e.ctx;
+      const basis=ctx.getTransform();
       ctx.save();
       place(e,width,centre,time);
       if(shot.family==='mushrooms' && e.soak) {
@@ -148,26 +207,36 @@ function woodlandPart(shot) {
         ctx.translate(0,shot.crop[3]*squash);ctx.scale(1,1-squash);
       }
       paint(e,frame);
+      const anchor=parade && artwork.get(e)?.anchors?.[frame]?.[0];
+      const hitch=anchor && basis.inverse().multiply(ctx.getTransform()).transformPoint({x:anchor[0],y:anchor[1]});
       ctx.restore();
+      const ticket=tickets.get(e);
+      if(ticket && hitch) {
+        const progress=time/(shot.frames/shot.fps), turn=swing((progress-.16)/.17)*(1-swing((progress-.69)/.15));
+        if(turn>0) unfurlTicket(e,hitch,ticket,turn);
+      }
       if(e.field && shot.family==='elephants') {
         const dust=bump((time-shot.frames/shot.fps+.57)/.54);
         if(dust) contactShadow(ctx,e.w*.40,e.h*(.94-.045*dust),e.w*.035*dust,e.h*.018*dust,.13*dust);
       }
     },
     shakeDry(e,t) {
-      const up=bump((t-.32)/1.52);
-      if (up<=0) return;
-      e.ctx.save();
-      const width=e.panelSide ? .86 : .5, centre=e.panelSide ? .5 : .25;
-      place(e,width,centre,poster);
-      e.ctx.translate(240,360+(1-up)*340);
-      e.ctx.rotate(.08*up*Math.sin(t*36));e.ctx.translate(-240,-360);
-      paint(e,Math.round(poster*shot.fps));
-      e.ctx.restore();
+      const asset=artwork.get(e), index=5, head=asset?.anchors?.[index]?.[0];
+      if(!head) return null;
+      const ctx=e.ctx, basis=ctx.getTransform(), [x,y,,brim]=head;
+      const lift=swing(t/.17)*(1-swing((t-1.43)/.45)), shake=bump((t-.71)/.69);
+      const width=e.w*(e.panelSide?.64:.28), height=e.h*(e.panelSide?.57:.35);
+      const centre=e.w*(e.panelSide?.52:.21);
+      ctx.save();ctx.translate(centre*2,0);ctx.scale(-1,1);
+      fitShot(ctx,[65,140,211,206],width,height,centre,e.h*.97+(1-lift)*height);
+      ctx.translate(x,y+brim);ctx.rotate(.095*shake*Math.sin((t-.71)*34));ctx.translate(-x,-y-brim);
+      paint(e,index);
+      const ear=basis.inverse().multiply(ctx.getTransform()).transformPoint({x:x-brim*.72,y:y-brim*.62});
+      ctx.restore();return ear;
     }
   };
 }
 export const woodlandParts=Object.fromEntries(woodlandShots.map(shot=>[shot.id,woodlandPart(shot)]));
 export function splashBunnies(e) {
-  return woodlandParts[highestWoodland('bunnies',e.has)];
+  return highestWoodland('bunnies',e.has) ? woodlandParts.bunnies : null;
 }

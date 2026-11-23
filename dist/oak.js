@@ -17,7 +17,7 @@ export const oakScene = {
     if (!canopy) return;
     const width=e.field?Math.max(e.w*.19,Math.min(e.w*.37,e.field.left)):e.w*(e.preview?1:.54);
     e.ctx.save();
-    const x=e.preview?e.w/2:width*.51, foot=e.h*(e.field?.94:1);
+    const x=e.preview?e.w/2:width*.51, foot=e.h*(e.field?.76:1);
     if(e.field) contactShadow(e.ctx,x,foot-2,width*.27,e.h*.017,.19*Math.min(1,time));
     fitShot(e.ctx,e.field?[8,12,450,324]:[0,0,480,360],width,e.h*(e.field?.79:1),x,foot);
     canopy.paint(e.ctx, Math.min(canopy.length-1, Math.max(0, Math.floor(time*24))));

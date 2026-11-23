@@ -5,11 +5,11 @@ const lengths=[72,80,88];
 
 function family(key,title,intro,palette,levels) {
   const ids=[key,key+'-2',key+'-3'];
-  const shots=levels.map(([caption,description],index)=>{
+  const shots=levels.map(([caption,description,meadowDescription],index)=>{
     const level=index+1, take=key+'-'+level;
     return {
       id:ids[index],after:ids[index-1],finds:key==='parade'?2:0,
-      family:key,level,name:title+' · Level '+level,title:caption,description,
+      family:key,level,name:title+' · Level '+level,title:caption,description,meadowDescription,
       frames:lengths[index],fps:24,crop:[0,0,480,360],
       still:new URL(take+'-poster.webp',directory).href,
       load:()=>loadSpriteShot(new URL(take+'.json',directory))
@@ -28,9 +28,12 @@ export const woodlandFamilies=[
     ['Fern chorus','A cluster of caps rises at different heights among ferns.'],
     ['The fairy ring','A ring of mushrooms grows in sequence with a final shimmer.']]),
   family('bunnies','Bunnies','Watch the ears and hind feet through each leap.',['#ebd9ba','#9ebda6'],[
-    ['Hedgerow peek','One rabbit rises to listen, folds its hind legs, then springs.'],
-    ['Follow my feet','A kit chases its parent, leaping a beat behind.'],
-    ['Blackberry binkies','Three rabbits twist and kick in midair as they cross the meadow.']]),
+    ['Hedgerow peek','One rabbit rises to listen, folds its hind legs, then springs.',
+      'A rabbit hops out of sight. Two ears peek back over the grass.'],
+    ['Follow my feet','A kit chases its parent, leaping a beat behind.',
+      'A little rabbit hops into its parent’s pawprints. Its last hop lands just short.'],
+    ['Blackberry binkies','Three rabbits twist and kick in midair as they cross the meadow.',
+      'Three rabbits leap across the meadow. After they leave, two silver ears peek back.']]),
   family('elephants','Elephants','Follow the marching feet and the curl of each trunk.',['#efdcc2','#a1b8bd'],[
     ['Little stomper','One young elephant steps forward and raises its trunk.'],
     ['Call and answer','A calf walks alongside an adult and answers its trunk call.'],

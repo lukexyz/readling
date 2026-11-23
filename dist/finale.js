@@ -19,8 +19,6 @@ const GROUND=['mushrooms','vines','oak'], SKY=['stars','fountains','blooms','pai
 // Word and memory rewards rotate through the collection. The full rehearsal plays every family.
 const VISIT=['bunnies','parade','dolphins','elephants'];
 let stopActive=null;
-let cueFanfare=null;
-export function syncFanfare() {cueFanfare?.();}
 const waitingForArtwork=new WeakMap();
 
 // The parts that belong to every show.
@@ -33,9 +31,10 @@ const BASE={
     }},
   // Each star she earned pops out of her picture and flies up to her total.
   tally:{len:99,z:9,
-    make() {return {landed:0};},
+    make() {return {launched:0,landed:0};},
     step(e,s,t) {
       const to=e.starHome || {x:e.w-44,y:34};
+      while(s.launched<e.stars && t>=s.launched*.22) e.on('onStarLift',s.launched++);
       while(s.landed<e.stars && t>=s.landed*.22+.83){s.landed++;e.ring(to.x,to.y,34*e.u);e.on('onStar',s.landed-1);}
     },
     draw(e,s,t) {
@@ -43,9 +42,11 @@ const BASE={
       for(let i=0;i<e.stars;i++) {
         const a=t-i*.22;
         if(a<0 || a>=.83) continue;
-        const rest={x:e.cx+(i-(e.stars-1)/2)*38*e.u,y:e.cy-e.th.h*.36};
+        const origin=e.starOrigins?.[i] || {x:e.cx,y:e.cy};
+        const rest=e.starOrigins?.[i]?{x:origin.x,y:origin.y-19*e.u}:
+          {x:e.cx+(i-(e.stars-1)/2)*38*e.u,y:e.cy-e.th.h*.36};
         let x,y,size;
-        if(a<.38){const g=ease(a/.2);x=e.cx+(rest.x-e.cx)*g;y=e.cy+(rest.y-e.cy)*g;size=18*e.u*pop(a/.22);}
+        if(a<.38){const g=ease(a/.2);x=origin.x+(rest.x-origin.x)*g;y=origin.y+(rest.y-origin.y)*g;size=18*e.u*pop(a/.22);}
         else {const f=easeIn((a-.38)/.45);x=rest.x+(to.x-rest.x)*f;y=rest.y+(to.y-rest.y)*f-Math.sin(f*Math.PI)*40*e.u;size=18*e.u*(1-f*.45);}
         drawStar(e.ctx,x,y,size,a*5,five,'#ffd752');
       }
@@ -110,7 +111,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     end=Math.max(end,at+len);
   }
   if(alone) {
-    if(alone==='music') add('notes',.1);
+    if(alone==='music') add('notes',0);
     else if(alone==='hats') add(visitors.flat().find(Boolean) || whale || 'bunnies',.1);
     else if(alone==='splash') {
       const actor=whale || 'whale';
@@ -137,7 +138,7 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
     if(tier) {add('rosette',t);t=end+.12;}
     if(stars) add('tally',t,.22*stars+.95);
   }
-  return {acts,hit,total:end+.6,visitorSides};
+  return {acts,hit,total:end+(alone ? .6 : .42),visitorSides};
 }
 function cancelFinale() {stopActive?.();}
 
@@ -158,7 +159,13 @@ function launchFinale(stage,options={}) {
   if(!ctx || !floorCtx) return null;
   const soundCount=options.soundCount??word.length;
   const {acts,hit,total,visitorSides}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
-  if(real && word.length>5 && acts.some(([id])=>id==='fireflies')) meadow.classList.add('sky-word');
+  const music=acts.find(([id])=>id==='notes'), tally=acts.find(([id])=>id==='tally');
+  const gates=new Map();
+  function waitFor(promise,until) {
+    if(!promise?.then || until==null) return;
+    const key={};gates.set(key,until);
+    Promise.resolve(promise).then(()=>gates.delete(key),()=>gates.delete(key));
+  }
   function mount(layer,host,className) {
     layer.className=className;layer.setAttribute('aria-hidden','true');host.append(layer);
   }
@@ -176,7 +183,7 @@ function launchFinale(stage,options={}) {
       e.spark(p);
     }
   }
-  const e={ctx,w:0,h:0,u:1,cx:0,cy:0,th:null,virtual:!real,word,soundCount,finds,stars,tier,time:0,total:0,hit:0,soak:0,starHome:null,
+  const e={ctx,w:0,h:0,u:1,cx:0,cy:0,th:null,virtual:!real,word,soundCount,finds,handwriting:options.handwriting,stars,tier,time:0,total:0,hit:0,soak:0,starHome:null,
     preview:!!into,rand:random(1),has:id=>id===alone || picks.includes(id),cut:cutout,
     // Her hat sits on any creature that asks for one, once she has added hats to her show.
     hat(x,y,angle,size) {
@@ -188,7 +195,21 @@ function launchFinale(stage,options={}) {
       pen.shadowColor='#465640a6';pen.shadowBlur=1;
       pen.drawImage(c.canvas,-size/2,-size*(.74+tip*.3),size,size);pen.restore();
     },
-    on(name,...a) {if(!seeking && !quietPick && !review && freeze===null && !into) options[name]?.(...a);}};
+    on(name,...args) {
+      if(seeking || quietPick || review || freeze!==null || into) return;
+      const audio=options[name]?.(...args);
+      // Let the clock approach the next cue at its usual pace. A longer recording
+      // holds only that boundary; the next frame resumes when playback ends.
+      if(name==='onLetter') {
+        const next=args[0]+1;
+        waitFor(audio,(next<soundCount ? .25+next*.5 : hit)-.002);
+      }
+      if(name==='onHit') waitFor(audio,(music?.[1] ?? tally?.[1] ?? total)-.002);
+      if(name==='onMusic' && music) {
+        waitFor(audio?.started,e.time);
+        waitFor(audio,music[1]+music[2]-.002);
+      }
+    }};
   const floor={...e,ctx:floorCtx};
   let inkView;
   if(real && acts.some(([id])=>id==='comet' || id==='rosette' || id.startsWith('picture'))) {
@@ -196,7 +217,11 @@ function launchFinale(stage,options={}) {
     mount(layer,meadow,'show-ink');inkView={...e,ctx:layer.getContext('2d')};
   }
   const wings={};
-  if(real) for(const side of new Set(Object.values(visitorSides))) {
+  const laneFor=id=>woodlandParts[id] && !woodlandParts[id].stays?'path':visitorSides[id];
+  const lanesNeeded=new Set(acts.map(([id])=>laneFor(id)).filter(Boolean));
+  const splashRabbit=!!visitorSides.splash && !!highestWoodland('bunnies',e.has);
+  if(splashRabbit) lanesNeeded.add('right');
+  if(real) for(const side of lanesNeeded) {
     const layer=document.createElement('canvas');
     mount(layer,meadow,'show-visitors');layer.dataset.side=side;
     wings[side]={...e,ctx:layer.getContext('2d'),panelSide:side};
@@ -204,7 +229,7 @@ function launchFinale(stage,options={}) {
   const wingViews=Object.values(wings), groundViews=[floor,...wingViews];
   const localViews=inkView?[...groundViews,inkView]:groundViews, views=[...localViews,e];
   const splashView=wings[visitorSides.splash] || floor;
-  if(visitorSides.splash==='left' && wings.right) splashView.rabbitView=wings.right;
+  if(splashRabbit && wings.right) splashView.rabbitView=wings.right;
   for(const view of views) {
     view.sparks=[];view.rings=[];
     view.spark=p=>{
@@ -238,6 +263,12 @@ function launchFinale(stage,options={}) {
     const frame=meadow.getBoundingClientRect(), d=floor.w/meadow.clientWidth;
     e.th={x:frame.left+meadow.clientLeft,y:frame.top+meadow.clientTop,w:meadow.clientWidth,h:meadow.clientHeight};
     e.cx=e.th.x+floor.target.x/d;e.cy=e.th.y+floor.target.y/d;
+    if(real.classList.contains('round-done')) {
+      const origins=[...meadow.querySelectorAll('.reveal-art .stamp')].map(card=>{
+        const box=card.getBoundingClientRect();return {x:box.right-6,y:box.top+6};
+      });
+      e.starOrigins=options.starCards?.map(index=>origins[index]) || origins;
+    }
     const icon=document.querySelector('#masthead .stars > :first-child');
     if(icon){const b=icon.getBoundingClientRect();e.starHome={x:b.left+b.width/2,y:b.top+b.height/2};}
   }
@@ -268,6 +299,7 @@ function launchFinale(stage,options={}) {
     }
     if(inkView){inkView.cx=inkView.target.x;inkView.cy=inkView.target.y;}
     const frame=floor.ctx.canvas.getBoundingClientRect(), scale=floor.w/frame.width;
+    if(wings.path) wings.path.ticketBed={view:floor,y:lanes.path.y*scale,dx:floor.w/wings.path.w,dy:lanes.path.h*scale/wings.path.h};
     for(const {layer,view} of planted.values()) {
       const bed=layer.parentElement?.getBoundingClientRect();
       if(bed) view.bed={pen:floor.ctx,x:(bed.left-frame.left+bed.width/2)*scale,
@@ -275,8 +307,8 @@ function launchFinale(stage,options={}) {
     }
     if(splashView.rabbitView) {
       const d=floor.w/field.w, {left,right}=lanes;
-      splashView.crossing={view:floor,from:(left.x+left.w*.55)*d,to:(right.x+right.w*.48)*d,
-        y:(left.y+left.h*.88)*d,land:(right.y+right.h*.88)*d};
+      splashView.crossing={view:floor,from:(left.x+left.w*.55)*d,y:(left.y+left.h*.88)*d,
+        destX:right.x*d,destY:right.y*d,scaleX:right.w*d/wings.right.w,scaleY:right.h*d/wings.right.h};
     }
   }
   function resize() {
@@ -324,17 +356,16 @@ function launchFinale(stage,options={}) {
     if(id==='comet' || id==='rosette') return inkView || e;
     if(id.startsWith('picture') && inkView) return inkView;
     if(Object.hasOwn(BASE,id)) return e;
-    return planted.get(id)?.view || wings[visitorSides[id]] || floor;
+    return planted.get(id)?.view || wings[laneFor(id)] || floor;
   }
 
-  let musicAt=null;
   function reset() {
     for(const view of views) {
       view.rand=random(977+turn*131);view.time=0;view.soak=0;view.sparks.length=0;view.rings.length=0;
     }
     states=acts.map(([id,at])=>{
       const view=viewFor(id),part=PARTS[id];
-      return {at:id==='notes' && musicAt!==null?musicAt:at,part,view,cue:0,s:part.make?.(view) || {}};
+      return {at,part,view,cue:0,s:part.make?.(view) || {}};
     });
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
@@ -358,13 +389,17 @@ function launchFinale(stage,options={}) {
       p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.exp(-p.drag*dt);p.vy+=200*view.u*p.g*dt;p.rot+=p.spin*dt;
     }
   }
-  function confetti({ctx,rings,sparks,u}) {
+  const entrances=acts.filter(([id])=>isVisitor(id) && id!=='splash').map(([,at])=>at);
+  function confetti(view) {
+    const {ctx,rings,sparks,u}=view;
+    const visitor=view===floor && !into?entrances.findLast(at=>e.time>=at):undefined;
+    const fade=visitor===undefined?1:1-clamp01((e.time-visitor)/.32);
     for(const r of rings) {
-      ctx.globalAlpha=(1-r.age/.48)*.84;ctx.strokeStyle='#eab447';ctx.lineWidth=3*u;
+      ctx.globalAlpha=(1-r.age/.48)*.84*(e.time-r.age<visitor?fade:1);ctx.strokeStyle='#eab447';ctx.lineWidth=3*u;
       ctx.beginPath();ctx.arc(r.x,r.y,5+r.r*r.age/.48,0,tau);ctx.stroke();
     }
     for(const p of sparks) {
-      ctx.globalAlpha=Math.min(1,(p.life-p.age)*2.5);
+      ctx.globalAlpha=Math.min(1,(p.life-p.age)*2.5)*(e.time-p.age<visitor?fade:1);
       if(p.kind==='strip') {
         ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.rot);ctx.fillStyle=p.colour;
         ctx.fillRect(-p.size*.32,-p.size,p.size*.65*Math.cos(p.age*3.3),p.size*2);ctx.restore();
@@ -377,6 +412,13 @@ function launchFinale(stage,options={}) {
     ctx.globalAlpha=1;
   }
   function picture() {
+    if(!review && freeze===null && !quietPick) for(const [arch,at] of meadowArches) {
+      if(e.time>=at && arch.classList.contains('waiting-arch')) arch.classList.replace('waiting-arch','tracing');
+    }
+    if(real && !quietPick && !alone) {
+      stage.classList.toggle('awaiting-picture',e.time<hit);
+      stage.classList.toggle('picture-revealed',e.time>=hit);
+    }
     ctx.clearRect(0,0,e.w,e.h);
     if(!into) for(const view of localViews) view.ctx.clearRect(0,0,view.w,view.h);
     for(const {view} of planted.values()) view.ctx.clearRect(0,0,view.w,view.h);
@@ -394,16 +436,16 @@ function launchFinale(stage,options={}) {
     stopped=true;
     cancelAnimationFrame(frame);
     if(!into) {
-      canvas.remove();stage?.classList.remove('show-playing');meadow?.classList.remove('sky-word');
+      canvas.remove();stage?.classList.remove('show-playing','awaiting-picture','picture-revealed');
       floorCanvas.remove();inkView?.ctx.canvas.remove();
       stage?.style.removeProperty('--review-time');
       roomObserver?.disconnect();
       for(const view of wingViews) view.ctx.canvas.remove();
       for(const {layer} of planted.values()) layer.remove();
-      for(const [arch] of meadowArches) arch.classList.remove('tracing');
+      for(const [arch] of meadowArches) arch.classList.remove('tracing','waiting-arch');
       window.removeEventListener('resize',resize);window.removeEventListener('scroll',locate);
       document.removeEventListener('visibilitychange',hidden);motion.removeEventListener('change',stop);
-      if(stopActive===stop) {stopActive=null;cueFanfare=null;}
+      if(stopActive===stop) stopActive=null;
     }
     if(!quietPick && freeze===null && (!into || !loop)) options.onEnd?.(finished===true);
   }
@@ -418,7 +460,12 @@ function launchFinale(stage,options={}) {
       const pause=Math.min(holdLeft,dt-approach);
       holdLeft-=pause;dt-=pause;
     }
-    for(;dt>0;dt-=1/30) advance(Math.min(dt,1/30));
+    for(;dt>0;dt-=1/30) {
+      let step=Math.min(dt,1/30);
+      for(const until of gates.values()) step=Math.min(step,until-e.time);
+      if(step<=.00001) break;
+      advance(step);
+    }
     if(e.time>=e.total){if(!into || !loop){stop(true);return;}reset();}
     picture();
     if(!into) for(const view of views) view.ctx.canvas.style.opacity=clamp01((e.total-e.time)/.4);
@@ -426,10 +473,6 @@ function launchFinale(stage,options={}) {
   }
   if(!into) {
     stopActive=stop;
-    if(!review && !quietPick && freeze===null) cueFanfare=()=>{
-      const cue=states.find(st=>st.part===SCENES.notes);
-      if(cue && musicAt===null && e.time<cue.at+.35) {musicAt=e.time;cue.at=musicAt;}
-    };
     window.addEventListener('resize',resize);window.addEventListener('scroll',locate,{passive:true});
     document.addEventListener('visibilitychange',hidden);if(!review) motion.addEventListener('change',stop);
   }
@@ -454,11 +497,12 @@ function launchFinale(stage,options={}) {
     for(const {view,layer} of planted.values()) if(!view.flowerReady) layer.remove();
     if(real && !quietPick) {
       for(const [arch,at] of meadowArches) {
-        arch.style.setProperty('--arch-start',at+'s');
-        arch.classList.add('tracing');
+        const scripted=review || freeze!==null;
+        arch.style.setProperty('--arch-start',(scripted?at:0)+'s');
+        arch.classList.add(scripted?'tracing':'waiting-arch');
       }
-      stage.style.setProperty('--hit',e.hit+'s');
       stage.classList.remove('show-playing');void stage.offsetWidth;stage.classList.add('show-playing');
+      if(!alone) stage.classList.add('awaiting-picture');
     }
     const feature=acts.find(([id])=>id===alone) || acts[0];
     const poster=PARTS[feature?.[0]]?.poster;

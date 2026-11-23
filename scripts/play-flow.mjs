@@ -31,10 +31,16 @@ async function openGame(seed, motion='reduce', screen={}) {
   });
   await context.addInitScript(({key,seed})=>{
     if(seed && !localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(seed));
-    window.played=[];
+    window.played=[];window.clipEvents=[];
     // Observe real playback, including the finale's detached Audio element.
     window.Audio=class extends Audio {
-      constructor(...args){super(...args);this.addEventListener('playing',()=>{if(!this.muted) window.played.push(new URL(this.currentSrc).pathname);});}
+      constructor(...args){
+        super(...args);
+        this.addEventListener('playing',()=>{if(!this.muted) window.played.push(new URL(this.currentSrc).pathname);});
+        for(const event of ['playing','ended']) this.addEventListener(event,()=>{
+          if(!this.muted) window.clipEvents.push([event,new URL(this.currentSrc).pathname]);
+        });
+      }
     };
   },{key:KEY,seed});
   const page=await context.newPage();page.setDefaultTimeout(8000);
@@ -80,6 +86,58 @@ function before(target) {
   while(findNext(p)!==target){const w=findNext(p);assert(w,'Target reachable: '+target);startLesson(p,w);p.lesson.i=w.length;collect(p);}
   return p;
 }
+async function checkHomeScreenUpdates() {
+  const p=await openGame(before('mat'));
+  const marker=p.locator('meta[name="readling-release"]');
+  const release=await marker.getAttribute('content');
+  assert.match(release,/^[a-f0-9]{20}$/);
+  assert.equal(await p.evaluate(async()=>(await fetch('./release.txt')).text()),release);
+  const url=origin+'/';
+  const shell=await worker.fetch(new Request(url),{});
+  assert.match(shell.headers.get('Cache-Control'),/no-cache/);
+  const html=await shell.text();
+  const old=release==='0'.repeat(20)?'1'.repeat(20):'0'.repeat(20);
+  async function openOldCopy() {
+    await p.route(url,route=>route.fulfill({contentType:'text/html',body:html.replace(release,old)}),{times:1});
+    await p.goto(url);
+    await p.getByRole('heading',{name:'The Word Woods'}).waitFor();
+    assert.equal(await marker.getAttribute('content'),old);
+  }
+  async function resume(event='pageshow') {
+    const response=p.waitForResponse(origin+'/release.txt');
+    await p.evaluate(type=>{
+      if(type==='pageshow') window.dispatchEvent(new PageTransitionEvent(type,{persisted:true}));
+      else if(type==='visibilitychange') document.dispatchEvent(new Event(type));
+      else window.dispatchEvent(new Event(type));
+    },event);
+    assert.equal((await response).status(),200);
+  }
+  await p.evaluate(()=>{window.sameSession=true;});
+  await resume();
+  assert.equal(await p.evaluate(()=>window.sameSession),true,'the current release keeps the same page');
+  await openOldCopy();
+  await act(p,'discover');await writeStroke(p);
+  await resume('visibilitychange');await act(p,'letter-help');
+  assert.equal(await marker.getAttribute('content'),old,'an update waits while a child is writing');
+  const writing=(await saved(p)).lesson;
+  assert(writing.ink[0].length);
+  await Promise.all([p.waitForEvent('load'),act(p,'album')]);
+  assert.equal(await marker.getAttribute('content'),release);
+  assert.deepEqual((await saved(p)).lesson,writing,'returning to the album updates the app and keeps the ink');
+  await openOldCopy();
+  await act(p,'review');await act(p,'start-round');
+  await resume();await act(p,'flip');
+  assert.equal(await marker.getAttribute('content'),old,'a resumed Memory round stays playable');
+  await Promise.all([p.waitForEvent('load'),act(p,'home')]);
+  await openOldCopy();
+  await p.route(origin+'/release.txt',route=>route.abort('internetdisconnected'),{times:1});
+  await Promise.all([p.waitForEvent('requestfailed',r=>r.url()===origin+'/release.txt'),
+    p.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')))]);
+  assert.equal(await marker.getAttribute('content'),old,'an offline wake keeps the game open');
+  await Promise.all([p.waitForEvent('load'),resume('online')]);
+  assert.equal(await marker.getAttribute('content'),release,'the home menu updates when the connection returns');
+  await p.context().close();
+}
 async function checkDeferredStickers() {
   const album=before('pen');
   album.settings.sparkles=true;
@@ -114,6 +172,141 @@ async function checkDeferredStickers() {
   await act(p,'reveal');
   await picker.getByRole('button',{name:'Star fountains'}).waitFor();
   assert.deepEqual((await saved(p)).show.picks,afterPick.show.picks,'the next choice waits for her to pick it');
+  await p.context().close();
+}
+async function checkPracticeHourglass() {
+  const album=newProfile();
+  startLesson(album,'cat');album.lesson.i=3;collect(album);album.stars=127;album.settings.voice=false;
+  album.settings.sparkles=false;album.settings.memoryFirst=false;
+  const p=await openGame(album,'reduce',{viewport:{width:1024,height:768},hasTouch:true});
+  const timer=p.locator('.practice-hourglass'), digits=timer.locator('[role="timer"]');
+  const upper=timer.locator('.hourglass-upper'), lower=timer.locator('.hourglass-lower');
+  const grain=timer.locator('.hourglass-seed'), sprout=timer.locator('.hourglass-sprout');
+  const now=Date.UTC(2026,0,1,12);
+  async function wakeAt(minutes) {
+    await p.clock.setFixedTime(now+minutes*60000);
+    await p.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+  }
+  async function add(minutes) {
+    await act(p,'parents');
+    assert.equal(await p.locator('#dialog fieldset').first().getAttribute('id'),'practice-settings');
+    assert.deepEqual(await p.locator('#practice-settings [data-act="practice-add"]').allTextContents(),['+15 min','+10 min']);
+    await p.getByRole('button',{name:'+'+minutes+' min',exact:true}).click();
+  }
+  async function finishLesson() {
+    const {word,i}=(await saved(p)).lesson;
+    for(let at=i;at<word.length;at++) await act(p,'next-sound');
+    await act(p,'reveal');await p.locator('.found').waitFor();
+  }
+  await wakeAt(0);assert(await timer.isHidden());
+  await add(10);assert(await timer.isVisible());assert(await digits.isHidden());
+  const full=await upper.getAttribute('d');
+  assert(full);assert.equal(await lower.getAttribute('d'),'');
+  assert.equal(await grain.evaluate(el=>getComputedStyle(el).animationName),'none');
+  await p.emulateMedia({reducedMotion:'no-preference'});
+  assert.equal(await grain.evaluate(el=>getComputedStyle(el).animationName),'acorn-seed-fall');
+  await p.emulateMedia({reducedMotion:'reduce'});
+  await act(p,'discover');await writeStroke(p);await timer.click();
+  assert.equal(await digits.textContent(),'10:00');
+  await p.clock.setFixedTime(now+1000);
+  await p.waitForFunction(()=>document.getElementById('practice-remaining').textContent==='9:59');
+  const ink=(await saved(p)).lesson.ink;
+  assert(ink[0].length,'starting a session allows normal writing');
+  await wakeAt(5);
+  const halfwayUpper=await upper.getAttribute('d'), halfwayLower=await lower.getAttribute('d');
+  assert(halfwayUpper && halfwayUpper!==full && halfwayLower,'seeds move from the upper chamber to the lower one');
+  assert(await sprout.isHidden());
+  assert.equal(await digits.textContent(),'5:00');
+  await add(15);
+  assert.equal(await upper.getAttribute('d'),halfwayUpper);
+  assert.equal(await lower.getAttribute('d'),halfwayLower,'adding time keeps the seeds that have fallen');
+  assert.equal(await digits.textContent(),'20:00');
+  await p.evaluate(()=>{
+    const key='readling.quiet-practice', {start,end,filled,exact}=JSON.parse(sessionStorage.getItem(key));
+    sessionStorage.setItem(key,JSON.stringify({start,end,filled,exact})); // A session started on the earlier hourglass.
+  });
+  await p.reload();await p.locator('#inkpad').waitFor();
+  assert(await digits.isVisible());assert.equal(await digits.textContent(),'20:00');
+  assert.equal(await lower.getAttribute('d'),halfwayLower);
+  assert.deepEqual((await saved(p)).lesson.ink,ink,'the timer survives a reload alongside her handwriting');
+  await timer.click();assert(await digits.isHidden());
+  const clockBox=await timer.boundingBox();
+  await wakeAt(23);
+  assert.equal(await digits.innerText(),'3 words');
+  assert.deepEqual(await timer.boundingBox(),clockBox,'switching to words preserves the size and position of the timer');
+  for(const [width,height] of [[1440,900],[1024,768],[768,1024],[667,375],[600,780],[390,844],[375,667],[320,568]]) {
+    await p.setViewportSize({width,height});
+    await p.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+    const layout=await timer.evaluate(el=>{
+      const b=el.getBoundingClientRect(),others=document.querySelectorAll('.brand,.tab,.parents-link,.stars,#inkpad,[data-act="next-sound"]');
+      const overlap=[...others].find(other=>{
+        const r=other.getBoundingClientRect();return Math.min(b.right,r.right)>Math.max(b.left,r.left)+1 &&
+          Math.min(b.bottom,r.bottom)>Math.max(b.top,r.top)+1;
+      });
+      const label=el.querySelector('[role="timer"]').getBoundingClientRect();
+      return {overflow:document.documentElement.scrollWidth-innerWidth,left:b.left,right:b.right,overlap:overlap?.className,
+        fits:label.left>=b.left-.5 && label.right<=b.right+.5 && label.bottom<=b.bottom+.5};
+    });
+    assert(layout.left>=0 && layout.right<=width && layout.overflow<=1 && !layout.overlap && layout.fits,'hourglass at '+width+' × '+height+' '+JSON.stringify(layout));
+  }
+  await p.setViewportSize({width:1024,height:768});
+  await act(p,'parents');assert.match(await p.locator('#practice-summary').innerText(),/3 more words!.*2:00 remaining/);
+  await act(p,'dismiss');await add(15);assert(await digits.isHidden());
+  await timer.click();assert.equal(await digits.innerText(),'17:00','adding minutes resumes the clock');
+  await wakeAt(38);assert.equal(await digits.innerText(),'3 words');
+  await p.goto(origin+'/#found/cat');await p.locator('.found').waitFor();
+  assert.equal(await digits.innerText(),'3 words','opening a previously found word does not count as reading it');
+  const timerBox=await timer.boundingBox(), actions=await p.locator('.found>.actions').boundingBox();
+  assert(timerBox.y+timerBox.height<=actions.y && actions.y+actions.height<=768,'the iPad reward buttons stay in view');
+  await wakeAt(41);
+  assert.equal(await digits.textContent(),'Done!');
+  assert.equal(await upper.getAttribute('d'),'');
+  assert.notEqual(await lower.getAttribute('d'),halfwayLower);
+  await sprout.waitFor({state:'visible'});
+  assert.equal(await timer.locator('.seeds-falling').count(),0);
+  assert(await p.locator('#dialog').isHidden());assert.match(await p.locator('#announcement').textContent(),/seed has sprouted/i);
+  await act(p,'parents');
+  assert.equal(await p.locator('#practice-summary').textContent(),'Your seed has sprouted.');
+  await p.locator('#practice-settings .hourglass-sprout').waitFor({state:'visible'});
+  await act(p,'dismiss');
+  await timer.press('Enter');assert(await timer.isHidden());
+
+  await add(10);await p.goto(origin+'/#learn');await p.locator('#inkpad').waitFor();
+  await wakeAt(49);assert.equal(await digits.innerText(),'3 words');
+  await finishLesson();assert.equal(await digits.innerText(),'2 words');
+  await p.reload();await p.locator('.found').waitFor();
+  assert.equal(await digits.innerText(),'2 words','a reload preserves the word countdown');
+  await act(p,'review');await act(p,'start-round');
+  for(const left of [2,1]) {
+    const word=await p.locator('.face-down .word-print').getAttribute('aria-label');
+    await act(p,'flip');assert.equal(await digits.innerText(),left===2?'2 words':'1 word');
+    if(left===2) {
+      await p.locator('[data-act="pick"]:not([data-word="'+word+'"])').first().click();
+      assert.equal(await digits.innerText(),'2 words','a missed match leaves the word count alone');
+    }
+    await p.locator('[data-act="pick"][data-word="'+word+'"]').click();
+    assert.equal(await digits.innerText(),left===2?'1 word':'Done!');
+    await act(p,'next-card');
+  }
+  await sprout.waitFor({state:'visible'});
+  await add(15);await act(p,'review');await act(p,'start-swap');
+  await wakeAt(54);
+  const swaps=await p.locator('.swap-tile').evaluateAll(tiles=>tiles.map(tile=>tile.dataset.choice));
+  for(const choice of swaps) {
+    await p.locator('.swap-tile[data-choice="'+choice+'"]').click();
+    if(await p.locator('.swap-pair').isVisible()) break;
+  }
+  await p.locator('.swap-pair').waitFor();
+  await act(p,'home');await act(p,'discover');await p.locator('#inkpad').waitFor();
+  await wakeAt(62);assert.equal(await digits.innerText(),'1 word','one slow completed swap gives a shorter final goal');
+  await wakeAt(64.1);assert.equal(await digits.innerText(),'1 word');
+  await p.reload();await p.locator('#inkpad').waitFor();assert.equal(await digits.innerText(),'1 word');
+  assert(await sprout.isHidden());
+  await act(p,'parents');assert.match(await p.locator('#practice-summary').innerText(),/Finish this word/);
+  assert(await p.getByRole('button',{name:'End session'}).isVisible());
+  await act(p,'dismiss');await finishLesson();await sprout.waitFor({state:'visible'});
+  await add(15);await act(p,'parents');await act(p,'practice-end');await act(p,'dismiss');
+  assert(await timer.isHidden());await p.reload();assert(await timer.isHidden());
   await p.context().close();
 }
 async function checkCelebrationSize() {
@@ -166,11 +359,17 @@ async function checkCelebrationSize() {
   const listed=await pick.locator('option').evaluateAll(opts=>opts.map(o=>o.value));
   assert.deepEqual(listed.toSorted(),[...SHOW.map(effect=>effect.id),'comet','tally','rosette'].toSorted());
   const box=await page.locator('#bounds').boundingBox(), field=await page.locator('#word-stage').boundingBox();
-  assert(box && box.width>26 && box.x>field.x+field.width/2 && box.y>=field.y && box.y+box.height<=field.y+field.height,'the bunny has its own meadow shoulder');
+  const paper=await page.locator('#word-stage .reveal-art .stamp').boundingBox();
+  assert(box && box.width>18 && box.y>=paper.y+paper.height && box.y+box.height<=field.y+field.height,'the bunny has a foreground path below the card');
   assert.equal(await page.locator('#bottom-label').textContent(),'Meadow bottom');
   const bottom=await page.locator('#bottom').textContent();
   await page.evaluate(()=>window.scrollTo(0,120));
   assert.equal(await page.locator('#bottom').textContent(),bottom,'scrolling leaves the rabbit on the same ground');
+  await page.locator('#timeline').fill('0.9');
+  const entering=await page.locator('#bounds').boundingBox();
+  await page.locator('#timeline').fill('2.2');
+  const leaving=await page.locator('#bounds').boundingBox();
+  assert(entering.x-leaving.x>field.width*.34,'the rabbit crosses the meadow from right to left');
   await page.getByRole('button',{name:'Previous animation',exact:true}).tap();
   assert.equal(await pick.inputValue(),'rosette');
   await page.keyboard.press('ArrowRight');
@@ -178,6 +377,26 @@ async function checkCelebrationSize() {
   assert.equal(await pick.inputValue(),'bunnies');
   await page.locator('#timeline').fill('0.9');
   assert((await page.locator('#clock').textContent()).startsWith('0.9'));
+  await page.locator('#timeline').fill('2.00');
+  assert(await page.locator('#bounds').isHidden(),'the rabbit fully exits before the double take');
+  await page.locator('#timeline').fill('2.56');
+  const ears=await page.locator('#bounds').boundingBox();
+  assert(ears && ears.width<box.width && ears.x+ears.width<field.x+field.width*.25 &&
+    ears.y+ears.height>=field.y+field.height-2,'only the ears peek over the bottom of the meadow');
+  await pick.selectOption('bunnies-2');
+  await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
+  async function hasLastPrint(time) {
+    await page.locator('#timeline').fill(time);
+    return page.locator('.show-visitors[data-side="path"]').evaluate(canvas=>{
+      const {width:w,height:h}=canvas;
+      const {data}=canvas.getContext('2d').getImageData(Math.floor(w*.09),Math.floor(h*.84),
+        Math.ceil(w*.02),Math.ceil(h*.15));
+      return data.some((value,i)=>i%4===3 && value>36);
+    });
+  }
+  assert.equal(await hasLastPrint('0.35'),false,'the next footprint waits for the adult to land');
+  assert.equal(await hasLastPrint('2.75'),true,'the kit leaves the last footprint visible');
+  assert.equal(await hasLastPrint('3.50'),false,'the prints clear when the visitors leave');
   for(const shot of flowerShots) {
     await pick.selectOption(shot.id);
     await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
@@ -186,14 +405,15 @@ async function checkCelebrationSize() {
     assert.equal(await page.locator('#bottom-label').textContent(),'Meadow bottom');
     assert(bloom && bloom.x>=meadow.x && bloom.x+bloom.width<=meadow.x+meadow.width &&
       bloom.y>=meadow.y && bloom.y+bloom.height<=meadow.y+meadow.height,shot.name+' grows inside the illustrated meadow');
-    assert(parseInt(await page.locator('#bottom').textContent(),10)<30,shot.name+' stays rooted in the grass');
+    const rootDistance=parseInt(await page.locator('#bottom').textContent(),10);
+    assert(rootDistance>=meadow.height*.18 && rootDistance<meadow.height*.44,shot.name+' leaves the foreground path clear');
   }
   for(const id of ['elephants','elephants-2','elephants-3']) {
     await pick.selectOption(id);
     await page.getByRole('button',{name:'Replay',exact:true}).waitFor();
     const herd=await page.locator('#bounds').boundingBox(), meadow=await page.locator('#word-stage').boundingBox();
-    assert(herd && herd.width>24 && herd.x>=meadow.x && herd.x+herd.width<meadow.x+meadow.width/2 &&
-      herd.y>=meadow.y && herd.y+herd.height<=meadow.y+meadow.height,id+' stands inside the left meadow shoulder');
+    assert(herd && herd.width>18 && herd.x>=meadow.x && herd.x+herd.width<=meadow.x+meadow.width &&
+      herd.y>=meadow.y+meadow.height*.50 && herd.y+herd.height<=meadow.y+meadow.height,id+' walks in the foreground');
   }
   for(const [width,height] of [[1024,768],[720,360]]) {
     await page.setViewportSize({width,height});
@@ -279,6 +499,18 @@ async function checkWritingBack() {
   await p.getByRole('button',{name:'Retry letter t'}).click();
   assert.equal((await saved(p)).lesson.i,2);
   assert.deepEqual((await saved(p)).lesson.ink,[[],ink[1],[]]);
+  await p.context().close();
+}
+async function checkLongLetter() {
+  const album=newProfile();album.settings.voice=false;album.settings.fanfare=false;
+  album.cards.barn={found:Date.now(),ink:[[],[],[],[]]};
+  const p=await openGame(album,'reduce');
+  await p.goto(origin+'/#found/barn');await p.locator('.found').waitFor();
+  await p.emulateMedia({reducedMotion:'no-preference'});await act(p,'encore');
+  await p.waitForFunction(()=>window.clipEvents.some(([event,url])=>event==='ended'&&url.endsWith('/letters/n.mp3')));
+  const events=await p.evaluate(()=>window.clipEvents.filter(([,url])=>url.includes('/letters/'))
+    .map(([event,url])=>[event,url.split('/').at(-1)]));
+  assert.deepEqual(events,['b','ar','n'].flatMap(name=>[['playing',name+'.mp3'],['ended',name+'.mp3']]));
   await p.context().close();
 }
 async function observeScoreAudio(p) {
@@ -596,6 +828,7 @@ async function checkTabletActivitySpace() {
 async function checkPlayFlow() {
   await checkDeferredStickers();
   await checkWritingBack();
+  await checkLongLetter();
   await checkLaptopReward();
   await checkSaveFooter();
   await checkCelebrationSize();
@@ -700,6 +933,8 @@ async function checkPlayFlow() {
   assert.deepEqual((await saved(p)).cards.cat.ink[0],ink);
   await p.clock.setFixedTime(new Date(Date.now()+180000));
   await act(p,'review');await act(p,'start-round');
+  const startingScore=(await saved(p)).stars, score=p.locator('summary.stars b');
+  let answers=0;
   let reviewedShip=false;
   while(await p.locator('.face-down').count()) {
     const word=await p.locator('.face-down .word-print').getAttribute('aria-label');
@@ -713,12 +948,16 @@ async function checkPlayFlow() {
       await p.locator('[data-act=pick]:not([data-word=ship])').first().click();
       await p.waitForFunction(()=>window.played.includes('/assets/audio/blends/ship.mp3'));
     }
-    await p.locator('[data-act=pick][data-word="'+word+'"]').click();await act(p,'next-card');
+    await p.locator('[data-act=pick][data-word="'+word+'"]').click();
+    assert.equal(await score.innerText(),String(startingScore),'Memory holds earned stars until their flights');
+    assert.equal((await saved(p)).stars,startingScore+(++answers),'an answered card is already saved');
+    await p.locator('.turned .memory-star').waitFor();await act(p,'next-card');
   }
   await p.getByRole('heading',{name:'Round complete!'}).waitFor();
   assert(reviewedShip);assert.equal((await saved(p)).sounds.sh.wrong,1);
   const roundPicker=p.getByRole('dialog',{name:'You earned a sticker!'});
   await roundPicker.locator('[data-pick="music"]').click({timeout:20000});
+  assert.equal(await score.innerText(),String(startingScore+answers));
   const pickedMusic=p.getByRole('heading',{name:'You picked Music!',exact:true,level:1});
   await pickedMusic.waitFor();
   assert.equal(await pickedMusic.locator('.sticker-confirmation>span').evaluate(el=>getComputedStyle(el).animationName),'sticker-picked');
@@ -740,6 +979,8 @@ async function checkPlayFlow() {
   console.log('Chromium passed word and memory sticker awards, album replay, reading and writing, stage and badge progression, sound shelf and bonus words.');
 }
 try {
+  await checkHomeScreenUpdates();
+  await checkPracticeHourglass();
   await checkTabletActivitySpace();
   console.log((tabletWebKit?'WebKit':'Chromium')+' passed the iPad reading cards, reward meadow, canvas resizing and save footer checks.');
   if(!tabletWebKit) await checkPlayFlow();

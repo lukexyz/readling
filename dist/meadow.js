@@ -68,6 +68,10 @@ export function meadowLayout(meadow,word) {
 
 export function visitorLane(field,side,paired=false) {
   const {w,h,left,right,bottom}=field;
+  if(side==='path') {
+    const top=Math.min(h-1,Math.max(h*.56,bottom+2));
+    return {x:0,y:top,w,h:h-top};
+  }
   const space=side==='left'?left:w-right, foot=h*.96;
   // Prefer the shoulder when a high leap fits. A wide row leaves a continuous
   // foreground path. In a splash duet the rabbit keeps the opposite bank.

@@ -1,6 +1,7 @@
 import {icon, forms, letterForm} from './drawings.js';
-import {finaleScenery, launchFinale, cancelFinale, planShow, syncFanfare} from './finale.js';
+import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
 import {prepareStarPiano, playStarNote, stopStarPiano} from './star-piano.js';
+import {createPracticeTimer,practiceControls} from './practice.js';
 import {mountCelebrationCards} from './celebration-cards.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
@@ -12,6 +13,10 @@ const main=$('#main');
 const dialog=$('#dialog');
 const stickerPicker=$('#sticker-picker');
 const saveFooter=$('#save-footer');
+const currentRelease=document.querySelector('meta[name="readling-release"]')?.content;
+let checkingRelease=false;
+let updateReady=false;
+const practice=createPracticeTimer(announce,isReadingWord);
 const compactShelf=matchMedia('(max-width:590px), (orientation:landscape) and (max-height:520px)');
 const sound = new Audio();
 sound.preload='auto';
@@ -29,6 +34,7 @@ let lastRoute='';
 let lastFocus=null;
 let toastTimer=0;
 let playbackId=0;
+let settlePlayback=null;
 let audioTarget='';
 let lastRevealRoute='';
 let saveTrouble=false;
@@ -40,8 +46,8 @@ let syncing=false;
 let syncAgain=false;
 let syncTimer=0;
 let syncTrouble=false;
-let playing=null;
 let starsHeld=0;
+let rewardSequence=0;
 let encores=0;
 let stickerCards=null;
 let showPicks=null;
@@ -98,6 +104,26 @@ function watchAccount() {
 function wake() {
   if(cloud.remembered()) {watchAccount();sync();}
 }
+function applyUpdateAtMenu() {
+  if(!updateReady || document.hidden || !navigator.onLine || dialog.open || saveTrouble) return;
+  if(['home','album','review'].includes(view)) {
+    updateReady=false;
+    location.reload();
+  }
+}
+async function checkForUpdate() {
+  if(!currentRelease || checkingRelease || document.hidden) return;
+  checkingRelease=true;
+  try {
+    const response=await fetch('./release.txt',{cache:'no-store'});
+    if(response.ok) {
+      const latest=(await response.text()).trim();
+      if(/^[a-f0-9]{20}$/.test(latest)) updateReady=latest!==currentRelease;
+    }
+  } catch {updateReady=false;} // Keep playing when the iPad wakes up offline.
+  finally {checkingRelease=false;}
+  applyUpdateAtMenu();
+}
 function notice(message) {
   const el=$('#toast'); el.textContent=message; el.hidden=false;
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.hidden=true,4200);
@@ -105,56 +131,71 @@ function notice(message) {
 function announce(message) {$('#announcement').textContent=message;}
 function stopSound() {
   playbackId++;
+  settlePlayback?.();
   sound.pause();
-  sound.onended=null; sound.onerror=null; sound.onplaying=null;
+  sound.onended=null; sound.onerror=null; sound.onplaying=null;sound.ontimeupdate=null;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   audioTarget='';
   document.querySelectorAll('.sounding').forEach(el=>el.classList.remove('sounding'));
 }
-function deviceVoice(text) {
-  if (!('speechSynthesis' in window)) return;
+function deviceVoice(text,done) {
+  if (!('speechSynthesis' in window) || !text) {done?.();return;}
   try {
     const utterance=new SpeechSynthesisUtterance(text);
     utterance.lang='en-GB'; utterance.rate=.88;
     const voices=speechSynthesis.getVoices();
     utterance.voice=voices.find(v=>v.lang==='en-GB') || voices.find(v=>v.lang.startsWith('en')) || null;
-    speechSynthesis.speak(utterance);
-  } catch { /* Recorded letter and word buttons also work without a system voice. */ }
+    utterance.onend=done;utterance.onerror=done;speechSynthesis.speak(utterance);
+  } catch {done?.();}
 }
 function narrate(id,options) {
-  if(profile.settings.voice) playClip('prompts',id,options);
+  if(profile.settings.voice) return playClip('prompts',id,options);
 }
 function playClip(type, name, options={}) {
   stopSound();
   const id=playbackId;
+  let ended,started,timer;
+  const completion=new Promise(resolve=>{ended=resolve;});
+  completion.started=new Promise(resolve=>{started=resolve;});
+  function settle() {
+    clearTimeout(timer);started();ended();
+    if(settlePlayback===settle) settlePlayback=null;
+  }
+  settlePlayback=settle;
+  function watchdog() {clearTimeout(timer);timer=setTimeout(settle,4500);}
   audioTarget=type+':'+name;
   const els=type==='letters' ? document.querySelectorAll(`[data-letter="${name}"]`) : [];
   els.forEach(el=>el.classList.add('sounding'));
   const finish=()=>{
     if(id!==playbackId) return;
-    els.forEach(el=>el.classList.remove('sounding')); audioTarget=''; options.end?.();
+    settle();els.forEach(el=>el.classList.remove('sounding')); audioTarget=''; options.end?.();
   };
   const local='./assets/audio/'+type+'/'+(type==='letters'?SOUNDS[name].audio:name)+'.mp3';
   const sources=(type==='words'?[voiceFiles['word-'+name],local]:
     type==='tales'?[voiceFiles['tale-'+name] || local]:type==='prompts'?[voiceFiles[name]]:[local]).filter(Boolean);
+  function fallback() {
+    audioTarget='';els.forEach(el=>el.classList.remove('sounding'));
+    const speech=type==='words'?name:type==='prompts'?PROMPTS[name]:type==='tales'?TALES[name]:null;
+    if(speech) {started();watchdog();deviceVoice(speech,settle);}
+    else {settle();notice('That sound could not play. Tap the speaker to try again.');}
+  }
   function trySource(index) {
     let handled=false;
     const failed=()=>{
       if(id!==playbackId || handled) return;
       handled=true;
       if(index+1<sources.length){trySource(index+1);return;}
-      audioTarget='';els.forEach(el=>el.classList.remove('sounding'));
-      if(type==='words') deviceVoice(name);
-      else if(type==='prompts') deviceVoice(PROMPTS[name]);
-      else if(type==='tales') deviceVoice(TALES[name]);
-      else notice('That sound could not play. Tap the speaker to try again.');
+      fallback();
     };
     sound.onended=finish;sound.onerror=failed;
     sound.src=sources[index];sound.playbackRate=options.rate || 1;
-    sound.onplaying=()=>{if(id===playbackId) options.playing?.();};
+    sound.onplaying=()=>{if(id===playbackId){started();watchdog();options.playing?.();}};
+    sound.ontimeupdate=()=>{if(settlePlayback===settle) watchdog();};
+    watchdog();
     sound.play()?.catch(failed);
   }
-  trySource(0);
+  if(sources.length) trySource(0);else fallback();
+  return completion;
 }
 function count() {return Object.keys(profile.cards).length;}
 function latestFind() {
@@ -163,6 +204,10 @@ function latestFind() {
 function eligibleLesson() {
   const l=profile.lesson;
   return l && (profile.cards[l.word] || availableWords(profile).includes(l.word));
+}
+function isReadingWord() {
+  return view==='learn' || (view==='round' && round.i<round.words.length && !round.solved) ||
+    (view==='swap' && !swap?.solved);
 }
 function primaryAction() {
   // Cards that are due come before a new word. One finished round is enough until her next find.
@@ -190,12 +235,14 @@ function go(route,options) {
   render(options); afterNavigate();
 }
 function render({offerSticker=false}={}) {
+  rewardSequence++;
   stickerCards?.destroy();stickerCards=null;
   if(stickerPicker.open) stickerPicker.close();
-  cancelFinale();stopStarPiano();playing=null;
+  cancelFinale();stopStarPiano();
   const raw=location.hash.slice(1);
   const [route,arg]=raw.split('/');
   view=route || 'home';
+  if(view!=='round') round?.pending.clear();
   if (view==='learn' && !profile.lesson) view='home';
   if (view==='learn' && !eligibleLesson()) view='home';
   if (view==='found' && (!WORDS.includes(arg) || !profile.cards[arg])) view='album';
@@ -220,23 +267,28 @@ function render({offerSticker=false}={}) {
   if(view==='stickers' && profile.show.picks.length) {
     const picks=profile.show.picks, earned=SHOW.filter(s=>picks.includes(s.id));
     stickerCards=mountCelebrationCards($('#sticker-cards'),earned,{
-      picks, finds:Object.keys(profile.cards), word:latestFind() || 'cat', musicEnabled:()=>profile.settings.fanfare
+      picks, finds:Object.keys(profile.cards), handwriting:profile.cards, word:latestFind() || 'cat', musicEnabled:()=>profile.settings.fanfare
     });
   }
   const pageTitle={learn:'Sound & write',found:'Word found',album:'My word album',stickers:'My Stickers',review:'Memory game',
     round:'Memory game',scene:'Story clearing',swap:'Sound swap'}[view];
   document.title=pageTitle ? pageTitle+' · Readling' : 'Readling · The Word Woods';
+  applyUpdateAtMenu();
 }
 function drawHeader() {
+  const timerFocused=document.activeElement===practice.button;
   const tabs=[['home','compass','Play'],['album','album','My Album'],['review','memory','Memory']];
   const active=['round','review','swap'].includes(view)?'review':['album','scene','stickers'].includes(view)?'album':'home';
   $('#masthead').innerHTML=`<div class="wrap mast-row">
     <button class="brand" data-act="home" aria-label="Readling home"><img src="./assets/readling.svg" alt="" width="40" height="40"><span>Readling</span></button>
     <nav class="tabs" aria-label="Game pages">${tabs.map(([route,sym,text])=>`<button class="tab ${active===route?'selected':''}" ${active===route?'aria-current="page"':''} data-act="${route}">${icon(sym,18)}<span>${text}</span></button>`).join('')}</nav>
-    <div class="mast-end"><details class="badge-menu" id="stage-progress"><summary class="stars" aria-label="${profile.stars} stars, my badges">${icon('star',21)} <b>${profile.stars-starsHeld}</b><span class="star-label"> stars</span><span class="badge-caret" aria-hidden="true"></span></summary>
+    <div class="mast-end"><details class="badge-menu" id="stage-progress"><summary class="stars" aria-label="${visibleStars()} stars, my badges">${icon('star',21)} <b>${visibleStars()}</b><span class="star-label"> stars</span><span class="badge-caret" aria-hidden="true"></span></summary>
     ${badgePocket()}</details>
     <span class="mast-rule"></span><button class="parents-link" data-act="parents" aria-label="Grown-ups and settings">${icon('gear',20)}<span>Grown-ups</span></button></div>
   </div>`;
+  $('#masthead .mast-end').prepend(practice.button);
+  practice.refresh();
+  if(timerFocused) practice.button.focus({preventScroll:true});
 }
 function drawShelf() {
   const shelf=$('#shelf');
@@ -272,7 +324,7 @@ function googleButton() {
     <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
     <path fill="none" d="M0 0h48v48H0z"></path></svg></span><span class="gsi-material-button-contents">Sign in with Google</span></span></button>`;
 }
-function stamp(inside, kind='') {return `<span class="stamp ${kind}"><span class="stamp-face">${inside}</span></span>`;}
+function stamp(inside, kind='', marker='') {return `<span class="stamp ${kind}"><span class="stamp-face">${inside}</span>${marker}</span>`;}
 function homePage() {
   const n=count(), next=primaryAction(), shown=eligibleLesson()?profile.lesson.word:findNext(profile);
   const ready=dueWords(profile).length;
@@ -483,7 +535,7 @@ function roundPage() {
     const show=profile.settings.sparkles;
     return `<div class="page-top">${back('review','Back to memory')}${show && showDue(profile)?stickerButton():''}</div><section class="activity round-done ${show?'victory':''}">
     ${show?'':icon('star',56)}${rewardHeading('Round complete!')}<p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
-    ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map(w=>stamp(wordImage(w))).join('')}</div></div>`:
+    ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map((w,i)=>stamp(wordImage(w),'',round.pending.has(i)?memoryStar(i):'')).join('')}</div></div>`:
       `<div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>`}
     <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
     ${onward?action(eligibleLesson()?'Continue my word':'Next word!','discover'):''}</div></section>`;
@@ -492,7 +544,7 @@ function roundPage() {
   const top=`<div class="page-top">${back('review','Back to memory')}<span class="level">${icon('memory',16)} Card ${round.i+1} of ${round.words.length}</span></div>
     <section class="activity round-card"><div class="kicker">${icon('memory',16)} Memory game</div>`;
   if(round.solved) return top+`<h1>${round.unaided?'You read it!':'You found it!'}</h1>
-    <div class="turned">${stamp(wordImage(w))}<strong>${w}</strong></div>
+    <div class="turned">${stamp(wordImage(w),'',round.pending.has(round.i)?memoryStar(round.i):'')}<strong>${w}</strong></div>
     <div class="actions centre">${action(round.i+1<round.words.length?'Next card':'Finish round','next-card')}</div></section>`;
   // The pictures stay hidden until she has tried the print, so they cannot do the reading for her.
   if(round.turned) return top+`<h1>Which one is it?</h1>
@@ -662,7 +714,7 @@ function drawSaveFooter() {
 }
 function parents() {
   stopSound();cancelFinale();
-  openDialog(`<div id="account">${accountRow()}</div>
+  openDialog(`${practiceControls()}<div id="account">${accountRow()}</div>
     <fieldset><legend>Play settings</legend><label class="setting-line"><span>Spoken instructions</span><input type="checkbox" data-setting="voice" ${profile.settings.voice?'checked':''}></label>
     <label class="setting-line"><span>Celebration show</span><input type="checkbox" data-setting="sparkles" ${profile.settings.sparkles?'checked':''}></label>
     <label class="setting-line"><span>Music in her show</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label>
@@ -679,7 +731,7 @@ function parents() {
     <fieldset><legend>Move an album</legend><p>Download a copy here, open this Site on the other tablet and import it there. Importing combines the two collections.</p>
     <div class="actions">${action('Download album','export','','secondary')}${action('Import album','import','','secondary')}</div><input type="file" id="file-picker" accept="application/json,.json" hidden></fieldset>
     <p class="credits"><a href="./audio-studio.html">Audio studio</a> · <a href="./assets/audio/CREDITS.txt" target="_blank" rel="noopener">Audio credits</a></p>`, 'Grown-ups');
-  watchAccount();
+  practice.refresh();watchAccount();
 }
 function showCard(w) {
   if(!profile.cards[w]) return;
@@ -747,6 +799,9 @@ function dispatch(act,el) {
     case 'home':case 'album':case 'review':case 'scene':case 'stickers':go(act);break;
     case 'shelf':shelfOpen=!shelfOpen;drawShelf();$('.shelf-toggle').focus({preventScroll:true});break;
     case 'parents':parents();break;
+    case 'practice-add':practice.add(Number(el.dataset.minutes));lastFocus=practice.button;dialog.close();break;
+    case 'practice-end':
+      practice.end();$('[data-act="practice-add"]',dialog).focus();announce('Quiet practice ended.');break;
     case 'inspect-badge':inspectBadge(Number(el.dataset.stage),Number(el.dataset.rank));break;
     case 'open-stage-progress':{
       const menu=$('#stage-progress');
@@ -776,14 +831,15 @@ function dispatch(act,el) {
     case 'blend-help':guideBlend();break;
     case 'reveal':{
       const found=collect(profile); if(!found) break;
+      practice.wordRead();
       if(found.fresh) warm=false;
       lastFound=found;save();go('found/'+found.word,{offerSticker:found.fresh});
       // Her show says the word when the picture appears. Without the show she hears it straight away.
-      if(!playing) playClip('words',found.word,{end:playFanfare});
+      if(!$('.victory')) playClip('words',found.word);
       break;
     }
-    case 'encore':encores++;if(!celebrate({word:location.hash.split('/')[1]})) playFanfare();break;
-    case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);if(!playing)playFanfare();}break;
+    case 'encore':encores++;celebrate({word:location.hash.split('/')[1]});break;
+    case 'album-encore':if(profile.cards[el.dataset.word]){lastFound=null;go('found/'+el.dataset.word);}break;
     case 'reward-stickers':if(showDue(profile)) openStickerPicker();else go('stickers');break;
     case 'add-to-show':{
       const id=el.dataset.pick;
@@ -793,8 +849,8 @@ function dispatch(act,el) {
       const theatre=$('.meadow-scenery');
       if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
       showStickerHeading(SHOW.find(s=>s.id===id).name);
-      celebrate({word:pageWord(),alone:id,keepStill:true});
-      if(id==='music') playFanfare();
+      const picked=celebrate({word:pageWord(),alone:id,keepStill:true});
+      if(!picked && id==='music') playFanfare();
       break;
     }
     case 'play-show':previewShow({});break;
@@ -817,7 +873,7 @@ function dispatch(act,el) {
     case 'rewrite':if(profile.cards[el.dataset.word])startOrResume(el.dataset.word);break;
     case 'start-round':{
       const words=reviewQueue(profile);if(!words.length){startOrResume();break;}
-      round={words,i:0};dealCard();go('round');narrate('memory-start');break;
+      round={words,i:0,pending:new Set()};dealCard();go('round');narrate('memory-start');break;
     }
     case 'review-help':{
       const w=round?.words[round.i];if(!w)break;
@@ -831,9 +887,10 @@ function dispatch(act,el) {
       // Only her first tap is recorded. After a slip she hears the slow blend and tries again.
       if(!round.first) {
         round.first=choice;
+        round.pending.add(round.i);
         round.unaided=recordRead(profile,w,{picked:choice,asked:round.asked,heard:round.heard});save();
       }
-      if(choice===w) {round.solved=true;render();main.focus({preventScroll:true});playClip('words',w);}
+      if(choice===w) {round.solved=true;practice.wordRead();render();main.focus({preventScroll:true});playClip('words',w);}
       else {
         round.tried.push(choice);el.classList.add('try-again');el.disabled=true;drawHeader();
         announce('Listen, then try another picture.');playClip('blends',w);
@@ -846,8 +903,9 @@ function dispatch(act,el) {
       if(round.i<round.words.length) dealCard(); else {warm=true;finishTask(profile);save();}
       render();main.focus({preventScroll:true});
       if(round.i===round.words.length) {
-        celebrate({word:round.words.at(-1),spell:false,stars:round.words.length,narrated:profile.settings.voice,offerSticker:true});
-        narrate('round-done',{end:playFanfare});
+        const intro=narrate('round-done'), starCards=[...round.pending];
+        const show=celebrate({word:round.words.at(-1),spell:false,stars:starCards.length,starCards,intro,offerSticker:true});
+        if(!show) {round.pending.clear();drawStars();clearPendingMarkers();}
       }
       break;
     }
@@ -855,7 +913,8 @@ function dispatch(act,el) {
     case 'swap-sound':playClip('letters',soundsOf(swap.b)[swap.i]);break;
     case 'swap-read':playClip('words',swap.b);break;
     case 'swap-letter':{
-      if(el.dataset.choice===soundsOf(swap.b)[swap.i]){swap.solved=true;render();playClip('words',swap.b);}
+      if(swap.solved) break;
+      if(el.dataset.choice===soundsOf(swap.b)[swap.i]){swap.solved=true;practice.wordRead();render();playClip('words',swap.b);}
       else {playClip('letters',el.dataset.choice);announce('Listen again and try another letter.');el.classList.add('try-again');}
       break;
     }
@@ -926,20 +985,32 @@ dismissOnBackdrop(dialog);
 dismissOnBackdrop(stickerPicker);
 // The music is one of the things she adds to her show, so it stays quiet until she has chosen it.
 function playFanfare() {
-  if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) playClip('music','fanfare',{playing:syncFanfare});
+  if($('.victory') && profile.settings.fanfare && (showPicks || profile.show.picks).includes('music') && !dialog.open && !document.hidden) return playClip('music','fanfare');
 }
 // The word her show is about: the find on this page, or the last card of a finished round.
 function pageWord() {
   return view==='found'?location.hash.split('/')[1]:view==='round' && round?round.words.at(-1):WORDS.find(w=>profile.cards[w]) || '';
 }
+function visibleStars() {
+  return profile.stars-starsHeld-(view==='round' && round?round.pending.size:0);
+}
+function memoryStar(index) {
+  return `<span class="memory-star" data-pending-star="${index}" role="img" aria-label="One earned star">${icon('star',15)}</span>`;
+}
+function clearPendingMarkers() {
+  for(const marker of main.querySelectorAll('[data-pending-star]')) marker.remove();
+}
 function drawStars() {
-  const el=$('#masthead .stars b');if(el) el.textContent=profile.stars-starsHeld;
+  const el=$('#masthead .stars b');if(el) {
+    el.textContent=visibleStars();el.parentElement.setAttribute('aria-label',visibleStars()+' stars, my badges');
+  }
 }
 // Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
 // The stars she has just earned wait out of her total until the show counts them in.
-function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,narrated=false,ended=null,offerSticker=false,keepStill=false}={}) {
+function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,starCards=null,intro=null,ended=null,offerSticker=false,keepStill=false}={}) {
   const stage=$('.victory');
   if(!stage) return null;
+  const sequence=++rewardSequence;
   if(stars && profile.settings.fanfare && !document.hidden) prepareStarPiano();
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
@@ -948,27 +1019,36 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
   function offer() {
     if(offerSticker && trigger?.isConnected) openStickerPicker();
   }
-  const show=launchFinale(stage,{picks,finds,word,soundCount:sounds.length,stars,tier,badgeSrc,alone,all,spell,keepStill,turn:profile.show.tasks+encores,
+  const owner=starCards?round:null;
+  const show=launchFinale(stage,{picks,finds,word,handwriting:profile.cards,soundCount:sounds.length,stars,starCards,tier,badgeSrc,alone,all,spell,keepStill,turn:profile.show.tasks+encores,
     onLetter:i=>playClip('letters',sounds[i]),
-    onHit:()=>{if(spell && word) playClip('words',word,{end:playFanfare});else if(!narrated) playFanfare();},
+    onHit:()=>spell && word?playClip('words',word):intro,
+    onMusic:playFanfare,
+    onStarLift:i=>{if(owner) main.querySelector(`[data-pending-star="${starCards[i]}"]`)?.remove();},
     onStar:i=>{
       if(starsHeld){starsHeld--;drawStars();}
+      if(owner?.pending.delete(starCards[i])) drawStars();
       if(profile.settings.fanfare && !document.hidden && !dialog.open) playStarNote(i);
     },
     onEnd:finished=>{
       if(!finished) stopStarPiano();
       if(starsHeld){starsHeld=0;drawStars();}
+      if(owner) {owner.pending.clear();clearPendingMarkers();drawStars();}
       if(trigger) trigger.disabled=false;
       ended?.(finished);
       if(finished) offer();
     }});
   if(trigger) trigger.disabled=!!show;
-  if(!show && stars && profile.settings.fanfare && !document.hidden && matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    for(let i=0;i<stars;i++) playStarNote(i,i*.22);
+  async function quietAudio() {
+    const current=()=>sequence===rewardSequence && stage.isConnected && !document.hidden && !dialog.open;
+    if(spell && word) await playClip('words',word);else await intro;
+    if(!current()) return;
+    await playFanfare();
+    if(current() && profile.settings.fanfare) for(let i=0;i<stars;i++) playStarNote(i,i*.22);
   }
+  if(!show && !alone && !document.hidden) void quietAudio();
   // Reduced motion skips the show. Let navigation finish focusing the page first.
   if(!show && offerSticker) queueMicrotask(offer);
-  if(!alone) playing=show;
   if(show && held){starsHeld=stars;drawStars();}
   return show;
 }
@@ -994,8 +1074,7 @@ function previewShow(options,then) {
     const restore=()=>{if(sample) sample.remove();else if(options.picks) dress(profile.show.picks);};
     const show=celebrate({word,...options,ended:finished=>{restore();if(finished) then?.();}});
     if(!show){restore();notice('The show cannot play while this device asks for less motion.');then?.();return;}
-    if(options.alone==='music'){if(profile.settings.fanfare) playClip('music','fanfare',{playing:syncFanfare});}
-    else if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
+    if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
   },80);
 }
 // Preview the current find (or the first word if nothing has been collected).
@@ -1068,7 +1147,7 @@ function openStickerPicker() {
   stickerPicker.showModal();
   const finds=WORDS.filter(w=>profile.cards[w]), word=pageWord();
   for(const canvas of options.querySelectorAll('canvas')) {
-    launchFinale(null,{into:canvas,alone:canvas.dataset.preview,picks:profile.show.picks,finds,word});
+    launchFinale(null,{into:canvas,alone:canvas.dataset.preview,picks:profile.show.picks,finds,word,handwriting:profile.cards});
   }
 }
 stickerPicker.addEventListener('close',()=>{if(!stickerPicker.open) $('.show-picks',stickerPicker).replaceChildren();});
@@ -1076,6 +1155,7 @@ compactShelf.addEventListener('change',()=>{shelfOpen=!compactShelf.matches;draw
 dialog.addEventListener('close',()=>{
   if(classChanged || ['home','album','stickers'].includes(view) || (view==='found' && $('.found').classList.contains('victory')!==profile.settings.sparkles)) render();
   classChanged=false;
+  applyUpdateAtMenu();
   if(lastFocus?.isConnected) {lastFocus.focus({preventScroll:true});return;}
   if(lastFocus?.dataset.act==='inspect-badge') {
     const {stage,rank}=lastFocus.dataset;
@@ -1088,8 +1168,9 @@ dialog.addEventListener('close',()=>{
 });
 window.addEventListener('popstate',()=>{stopSound();if(dialog.open)dialog.close();render();afterNavigate();});
 window.addEventListener('storage',e=>{if(e.key===KEY && !dialog.open){try{profile=normalise(JSON.parse(e.newValue));render();}catch{/* Keep the current album. */}}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden) stopStarPiano();else wake();});
-window.addEventListener('online',wake);
+document.addEventListener('visibilitychange',()=>{if(document.hidden) stopStarPiano();else {wake();checkForUpdate();}});
+window.addEventListener('pageshow',event=>{if(event.persisted) checkForUpdate();});
+window.addEventListener('online',()=>{wake();checkForUpdate();});
 drawAccount();
 if(cloud.on && 'IntersectionObserver' in window) {
   const observer=new IntersectionObserver(entries=>{

@@ -23,14 +23,14 @@ const posters = {
 
 const previewSize = {width:420, height:260, unit:.82};
 
-export function mountCelebrationCards(grid, items, {finds, word, picks=[], musicEnabled=()=>true}) {
+export function mountCelebrationCards(grid, items, {finds, word, handwriting, picks=[], musicEnabled=()=>true}) {
   const buttons = new Map();
   const playIcon = icon('play', 14);
   let playing = null;
 
   function options(button) {
     const alone = button.dataset.id;
-    return {into:button.querySelector('canvas'), alone, previewSize, finds, word, picks};
+    return {into:button.querySelector('canvas'), alone, previewSize, finds, word, handwriting, picks};
   }
 
   function drawPoster(button) {
@@ -49,8 +49,9 @@ export function mountCelebrationCards(grid, items, {finds, word, picks=[], music
 
   function stop() {
     if (!playing) return;
-    const {button, show, sound} = playing;
+    const {button, show, sound, timer} = playing;
     playing = null;
+    clearTimeout(timer);
     show?.stop();
     sound?.pause();
     setControl(button, false);
@@ -61,29 +62,33 @@ export function mountCelebrationCards(grid, items, {finds, word, picks=[], music
     const same = playing?.button === button;
     stop();
     if (same) return;
-    const clip = {button, show:null, sound:null};
+    const clip = {button, show:null, sound:null, timer:0};
     playing = clip;
     setControl(button, true);
 
-    // The original fanfare has a slightly longer tail than the animated notes.
-    if (button.dataset.id === 'music' && musicEnabled()) {
-      const sound = clip.sound = new Audio('./assets/audio/music/fanfare.mp3');
-      const audioDone = () => {
-        if (playing !== clip) return;
-        clip.sound = null;
-        if (!clip.show) stop();
-      };
-      sound.onended = audioDone;
-      sound.play().catch(audioDone);
-      sound.onerror = audioDone;
+    let started=false;
+    function startShow() {
+      if(playing!==clip || started) return;
+      started=true;clearTimeout(clip.timer);
+      clip.show=launchFinale(null,{...options(button),loop:false,onEnd(finished) {
+        if(!finished || playing!==clip) return;
+        clip.show=null;
+        if(clip.sound) drawPoster(button);else stop();
+      }});
+      if(!clip.show && !clip.sound) stop();
     }
-    clip.show = launchFinale(null, {...options(button), loop:false, onEnd(finished) {
-      if (!finished || playing !== clip) return;
-      clip.show = null;
-      if (clip.sound) drawPoster(button);
-      else stop();
-    }});
-    if (!clip.show && !clip.sound) stop();
+    if(button.dataset.id!=='music' || !musicEnabled()) {startShow();return;}
+    // Start playback on the tap so Safari can unlock audio. The first audible
+    // beat starts the notes even when the album opens on a slow connection.
+    const sound=clip.sound=new Audio('./assets/audio/music/fanfare.mp3');
+    function audioDone() {
+      if(playing!==clip || clip.sound!==sound) return;
+      clip.sound=null;sound.pause();
+      if(!started) startShow();else if(!clip.show) stop();
+    }
+    sound.onplaying=startShow;sound.onended=audioDone;sound.onerror=audioDone;
+    clip.timer=setTimeout(audioDone,4500);
+    sound.play().catch(audioDone);
   }
 
   const resize = new ResizeObserver(entries => {
@@ -130,7 +135,7 @@ export function mountCelebrationCards(grid, items, {finds, word, picks=[], music
     const about = document.createElement('span');
     about.id = 'about-' + id;
     about.className = 'sr-only';
-    about.textContent = study?.description ?? dolphin?.description ?? posters[id]?.[1] ?? name;
+    about.textContent = study?.meadowDescription ?? study?.description ?? dolphin?.description ?? posters[id]?.[1] ?? name;
     item.append(button, about);
     grid.append(item);
     buttons.set(id, button);

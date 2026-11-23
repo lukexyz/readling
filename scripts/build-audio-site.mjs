@@ -36,6 +36,19 @@ async function readAssets(directory = '') {
   }
 }
 await readAssets();
+// A suspended Home Screen app can compare this copy with the current release
+// without downloading the game or touching the child's saved album.
+const releaseHash = createHash('sha256');
+for (const [path, file] of Object.entries({ ...assets, ...artwork })) {
+  releaseHash.update(path + '\0' + (file.tag || file.hash) + '\n');
+}
+const release = releaseHash.digest('hex').slice(0, 20);
+const index = assets['/index.html'];
+const html = Buffer.from(index.bytes, 'base64').toString('utf8')
+  .replace('<head>', '<head>\n  <meta name="readling-release" content="' + release + '">');
+index.bytes = Buffer.from(html).toString('base64');
+index.tag = release;
+assets['/release.txt'] = { type: types.txt, bytes: Buffer.from(release).toString('base64'), tag: release };
 for (const clip of CLIPS) {
   for (const path of [clip.path, clip.fullTake?.path].filter(Boolean)) {
     if (!assets[path]) throw new Error('Missing studio audio: ' + path);

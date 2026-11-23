@@ -15,8 +15,7 @@ const CREATURES={
   // The orca's splash soaks the whole show. Rain falls, the flowers shoot up and the bunnies shake themselves dry.
   splash:{len:1.9,poster:.77,z:6,
     prepare(e) { return splashBunnies(e)?.prepare(e.rabbitView || e); },
-    cues:[[0,e=>{e.soak=e.time;spray(e,e.w*.53,e.w*.36,few(e,35),.62);}],
-      [.29,e=>{if(e.rabbitView) spray(e.rabbitView,e.rabbitView.w*.35,e.rabbitView.w*.32,16,.48);}]],
+    cues:[[0,e=>{e.soak=e.time;spray(e,e.w*.53,e.w*.36,few(e,28),.56);}]],
     step(e,s,t,dt) {
       if(t<.2 || t>1.25) return;
       s.next=(s.next || 0)-dt;
@@ -27,20 +26,38 @@ const CREATURES={
     },
     draw(e,s,t) {
       const ctx=e.ctx, u=e.u, place=whalePlace(e), p=clamp01(t/1.3);
-      if(e.crossing) {
-        const {view,from,to,y,land}=e.crossing, pen=view.ctx;
-        for(let i=0;i<5;i++) {
-          const u=(t-i*.035)/.49;
-          if(u<=0 || u>=1) continue;
-          const x=from+(to-from)*u, top=y+(land-y)*u-Math.sin(u*Math.PI)*view.h*(.16-i*.015);
-          pen.beginPath();pen.ellipse(x,top,view.u*3.5,view.u*2,-.5+u,0,Math.PI*2);paint(pen,foam,view.u*.8);
-        }
-      }
       for(const side of [-1,1]) {
         const x=place+side*e.w*.62*p, tall=54*u*(1-p)*clamp01(t/.1);
         ctx.beginPath();ctx.moveTo(x-56*u,e.h+4);ctx.quadraticCurveTo(x+side*14*u,e.h-tall*2,x+56*u,e.h+4);ctx.closePath();paint(ctx,foam,2.2*u);
       }
-      splashBunnies(e)?.shakeDry(e.rabbitView || e,t);
+      const ear=splashBunnies(e)?.shakeDry(e.rabbitView || e,t);
+      if(ear && t<.85) {
+        const crossing=e.crossing, view=crossing?.view || e, pen=view.ctx;
+        const from=crossing?.from ?? e.w*.70, start=crossing?.y ?? e.h*.90;
+        const to=crossing?crossing.destX+ear.x*crossing.scaleX:ear.x, land=crossing?crossing.destY+ear.y*crossing.scaleY:ear.y;
+        const impact=.57, flight=clamp01(t/impact), radius=3.9*view.u;
+        const x=from+(to-from)*flight;
+        let y=start+(land-start)*flight-Math.sin(flight*Math.PI)*view.h*.19;
+        if(crossing) {
+          const margin=radius*1.6, field=view.field, clearance=field.bottom+margin;
+          const approach=Math.max(margin*2,view.w*.075);
+          // Skim the foreground while crossing paper, then curve up to the ear on its bank.
+          const left=clamp01((x-field.left+margin+approach)/approach);
+          const right=clamp01((field.right+margin+approach-x)/approach);
+          const cover=Math.min(left,right);
+          y+=(Math.max(y,clearance)-y)*cover*cover*(3-2*cover);
+        }
+        pen.save();
+        if(t<=impact) {
+          pen.beginPath();pen.ellipse(x,y,radius*.8,radius*1.18,flight*.9-.45,0,Math.PI*2);paint(pen,'#ade4e8',view.u);
+          pen.beginPath();pen.arc(x-radius*.2,y-radius*.4,radius*.25,0,Math.PI*2);pen.fillStyle='white';pen.fill();
+        } else {
+          const spread=(t-impact)/(.85-impact);
+          pen.globalAlpha=1-spread;pen.strokeStyle=foam;pen.lineWidth=1.8*view.u;pen.beginPath();
+          pen.arc(to,land,radius*(.64+spread*1.9),0,Math.PI*2);pen.stroke();
+        }
+        pen.restore();
+      }
     }}
 };
 export {CREATURES};

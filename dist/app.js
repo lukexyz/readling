@@ -2,6 +2,7 @@ import {icon, forms, letterForm} from './drawings.js';
 import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
 import {prepareStarPiano, playStarNote, stopStarPiano} from './star-piano.js';
 import {createPracticeTimer,practiceControls} from './practice.js';
+import {badgeArt,mountPocketTrail} from './pocket-trail.js';
 import {mountCelebrationCards} from './celebration-cards.js';
 import {PROMPTS} from './voice-lines.js';
 import {voiceFiles} from './assets/audio/narrator/catalogue.js';
@@ -347,7 +348,6 @@ function homePage() {
 const escapeText=s=>s.replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const stageOf=word=>STAGES.find(s=>s.number===ENTRIES.get(word).stage);
 const stageLabel=word=>{const s=stageOf(word);return 'Stage '+s.number+' · '+escapeText(s.name);};
-const badgeArt=(stage,rank)=>`./assets/badges/${stage.badges.id}-${rank}.webp`;
 
 function currentBadgeButton() {
   const {stage,badgeRank}=stageProgress(profile).findLast(s=>s.open);
@@ -382,13 +382,12 @@ function badgePocket() {
     <dl class="badge-counts"><div><dt>Words</dt><dd>${count()}</dd></div><div><dt>Sounds</dt><dd>${Object.keys(profile.sounds).length}</dd></div><div><dt>Memory reads</dt><dd>${reads}</dd></div></dl>
     <button type="button" class="back" data-act="album">My word album ${icon('arrow',16)}</button></section>`;
 }
-function inspectBadge(number,rank) {
-  const progress=stageProgress(profile).find(s=>s.stage.number===number);
-  if(!progress || !Number.isInteger(rank) || rank<1 || rank>progress.badgeRank) return;
-  const {stage}=progress;
-  openDialog(`<div class="badge-inspect badge-theme-${stage.badges.family}">
-    <img src="${badgeArt(stage,rank)}" alt="${stage.badges.name}, badge ${rank}" width="192" height="192">
-    <strong>Badge ${rank} of ${BADGES_PER_STAGE}</strong><p>Stage ${stage.number} · ${escapeText(stage.name)}</p></div>`,stage.badges.name);
+function inspectBadge(opener) {
+  const number=Number(opener.dataset.stage), rank=Number(opener.dataset.rank);
+  const progress=stageProgress(profile), selected=progress.find(entry=>entry.stage.number===number);
+  if(!selected?.open || !Number.isInteger(rank) || rank<1 || rank>selected.badgeRank) return;
+  openDialog('<div class="pocket-trail"></div>','My pocket trail',opener);
+  mountPocketTrail($('.pocket-trail',dialog),progress,selected,rank);
 }
 // The first badge is already in the album at the start. Give it its own reveal on the first find.
 function revealBadge(found) {
@@ -401,10 +400,10 @@ function badgeAward(word,found) {
   const complete=badgeEarned===BADGES_PER_STAGE;
   return `<div class="badge-award badge-theme-${stage.badges.family}">${badgeButton(stage,badgeEarned)}
     <div><strong>${stage.badges.name}</strong><p>${complete?'You collected all five!':`You earned badge ${badgeEarned} of ${BADGES_PER_STAGE}!`}</p></div>
-    ${next?`<button type="button" class="badge-handoff" data-act="open-stage-progress" aria-controls="stage-progress"
-      aria-label="Stage ${next.number} is open! View ${next.badges.name} progress">
-      ${icon('arrow',20)}<img src="${badgeArt(next,1)}" alt="" width="64" height="64">
-      <span><strong>Stage ${next.number} is open!</strong><span>Your next set is ${next.badges.name}.</span></span></button>`:''}</div>`;
+    ${next?`<div class="badge-handoff">${icon('arrow',20)}${badgeButton(next,1)}
+      <button type="button" class="stage-handoff-link" data-act="open-stage-progress" aria-controls="stage-progress"
+        aria-label="Stage ${next.number} is open! View ${next.badges.name} progress">
+        <strong>Stage ${next.number} is open!</strong><span>Your next set is ${next.badges.name}.</span></button></div>`:''}</div>`;
 }
 const unitAt=(word,pos)=>unitsOf(word).findIndex(u=>u.positions.includes(pos));
 function wordPrint(word,active=-1,options={}) {
@@ -675,9 +674,9 @@ function useSound(c) {
   if(view==='round' && round && !round.first && soundsOf(round.words[round.i]).includes(c) && !round.asked.includes(c)) round.asked.push(c);
   playClip('letters',c);
 }
-function openDialog(html, label) {
+function openDialog(html, label, opener=document.activeElement) {
   stickerCards?.stop();
-  if(!dialog.open) lastFocus=document.activeElement;
+  if(!dialog.open) lastFocus=opener;
   $('#dialog-content').innerHTML=`<div class="dialog-top"><h2 id="dialog-title">${label}</h2><button class="round-button" data-act="dismiss" aria-label="Close">${icon('close',19)}</button></div>${html}`;
   dialog.setAttribute('aria-labelledby','dialog-title');
   if(!dialog.open) dialog.showModal();
@@ -802,7 +801,7 @@ function dispatch(act,el) {
     case 'practice-add':practice.add(Number(el.dataset.minutes));lastFocus=practice.button;dialog.close();break;
     case 'practice-end':
       practice.end();$('[data-act="practice-add"]',dialog).focus();announce('Quiet practice ended.');break;
-    case 'inspect-badge':inspectBadge(Number(el.dataset.stage),Number(el.dataset.rank));break;
+    case 'inspect-badge':inspectBadge(el);break;
     case 'open-stage-progress':{
       const menu=$('#stage-progress');
       menu.open=true;

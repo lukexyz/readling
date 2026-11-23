@@ -825,6 +825,46 @@ async function checkTabletActivitySpace() {
   }
   await longWord.context().close();
 }
+async function checkPocketTrail() {
+  const finalStage=STAGES.at(-1);
+  const p=await openGame(before(finalStage.core[0].word),'reduce',devices['iPad (gen 7) landscape']);
+  const opener=p.locator('main .current-badge'), original=await saved(p);
+  await opener.click();
+  const trail=p.getByRole('dialog',{name:'My pocket trail'});
+  const selectedStage=trail.locator('.trail-stage[aria-pressed=true]');
+  const selectedBadge=trail.locator('.trail-choice[aria-pressed=true]');
+  assert.equal(await selectedStage.getAttribute('data-trail-stage'),String(finalStage.number));
+  assert.equal(await selectedBadge.getAttribute('data-trail-rank'),'1');
+  assert.equal(await trail.locator('.trail-choice:disabled').count(),4);
+  assert.equal(await trail.locator('.trail-stage').count(),2,'the final fold shows the two actual remaining stages');
+  assert.equal(await trail.getByText('Tap a stage to see its badges.').count(),0);
+  for(const [w,h] of [[1024,620],[320,568],[667,375]]) {
+    await p.setViewportSize({width:w,height:h});
+    assert(await trail.evaluate(d=>{
+      const area=d.getBoundingClientRect();
+      return d.scrollWidth<=d.clientWidth+1 && d.scrollHeight<=d.clientHeight+1 &&
+        [...d.querySelectorAll('button:enabled')].every(button=>{
+          const b=button.getBoundingClientRect();
+          return b.width>=44 && b.height>=44 && b.left>=area.left && b.right<=area.right && b.top>=area.top && b.bottom<=area.bottom;
+        });
+    }),'The trail and its controls fit at '+w+'×'+h);
+  }
+  await trail.getByRole('button',{name:'Stages 6–10'}).click();
+  await trail.locator('[data-trail-stage="7"]').click();
+  await trail.locator('[data-trail-rank="2"]').click();
+  assert.match(await selectedStage.locator('img').getAttribute('src'),/golden-poppy-2\.webp$/);
+  assert.equal(await selectedStage.locator('.trail-count').innerText(),'5 / 5');
+  await trail.getByRole('button',{name:'Stages 1–5'}).click();
+  await trail.getByRole('button',{name:'Stages 6–10'}).click();
+  assert.equal(await selectedStage.getAttribute('data-trail-stage'),'7');
+  assert.equal(await selectedBadge.getAttribute('data-trail-rank'),'2');
+  await selectedBadge.press('ArrowRight');
+  assert.equal(await selectedBadge.getAttribute('data-trail-rank'),'3');
+  await p.keyboard.press('Escape');
+  await opener.and(p.locator(':focus')).waitFor();
+  assert.deepEqual(await saved(p),original,'browsing badges leaves the saved album intact');
+  await p.context().close();
+}
 async function checkPlayFlow() {
   await checkDeferredStickers();
   await checkWritingBack();
@@ -849,6 +889,16 @@ async function checkPlayFlow() {
   await fresh.locator('summary.stars').click();
   const firstMeter=fresh.getByRole('progressbar',{name:'Progress to badge 2'});
   assert.deepEqual(await firstMeter.evaluate(meter=>[meter.value,meter.max]),[1,3]);
+  await fresh.locator('.badge-pocket .badge-pin').click();
+  const firstTrail=fresh.getByRole('dialog',{name:'My pocket trail'});
+  assert.equal(await firstTrail.locator('.trail-stage:enabled').count(),1);
+  assert.equal(await firstTrail.locator('.trail-stage:disabled').count(),4);
+  assert.equal(await firstTrail.locator('.trail-choice:enabled').count(),1);
+  assert.equal(await firstTrail.locator('.trail-ranges').count(),0);
+  await firstTrail.getByRole('button',{name:'Close',exact:true}).click();
+  await fresh.keyboard.press('Escape');
+  await fresh.locator('.badge-award .badge-pin').click();
+  await firstTrail.getByRole('heading',{name:'Oak keepsakes'}).waitFor();
   await fresh.keyboard.press('Escape');
   const actions=fresh.locator('.found>.actions>button');
   const actionPositions=()=>actions.evaluateAll(buttons=>buttons.map(el=>{
@@ -900,6 +950,9 @@ async function checkPlayFlow() {
     return images.map(im=>new URL(im.src).pathname.split('/').at(-1));
   }),['oak-5.webp','poppy-1.webp']);
   const handoff=p.getByRole('button',{name:'Stage 2 is open! View Poppy ribbons progress'});
+  await p.locator('.badge-handoff .badge-pin').click();
+  await p.getByRole('dialog',{name:'My pocket trail'}).getByRole('heading',{name:'Poppy ribbons'}).waitFor();
+  await p.keyboard.press('Escape');
   const stars=p.locator('summary.stars');
   await handoff.locator('strong').click();
   await p.locator('.badge-menu[open] .badge-pocket').getByRole('heading',{name:'Poppy ribbons'}).waitFor();
@@ -915,7 +968,13 @@ async function checkPlayFlow() {
   await oldStage.locator('summary').click();
   const oldBadge=oldStage.getByRole('button',{name:'Oak keepsakes, badge 5 of 5'});
   await oldBadge.click();
-  await p.locator('.badge-inspect img').evaluate(im=>im.decode());
+  const trail=p.getByRole('dialog',{name:'My pocket trail'});
+  const inspected=trail.locator('.trail-choice[aria-pressed=true]');
+  await inspected.locator('img').evaluate(im=>im.decode());
+  assert.equal(await inspected.getAttribute('data-trail-rank'),'5');
+  await trail.locator('[data-trail-stage="2"]').click();
+  await trail.getByRole('heading',{name:'Poppy ribbons'}).waitFor();
+  assert.equal(await inspected.getAttribute('data-trail-rank'),'1');
   await act(p,'dismiss');
   await oldBadge.and(p.locator(':focus')).waitFor();
   await p.locator('[data-act=stage-discover][data-stage="2"]').click();
@@ -980,6 +1039,7 @@ async function checkPlayFlow() {
 }
 try {
   await checkHomeScreenUpdates();
+  await checkPocketTrail();
   await checkPracticeHourglass();
   await checkTabletActivitySpace();
   console.log((tabletWebKit?'WebKit':'Chromium')+' passed the iPad reading cards, reward meadow, canvas resizing and save footer checks.');

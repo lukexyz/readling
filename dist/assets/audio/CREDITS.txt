@@ -36,10 +36,9 @@ https://commons.wikimedia.org/wiki/File:En-us-trunk.ogg
 Extra story lines are rendered locally with the CMU Flite SLT voice.
 https://www.festvox.org/flite/
 
-Pictures: later words marked art = "woodcut" use illustrations made for
-Readling. All other later cards use the GCompris words-webp collection,
+The current word cards use engravings made for Readling. Earlier editions
+used the GCompris words-webp collection for some of their pictures,
 copyright 2012 art4apps.org and 2022 Timothée Giet. CC BY-SA 4.0.
-Readling fits each image to a square of cream paper and encodes it as WebP.
 https://creativecommons.org/licenses/by-sa/4.0/
 https://github.com/KDE/gcompris-data/tree/5cfd4e4a4236701ec5e9d04a1796b6837d945403/words/words-webp
 

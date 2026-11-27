@@ -79,6 +79,15 @@ def encode(samples, file, slow=1):
             "-b:a", "48k", "-ar", "24000", str(file)], pcm)
 
 
+def encode_letter(segment, file):
+    import numpy as np
+    segment = segment.astype(float)
+    fade = min(80, len(segment)//3)
+    segment[:fade] *= np.linspace(0,1,fade)
+    segment[-fade:] *= np.linspace(1,0,fade)
+    encode(np.pad(segment * (22500/np.max(np.abs(segment))), (120,400)), file, .75)
+
+
 def prepare_audio():
     import numpy as np
     from pocketsphinx import Decoder
@@ -133,14 +142,13 @@ def prepare_audio():
             i = next(i for i, s in enumerate(sounds) if s["audio"] == spec["audio"])
             start = max(0, int(offsets[i]*16000)-80)
             end = int((offsets[i+1] if i+1 < len(offsets) else (frames[-1].start+frames[-1].duration)*.01)*16000)
-            segment = data[start:end].astype(float)
+            segment = data[start:end]
+            if w == "bee" and spec["audio"] == "ee":
+                # Use the steady vowel after the release of the initial /b/.
+                segment = np.frombuffer(original,dtype="<i2")[4800:9680]
             if len(segment)<160 or np.max(np.abs(segment))<30:
                 raise ValueError(f"Check the isolated sound {spec['id']} from {w}")
-            fade = min(80, len(segment)//3)
-            segment[:fade] *= np.linspace(0,1,fade)
-            segment[-fade:] *= np.linspace(1,0,fade)
-            encode(np.pad(segment * (22500/np.max(np.abs(segment))), (120,400)),
-                   audio / "letters" / (spec["audio"]+".mp3"), .75)
+            encode_letter(segment, audio / "letters" / (spec["audio"]+".mp3"))
         if "tale" in entry:
             # CMU's bundled voice, generated once. Classroom playback needs no speech service.
             dest = audio / "tales"

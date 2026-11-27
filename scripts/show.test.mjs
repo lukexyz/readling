@@ -17,6 +17,30 @@ function find(p,word) {
 }
 const copy=p=>normalise(JSON.parse(JSON.stringify(p)));
 
+test('regular rewards give one earned sticker its own three seconds, even with a full album', async () => {
+  const {planReward,planShow,rewardSticker}=await import('../dist/finale.js');
+  const picks=SHOW.map(s=>s.id);
+  assert.equal(rewardSticker([],0),undefined);
+  assert.deepEqual([0,1,2,3].map(turn=>rewardSticker(['flowers','bunnies'],turn)),['flowers','bunnies','flowers','bunnies']);
+  const visited=new Set(Array.from({length:400},(_,turn)=>rewardSticker(picks,turn)));
+  assert.deepEqual(visited,new Set(picks));
+  for(const sticker of visited) {
+    const solo=planShow({picks,alone:sticker}).acts;
+    assert(solo.length,sticker+' has a solo animation');
+    for(const [letters,stars] of [[0,4],[3,5],[6,5]]) {
+      const {acts,hit,total}=planReward({sticker,picks,letters,stars});
+      assert.equal(total-hit,3,sticker);
+      assert.equal(acts.filter(([id])=>id==='reveal').length,1);
+      const effects=acts.filter(([id])=>!['letters','reveal','tally'].includes(id));
+      assert.deepEqual(effects.map(([id])=>id),solo.map(([id])=>id),sticker);
+      for(const [,at,len] of effects) assert(at>=hit && at+len<=total,sticker);
+      const [,lift]=acts.find(([id])=>id==='tally');
+      assert(lift>=hit && lift+(stars-1)*.22+.83<=total,sticker+' counts every earned star');
+    }
+  }
+  assert.deepEqual(planReward({letters:3,stars:5}).acts.map(([id])=>id),['letters','reveal','tally']);
+});
+
 test('each original rainbow and firework can advance twice, without replaying its earlier levels', async () => {
   const {planShow,finaleScenery}=await import('../dist/finale.js');
   const picks=prismShots.map(s=>s.id);

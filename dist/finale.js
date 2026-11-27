@@ -23,6 +23,7 @@ const waitingForArtwork=new WeakMap();
 
 // The parts that belong to every show.
 const BASE={
+  reveal:{len:0,z:0,cues:[[0,e=>e.on('onHit')]]},
   // Sound out the word while the learner's handwriting stays in place.
   letters:{len:99,z:9,
     make() {return {spoken:0};},
@@ -82,8 +83,7 @@ const pin=e=>({x:e.field?(e.w+e.field.right)*.5:e.th.x+e.th.w*.86,y:e.th.y+e.th.
 const PARTS={...BASE,...SCENES,...CREATURES,...orcas,...dolphins,...flowers,...woodlandParts,...prismParts};
 const isVisitor=id=>Boolean(orcas[id] || dolphins[id] || (woodlandParts[id] && !woodlandParts[id].stays) || id==='splash');
 
-// A normal reward gives one supporting scene and one visitor or finale a turn.
-// The dolphin families share a slot, and rotate each time that slot comes round.
+// Full rehearsals and individual album replays use the original sticker timings.
 function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,stars=0,tier=0}={}) {
   const acts=[], visitorSides={}, have=id=>id===alone || picks.includes(id);
   const prism=key=>highestPrism(key,have)?.id;
@@ -142,6 +142,30 @@ function planShow({picks=[],alone='',all=false,turn=0,letters:n=0,staged=false,s
 }
 function cancelFinale() {stopActive?.();}
 
+// Spread visits across the album even when a new sticker is added every second task.
+function rewardSticker(picks,turn=0) {
+  if(picks.length<=2) return picks.length?picks[turn%picks.length]:undefined;
+  const position=(turn*.618033988749895)%1;
+  return picks[Math.floor(position*picks.length)];
+}
+
+function planReward({sticker,picks=[],letters=0,stars=0}) {
+  const hit=letters ? .25+letters*.5+.3 : 0;
+  const acts=letters?[['letters',.25,hit-.25,false]]:[];
+  acts.push(['reveal',hit,0,false]);
+  const solo=sticker?planShow({picks,alone:sticker}):{acts:[],visitorSides:{}};
+  const nativeEnd=Math.max(0,...solo.acts.map(([,at,len])=>at+len));
+  const speed=Math.max(1,nativeEnd/2.8);
+  for(const [id,at,len,stays] of solo.acts) {
+    const start=id==='notes' ? .15 : at/speed;
+    acts.push([id,hit+start,len/speed,stays,speed]);
+  }
+  const tallyLength=stars?(stars-1)*.22+1.02:0;
+  const duration=sticker?3:Math.max(.5,tallyLength+.15);
+  if(stars) acts.push(['tally',hit+duration-tallyLength,tallyLength,false]);
+  return {acts,hit,total:hit+duration,visitorSides:solo.visitorSides};
+}
+
 // Plays her show over the page. With `alone` it plays one addition by itself, with `into` it loops in a small
 // canvas as a preview. Set `loop` to false for a user-triggered clip, or `freeze` to a time for a still.
 function launchFinale(stage,options={}) {
@@ -158,7 +182,10 @@ function launchFinale(stage,options={}) {
   const floorCanvas=into || document.createElement('canvas'), floorCtx=floorCanvas.getContext('2d');
   if(!ctx || !floorCtx) return null;
   const soundCount=options.soundCount??word.length;
-  const {acts,hit,total,visitorSides}=planShow({picks,alone,all,turn,letters:real && spell?soundCount:0,staged:!!real,stars,tier});
+  const letters=real && spell?soundCount:0;
+  const {acts,hit,total,visitorSides}=options.singleReward
+    ?planReward({sticker:options.sticker,picks,letters,stars})
+    :planShow({picks,alone,all,turn,letters,staged:!!real,stars,tier});
   const music=acts.find(([id])=>id==='notes'), tally=acts.find(([id])=>id==='tally');
   const gates=new Map();
   function waitFor(promise,until) {
@@ -204,10 +231,10 @@ function launchFinale(stage,options={}) {
         const next=args[0]+1;
         waitFor(audio,(next<soundCount ? .25+next*.5 : hit)-.002);
       }
-      if(name==='onHit') waitFor(audio,(music?.[1] ?? tally?.[1] ?? total)-.002);
+      if(name==='onHit' && (!options.singleReward || music)) waitFor(audio,(music?.[1] ?? tally?.[1] ?? total)-.002);
       if(name==='onMusic' && music) {
         waitFor(audio?.started,e.time);
-        waitFor(audio,music[1]+music[2]-.002);
+        if(!options.singleReward) waitFor(audio,music[1]+music[2]-.002);
       }
     }};
   const floor={...e,ctx:floorCtx};
@@ -363,19 +390,19 @@ function launchFinale(stage,options={}) {
     for(const view of views) {
       view.rand=random(977+turn*131);view.time=0;view.soak=0;view.sparks.length=0;view.rings.length=0;
     }
-    states=acts.map(([id,at])=>{
+    states=acts.map(([id,at,,,speed=1])=>{
       const view=viewFor(id),part=PARTS[id];
-      return {at,part,view,cue:0,s:part.make?.(view) || {}};
+      return {at,part,view,speed,cue:0,s:part.make?.(view) || {}};
     });
     states.sort((a,b)=>(a.part.z || 0)-(b.part.z || 0));
   }
   function advance(dt) {
     for(const view of views) view.time+=dt;
     for(const st of states) {
-      const t=e.time-st.at, p=st.part;
+      const t=(e.time-st.at)*st.speed, p=st.part;
       if(t<0) continue;
       if(p.cues) while(st.cue<p.cues.length && p.cues[st.cue][0]<=t) p.cues[st.cue++][1](st.view,st.s);
-      if(p.step && (p.stays || t<=p.len)) p.step(st.view,st.s,t,dt);
+      if(p.step && (p.stays || t<=p.len)) p.step(st.view,st.s,t,dt*st.speed);
     }
     floor.soak=splashView.soak;
     for(const view of views) advanceParticles(view,dt);
@@ -424,7 +451,7 @@ function launchFinale(stage,options={}) {
     for(const {view} of planted.values()) view.ctx.clearRect(0,0,view.w,view.h);
     let scattered=false;
     for(const st of states) {
-      const p=st.part, t=e.time-st.at;
+      const p=st.part, t=(e.time-st.at)*st.speed;
       if(!scattered && (p.z || 0)>=5){for(const view of views) confetti(view);scattered=true;}
       if(t>=0 && (p.stays || t<=p.len) && p.draw){st.view.ctx.globalAlpha=1;p.draw(st.view,st.s,t);}
     }
@@ -531,4 +558,4 @@ function launchFinale(stage,options={}) {
   if(review) return {hit,total,stop,seek,ready:ready || Promise.resolve(),get posterTime(){return quietStill;}};
   return {hit:e.hit,total:e.total,stop};
 }
-export {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow};
+export {finaleScenery, launchFinale, cancelFinale, prepareShow, planShow, planReward, rewardSticker};

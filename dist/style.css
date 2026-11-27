@@ -106,8 +106,15 @@ main.wrap{padding-block:29px 40px;outline:none}
 .task-label .btn{font-size:13px;padding:8px 13px;min-height:41px}
 .task-label .ink-tools{flex-wrap:wrap;gap:0}
 .copy-word,.pad-row{display:grid!important;grid-template-columns:repeat(var(--letters,3),minmax(0,1fr));gap:clamp(2px,1vw,10px)!important}
-.long-word .pad-row{grid-template-columns:minmax(0,280px);justify-content:center}
-.long-word .pad-row #inkpad{height:auto}
+.long-word{--trace-min:clamp(132px,15vw,180px)}
+.long-word :is(.copy-word,.pad-row){grid-template-columns:var(--tracing-columns)}
+.long-word .pad-row :is(#inkpad,.rest-pad>svg){height:clamp(118px,19dvh,180px)}
+@media(max-width:699px){
+  .long-word .copy-word{grid-template-columns:repeat(var(--letters),minmax(0,1fr))}
+  .long-word .pad-row{grid-template-columns:minmax(0,280px);justify-content:center}
+  .long-word .pad-row #inkpad{height:auto}
+  .long-word .rest-pad{display:none}
+}
 .rack-wrap{flex:1;min-width:0}
 .word-teams{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:5px 12px 0}
 .word-teams .key{min-width:42px;padding:3px 7px}
@@ -126,6 +133,9 @@ main.wrap{padding-block:29px 40px;outline:none}
 .rest-writing{position:absolute;inset:0;pointer-events:none}
 .rest-writing svg{display:block;width:100%;height:100%}
 .rest-pad:has(.letter-redo) .rest-writing{inset-inline-end:calc(44px + var(--nav-inset))}
+@media(min-width:700px){
+  .rest-pad:has(.letter-redo) .rest-writing{inset-inline-start:calc(44px + var(--nav-inset))}
+}
 .pad-row:has(.rest-pad.has-ink .btn){padding-bottom:44px}
 .letter-redo{display:inline-grid;place-items:center;inline-size:44px;block-size:44px;padding:0;background:transparent;color:var(--sub);border:0;border-radius:50%}
 .letter-redo:is(:hover,:focus-visible){color:var(--deep);background:var(--sage)}

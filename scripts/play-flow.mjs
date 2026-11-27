@@ -430,17 +430,14 @@ async function checkCelebrationSize() {
 async function checkMixedMeadow() {
   const album=newProfile();
   startLesson(album,'cat');album.lesson.i=3;collect(album);
-  album.show={tasks:18,picks:['flowers','poppy-2','moonflower-1','sunflower-1','bunnies','elephants']};
+  album.stars=400;
+  album.show={tasks:82,picks:['flowers','poppy-2','moonflower-1','sunflower-1','bunnies','elephants']};
   album.settings.voice=false;album.settings.fanfare=false;
   const page=await openGame(album,'reduce',{viewport:{width:390,height:760},deviceScaleFactor:3,hasTouch:true});
   await act(page,'album');
   await page.locator('[data-act="card"][data-word="cat"]').click();await act(page,'album-encore');
   const beds=page.locator('.show-stage .meadow-flower');
-  assert.deepEqual(await beds.evaluateAll(nodes=>nodes.map(n=>n.dataset.meadowFlower)),['poppy-2','moonflower-1','sunflower-1']);
-  const posters=beds.locator('img');
-  const sizes=await posters.evaluateAll(async images=>Promise.all(images.map(async image=>{
-    await image.decode();return [image.clientWidth,image.clientHeight];
-  })));
+  assert.deepEqual(await beds.evaluateAll(nodes=>nodes.map(n=>n.dataset.meadowFlower)),['poppy-2']);
   await page.emulateMedia({reducedMotion:'no-preference'});
   await act(page,'encore');
   const wing=page.locator('.found.show-playing .show-stage > .show-visitors');
@@ -448,11 +445,7 @@ async function checkMixedMeadow() {
   assert.equal(await wing.count(),1,'one visitor has the spotlight in a normal encore');
   const [lane,field,actions]=await Promise.all([wing.boundingBox(),page.locator('.found .show-stage').boundingBox(),page.locator('.found .actions').first().boundingBox()]);
   assert(lane.x>=field.x && lane.x+lane.width<=field.x+field.width && lane.y>=field.y && lane.y+lane.height<=Math.min(field.y+field.height,actions.y));
-  for(let i=0;i<sizes.length;i++){
-    const bed=beds.nth(i), canvas=bed.locator('canvas');
-    if(await canvas.count()) assert.deepEqual(await canvas.evaluate(c=>[c.clientWidth,c.clientHeight]),sizes[i]);
-    else assert(await bed.locator('img').isVisible(),'the other flower beds stay planted');
-  }
+  assert.equal(await beds.count(),0,'the rabbit gets a clear meadow');
   await page.waitForFunction(()=>{
     const c=document.querySelector('.found .show-visitors');
     if(!c) return false;
@@ -460,9 +453,46 @@ async function checkMixedMeadow() {
     return pixels.some((v,i)=>i%4===3 && v>180);
   },null,{timeout:15000});
   await wing.waitFor({state:'detached',timeout:16000});
-  assert.equal(await beds.locator('canvas').count(),0);
-  for(const poster of await posters.all()) assert(await poster.isVisible());
+  assert.equal(await beds.count(),0);
   await page.context().close();
+}
+async function checkWritingAlignment() {
+  for(const word of ['mat','ship','cake','strawberry']) {
+    const p=await openGame(before(word),'reduce',devices['iPad (gen 7) landscape']);
+    await act(p,'discover');
+    for(let i=0;i<word.length;i++) {
+      for(const [width,height] of [[1024,620],[1180,820],[1366,1024]]) {
+        await p.setViewportSize({width,height});
+        const layout=await p.locator('.lesson-grid').evaluate((grid,i)=>{
+          const boxes=Array.from(grid.querySelectorAll('.copy-word .grapheme'),el=>el.getBoundingClientRect());
+          const pads=Array.from(grid.querySelector('.pad-row').children,el=>el.getBoundingClientRect());
+          const active=grid.querySelector('#inkpad').getBoundingClientRect();
+          return {aligned:pads.length===boxes.length && pads.every((pad,j)=>
+            Math.abs(pad.left-boxes[j].left)<1 && Math.abs(pad.right-boxes[j].right)<1 && pad.top>=boxes[j].bottom),
+            savedInkAligned:Array.from(grid.querySelectorAll('.rest-writing')).every(el=>{
+              const ink=el.getBoundingClientRect(),cell=el.parentElement.getBoundingClientRect();
+              return Math.abs((ink.left+ink.right-cell.left-cell.right)/2)<1;
+            }),
+            center:Math.abs(active.left+active.width/2-boxes[i].left-boxes[i].width/2),
+            width:active.width,height:active.height,overflow:document.documentElement.scrollWidth-innerWidth};
+        },i);
+        assert(layout.aligned && layout.savedInkAligned && layout.center<1 && layout.width>=120 && layout.height>=100 && !layout.overflow,
+          word+'['+i+'] on '+width+'×'+height+' '+JSON.stringify(layout));
+      }
+      await writeStroke(p);
+      await act(p,'next-sound');
+      if(i+1<word.length) assert.equal(await p.locator('.pad-row .rest-writing path').count(),i+1);
+    }
+    await p.locator('#blend-track').waitFor();
+    await act(p,'previous-sound');
+    assert.equal(await p.locator('#inkpad .ink-lines path').count(),0);
+    assert.equal(await p.locator('.pad-row .rest-writing path').count(),word.length-1);
+    if(word.length>3) {
+      await p.setViewportSize({width:390,height:844});
+      assert((await p.locator('#inkpad').boundingBox()).width>=150,'long words keep a roomy pad on phones');
+    }
+    await p.context().close();
+  }
 }
 async function checkWritingBack() {
   const p=await openGame(before('mat'));
@@ -1038,6 +1068,7 @@ async function checkPlayFlow() {
   console.log('Chromium passed word and memory sticker awards, album replay, reading and writing, stage and badge progression, sound shelf and bonus words.');
 }
 try {
+  await checkWritingAlignment();
   await checkHomeScreenUpdates();
   await checkPocketTrail();
   await checkPracticeHourglass();

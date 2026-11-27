@@ -1,5 +1,5 @@
 import {icon, forms, letterForm} from './drawings.js';
-import {finaleScenery, launchFinale, cancelFinale, planShow} from './finale.js';
+import {finaleScenery, launchFinale, cancelFinale, planShow, planReward, rewardSticker} from './finale.js';
 import {prepareStarPiano, playStarNote, stopStarPiano} from './star-piano.js';
 import {createPracticeTimer,practiceControls} from './practice.js';
 import {badgeArt,mountPocketTrail} from './pocket-trail.js';
@@ -432,17 +432,18 @@ function lessonPage() {
   const c=l.word[l.i];
   const paths=forms[c];
   const dot=paths[0].match(/^M(\d+) (\d+)/);
+  const tracingColumns=Array.from(l.word,(_,j)=>j===l.i?'minmax(var(--trace-min),1fr)':'minmax(0,1fr)').join(' ');
   return top+`<section class="activity lesson-activity">
     <div class="activity-heading"><div class="kicker">${icon('pen',16)} Sound ${current+1} of ${units.length}</div><h1>Sound &amp; write</h1>${u.positions.length>1?`<p><b>${u.letters.replace('_','…')}</b> makes one sound. Trace the <b>${c}</b>.</p>`:''}</div>
-    <div class="lesson-grid ${total>3?'long-word':''}" style="--letters:${total}"><div class="task-label"><div class="instruction-title"><span class="step-token">1</span><h2>Say the sound</h2></div>
+    <div class="lesson-grid ${total>3?'long-word':''}" style="--letters:${total};--tracing-columns:${tracingColumns}"><div class="task-label"><div class="instruction-title"><span class="step-token">1</span><h2>Say the sound</h2></div>
       <button class="btn secondary" data-act="letter-help">${icon('sound',19)} Hear sound</button></div>
       ${wordPrint(l.word,current,{cls:'copy-word'})}
     <div class="task-label"><div class="instruction-title"><span class="step-token">2</span><h2>Write <span class="inline-letter">${c}</span></h2></div>
       <div class="ink-tools"><button data-act="show-stroke">${icon('pen',16)} Show stroke</button><button data-act="clear-ink">${icon('repeat',16)} Clear</button></div></div>
-    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?total>3?'':`<div class="rest-pad${l.ink[j].length?' has-ink':''}">
+    <div class="pad-row">${[...l.word].map((ch,j)=>j!==l.i?`<div class="rest-pad${l.ink[j].length?' has-ink':''}">
         <svg viewBox="0 0 180 138" aria-hidden="true"><path class="rest-line" d="M0 95H180"/></svg>
         ${l.ink[j].length?`<div class="rest-writing"><svg viewBox="0 0 180 138" aria-hidden="true"><g class="ink-lines">${inkPaths(l.ink[j])}</g></svg></div>`:''}
-        ${j===l.i-1?previousLetter:j===l.i+1?action('Next','next-sound'):''}</div>`:
+        ${total<=3 && j===l.i-1?previousLetter:total<=3 && j===l.i+1?action('Next','next-sound'):''}</div>`:
       `<div class="ink-box"><svg id="inkpad" viewBox="0 0 180 138" role="img" tabindex="-1" aria-label="Write a lowercase ${c} here with your stylus or finger">
         <path class="midline" d="M0 48H180"/><path class="baseline" d="M0 95H180"/>
         <g transform="translate(42 0)" class="guide-lines">${paths.map(d=>`<path d="${d}"/>`).join('')}</g>
@@ -461,7 +462,7 @@ function foundPage(word) {
   return `<div class="page-top">${back()}${currentBadgeButton()}</div>
     <section class="found activity ${profile.settings.sparkles?'victory':''}"><div class="kicker">${icon('spark',17)} ${fresh?(ENTRIES.get(word).bonus?'Bonus find':'New discovery'):'In your album'}</div>
       ${rewardHeading(fresh?'Look what you found!':'A woodland find')}
-      <div class="show-stage">${profile.settings.sparkles?finaleScenery(profile.show.picks):''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
+      <div class="show-stage">${profile.settings.sparkles?rewardMeadow():''}<div class="reveal-art">${stamp(wordImage(word))}</div></div>
       <div class="found-details"><div class="found-word"><strong>${word}</strong><button class="round-button" data-act="read-word" data-word="${word}" aria-label="Hear ${word}">${icon('sound',20)}</button></div>
       <p>${TALES[word]?escapeText(TALES[word]):'What do you notice in your picture?'}</p>${inkLabel(word)}
       ${fresh?`<div class="reward">${icon('star',17)} +5 stars ${lvl?`<span>· Level ${getLevel(profile)}!</span>`:''}</div>`:''}
@@ -534,7 +535,7 @@ function roundPage() {
     const show=profile.settings.sparkles;
     return `<div class="page-top">${back('review','Back to memory')}${show && showDue(profile)?stickerButton():''}</div><section class="activity round-done ${show?'victory':''}">
     ${show?'':icon('star',56)}${rewardHeading('Round complete!')}<p>You revisited ${round.words.length} ${round.words.length===1?'word':'words'} and earned ${round.words.length} ${round.words.length===1?'star':'stars'}.</p>
-    ${show?`<div class="show-stage">${finaleScenery(profile.show.picks)}<div class="reveal-art">${round.words.map((w,i)=>stamp(wordImage(w),'',round.pending.has(i)?memoryStar(i):'')).join('')}</div></div>`:
+    ${show?`<div class="show-stage">${rewardMeadow()}<div class="reveal-art">${round.words.map((w,i)=>stamp(wordImage(w),'',round.pending.has(i)?memoryStar(i):'')).join('')}</div></div>`:
       `<div class="mini-cards">${round.words.map(w=>wordImage(w)).join('')}</div>`}
     <div class="actions centre">${action('Back to the woods','home','home','secondary')}${action('Play again','start-round','repeat',onward?'secondary':'primary')}
     ${onward?action(eligibleLesson()?'Continue my word':'Next word!','discover'):''}</div></section>`;
@@ -718,7 +719,7 @@ function parents() {
     <label class="setting-line"><span>Celebration show</span><input type="checkbox" data-setting="sparkles" ${profile.settings.sparkles?'checked':''}></label>
     <label class="setting-line"><span>Music in her show</span><input type="checkbox" data-setting="fanfare" ${profile.settings.fanfare?'checked':''}></label>
     <label class="setting-line"><span>Memory cards before a new word</span><input type="checkbox" data-setting="memoryFirst" ${profile.settings.memoryFirst?'checked':''}></label></fieldset>
-    <fieldset><legend>Her celebration show</legend><p>She has added ${profile.show.picks.length} of ${SHOW.length} things, and her show runs for about ${Math.round(showTimes(profile.show.picks).total)} seconds. Her first find or memory round earns a choice of two things to add, and every second one after that earns another. The music plays once she has added it.</p>
+    <fieldset><legend>Her celebration show</legend><p>She has collected ${profile.show.picks.length} of ${SHOW.length} stickers. One takes a turn in the meadow after each word or memory round. Her first find or memory round earns a choice of two stickers, and every second one after that earns another.</p>
     <div class="actions">${action('Play her show','play-show','','secondary')}${action('Try out the show','trial','','secondary')}<a class="btn secondary" href="./celebrations.html">Celebration gallery</a></div></fieldset>
     <fieldset><legend>Sounds covered in class</legend><p>Choose the sounds she has met. New words use only these sounds.</p>
     <div class="sound-checks">${CLASS_SOUNDS.map(c=>`<label title="As in ${SOUNDS[c].example}"><input type="checkbox" data-class-sound="${c}" ${profile.settings.sounds.includes(c)?'checked':''}><span>${displaySound(c)}</span></label>`).join('')}</div>
@@ -845,8 +846,6 @@ function dispatch(act,el) {
       if(!stickerPicker.open || !addToShow(profile,id)) break;
       save();encores++;
       stickerPicker.close();
-      const theatre=$('.meadow-scenery');
-      if(theatre) theatre.outerHTML=finaleScenery(profile.show.picks);
       showStickerHeading(SHOW.find(s=>s.id===id).name);
       const picked=celebrate({word:pageWord(),alone:id,keepStill:true});
       if(!picked && id==='music') playFanfare();
@@ -1004,12 +1003,24 @@ function drawStars() {
     el.textContent=visibleStars();el.parentElement.setAttribute('aria-label',visibleStars()+' stars, my badges');
   }
 }
-// Starts her show on a page that has the stage. Her letters sound as they land and her word is said when the picture appears.
-// The stars she has just earned wait out of her total until the show counts them in.
+function rewardMeadow() {
+  return finaleScenery([],rewardSticker(profile.show.picks,profile.show.tasks+encores));
+}
+// Her letters sound as they land. The stars wait out of her total until they reach the score.
 function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=false,spell=true,picks=profile.show.picks,starCards=null,intro=null,ended=null,offerSticker=false,keepStill=false}={}) {
   const stage=$('.victory');
   if(!stage) return null;
   const sequence=++rewardSequence;
+  const turn=profile.show.tasks+encores, singleReward=!alone && !all;
+  const sticker=singleReward?rewardSticker(picks,turn):alone;
+  const theatre=$('.meadow-scenery',stage);
+  if(theatre && !all) theatre.outerHTML=finaleScenery(sticker?[sticker]:[]);
+  if(singleReward && sticker) {
+    // Hats and Splash need an actor. Other stickers get the meadow to themselves.
+    const support=sticker==='splash'?picks.findLast(id=>['whale','whale2','whale3'].includes(id)):
+      sticker==='hats'?picks.findLast(id=>/^(bunnies|parade|elephants|dolphins|whale)/.test(id)):null;
+    picks=support?[support,sticker]:[sticker];
+  }else if(singleReward) picks=[];
   if(stars && profile.settings.fanfare && !document.hidden) prepareStarPiano();
   showPicks=picks;
   const finds=WORDS.filter(w=>profile.cards[w]);
@@ -1019,7 +1030,7 @@ function celebrate({word='',stars=0,held=false,tier=0,badgeSrc='',alone='',all=f
     if(offerSticker && trigger?.isConnected) openStickerPicker();
   }
   const owner=starCards?round:null;
-  const show=launchFinale(stage,{picks,finds,word,handwriting:profile.cards,soundCount:sounds.length,stars,starCards,tier,badgeSrc,alone,all,spell,keepStill,turn:profile.show.tasks+encores,
+  const show=launchFinale(stage,{picks,finds,word,handwriting:profile.cards,soundCount:sounds.length,stars,starCards,tier,badgeSrc,alone,all,spell,keepStill,turn,sticker,singleReward,
     onLetter:i=>playClip('letters',sounds[i]),
     onHit:()=>spell && word?playClip('words',word):intro,
     onMusic:playFanfare,
@@ -1070,7 +1081,7 @@ function previewShow(options,then) {
       sample.innerHTML=`<h1>Celebration preview</h1><div class="show-stage">${finaleScenery(options.picks || profile.show.picks,options.alone)}<div class="reveal-art">${stamp(wordImage(word || WORDS[0]))}</div></div>`;
       main.prepend(sample);sample.scrollIntoView({block:'nearest'});
     } else if(options.picks) dress(options.picks,options.alone);
-    const restore=()=>{if(sample) sample.remove();else if(options.picks) dress(profile.show.picks);};
+    const restore=()=>{if(sample) sample.remove();else if(options.picks) dress([rewardSticker(profile.show.picks,profile.show.tasks+encores)]);};
     const show=celebrate({word,...options,ended:finished=>{restore();if(finished) then?.();}});
     if(!show){restore();notice('The show cannot play while this device asks for less motion.');then?.();return;}
     if(then && !options.alone) notice('This show runs for about '+Math.round(show.total)+' seconds.');
@@ -1079,12 +1090,14 @@ function previewShow(options,then) {
 // Preview the current find (or the first word if nothing has been collected).
 function showTimes(picks,options={}) {
   const staged=profile.settings.sparkles;
-  return planShow({picks,letters:staged?soundsOf(pageWord() || WORDS[0]).length:0,staged,stars:5,...options});
+  const letters=staged?soundsOf(pageWord() || WORDS[0]).length:0;
+  if(!options.all && !options.alone) return planReward({picks,sticker:rewardSticker(picks,options.turn ?? profile.show.tasks+encores),letters,stars:5});
+  return planShow({picks,letters,staged,stars:5,...options});
 }
 // The figures for the show being tried: its length, when her picture appears, how busy it gets, and when each part plays.
 function trialStats() {
   const picks=[...trial], tier=trialRosette?2:0, plan=showTimes(picks,{all:true,tier}), secs=n=>(Math.round(n*10)/10).toFixed(1);
-  const turns=Array.from({length:12},(_,turn)=>showTimes(picks,{turn,tier}).total), low=Math.min(...turns), high=Math.max(...turns);
+  const regular=showTimes(picks).total;
   const base={letters:'Her letters',comet:'The star',tally:'Her stars',rosette:'Her stage badge',notes:'Music'};
   const rows=plan.acts.map(([id,at,len,stays])=>({name:base[id] || SHOW.find(s=>s.id===id)?.name || id,at,end:stays?plan.total:Math.min(plan.total,at+len),stays}));
   rows.sort((a,b)=>a.at-b.at);
@@ -1092,7 +1105,7 @@ function trialStats() {
   for(let t=0;t<plan.total;t+=.1) busiest=Math.max(busiest,plan.acts.filter(([,at,len])=>t>=at && t<=at+len).length);
   return `<div class="trial-stats"><p><strong>${secs(plan.total)} seconds</strong> for this show, with ${trial.size} of ${SHOW.length} things ticked.</p>
     <p>Her picture appears at ${secs(plan.hit)} seconds. At its busiest, ${busiest} ${busiest===1?'thing plays':'things play'} at once.</p>
-    ${high-low>.05 || Math.abs(high-plan.total)>.05?`<p>Her stickers take turns in the meadow. The next twelve shows would run for ${secs(low)} to ${secs(high)} seconds.</p>`:''}
+    <p>A regular word celebration with these stickers takes about ${secs(regular)} seconds, including the letter sounds.</p>
     <details id="trial-timeline" ${trialTimeline?'open':''}><summary>When each part plays</summary><div class="trial-times">${rows.map(r=>
       `<div class="trial-time"><span>${r.name}</span><i style="--from:${(r.at/plan.total*100).toFixed(1)}%;--wide:${Math.max(1.5,(r.end-r.at)/plan.total*100).toFixed(1)}%"></i><span>${secs(r.at)} to ${secs(r.end)}</span></div>`).join('')}</div></details></div>`;
 }
